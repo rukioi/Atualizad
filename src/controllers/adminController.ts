@@ -26,7 +26,7 @@ export class AdminController {
       console.log('Creating registration key with data:', req.body);
 
       const createKeySchema = z.object({
-        tenantId: z.string().uuid({ message: 'TenantId is required and must be a valid UUID' }),
+        tenantId: z.string().uuid('TenantId is required and must be a valid UUID'),
         accountType: z.enum(['SIMPLES', 'COMPOSTA', 'GERENCIAL']),
         usesAllowed: z.number().int().min(1).optional().default(1),
         expiresAt: z.string().datetime().optional(),

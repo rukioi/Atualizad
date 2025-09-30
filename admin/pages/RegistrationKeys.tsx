@@ -22,6 +22,14 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
+import {
   Key,
   Plus,
   Trash2,
@@ -46,8 +54,11 @@ interface RegistrationKey {
 }
 
 export function AdminRegistrationKeys() {
-  const { getRegistrationKeys, createRegistrationKey, revokeRegistrationKey, isLoading } = useAdminApi();
+  const { getRegistrationKeys, createRegistrationKey, revokeRegistrationKey, getTenants, isLoading } = useAdminApi();
   const [keys, setKeys] = useState<RegistrationKey[]>([]);
+  const [tenants, setTenants] = useState<any[]>([]);
+  const [selectedTenantId, setSelectedTenantId] = useState<string>('');
+  const [selectedAccountType, setSelectedAccountType] = useState<string>('SIMPLES');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -55,7 +66,17 @@ export function AdminRegistrationKeys() {
 
   useEffect(() => {
     loadKeys();
+    loadTenants();
   }, []);
+
+  const loadTenants = async () => {
+    try {
+      const data = await getTenants();
+      setTenants(data);
+    } catch (err) {
+      console.error('Failed to load tenants:', err);
+    }
+  };
 
   const loadKeys = async () => {
     try {
@@ -82,16 +103,25 @@ export function AdminRegistrationKeys() {
     }
   };
 
-  const handleCreateKey = async (accountType: string) => {
+  const handleCreateKey = async () => {
     try {
       setError(null);
+      
+      if (!selectedTenantId) {
+        setError('Please select a tenant before creating a registration key');
+        return;
+      }
+
       const newKey = await createRegistrationKey({
-        accountType,
+        tenantId: selectedTenantId,
+        accountType: selectedAccountType,
         usesAllowed: 1,
         singleUse: true,
       });
       setSuccess(`Registration key created successfully: ${newKey.key}`);
       setIsCreateDialogOpen(false);
+      setSelectedTenantId('');
+      setSelectedAccountType('SIMPLES');
       await loadKeys();
     } catch (err) {
       console.error('Failed to create key:', err);
@@ -166,37 +196,58 @@ export function AdminRegistrationKeys() {
               <DialogHeader>
                 <DialogTitle>Create Registration Key</DialogTitle>
                 <DialogDescription>
-                  Choose the account type for the new registration key
+                  Select tenant and account type for the new registration key
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
-                <Button
-                  onClick={() => handleCreateKey('SIMPLES')}
-                  className="w-full justify-start"
-                  variant="outline"
-                  disabled={isLoading}
-                >
-                  <Key className="h-4 w-4 mr-2" />
-                  Conta Simples
-                </Button>
-                <Button
-                  onClick={() => handleCreateKey('COMPOSTA')}
-                  className="w-full justify-start"
-                  variant="outline"
-                  disabled={isLoading}
-                >
-                  <Key className="h-4 w-4 mr-2" />
-                  Conta Composta
-                </Button>
-                <Button
-                  onClick={() => handleCreateKey('GERENCIAL')}
-                  className="w-full justify-start"
-                  variant="outline"
-                  disabled={isLoading}
-                >
-                  <Key className="h-4 w-4 mr-2" />
-                  Conta Gerencial
-                </Button>
+                <div className="space-y-2">
+                  <Label htmlFor="tenant">Tenant <span className="text-red-500">*</span></Label>
+                  <Select value={selectedTenantId} onValueChange={setSelectedTenantId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a tenant" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {tenants.map((tenant) => (
+                        <SelectItem key={tenant.id} value={tenant.id}>
+                          {tenant.name} ({tenant.userCount || 0}/{tenant.maxUsers || 5} users)
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="accountType">Account Type</Label>
+                  <Select value={selectedAccountType} onValueChange={setSelectedAccountType}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="SIMPLES">Conta Simples</SelectItem>
+                      <SelectItem value="COMPOSTA">Conta Composta</SelectItem>
+                      <SelectItem value="GERENCIAL">Conta Gerencial</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex justify-end space-x-2 pt-4">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setIsCreateDialogOpen(false);
+                      setSelectedTenantId('');
+                      setSelectedAccountType('SIMPLES');
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleCreateKey}
+                    disabled={isLoading || !selectedTenantId}
+                  >
+                    {isLoading ? 'Creating...' : 'Create Key'}
+                  </Button>
+                </div>
               </div>
             </DialogContent>
           </Dialog>
