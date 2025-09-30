@@ -123,33 +123,50 @@ interface ChartsProps {
 
 export function DashboardCharts({ className }: ChartsProps) {
   const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("pt-BR", {
-      style: "currency",
-      currency: "BRL",
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(value);
+    try {
+      if (typeof value !== 'number' || isNaN(value)) {
+        return 'R$ 0';
+      }
+      return new Intl.NumberFormat("pt-BR", {
+        style: "currency",
+        currency: "BRL",
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+      }).format(value);
+    } catch (err) {
+      console.error('Error formatting currency:', err);
+      return 'R$ 0';
+    }
   };
 
   const CustomTooltip = ({ active, payload, label }: any) => {
-    if (active && payload && payload.length) {
-      return (
-        <div className="bg-background border border-border rounded-lg shadow-lg p-3">
-          <p className="font-medium">{label}</p>
-          {payload.map((entry: any, index: number) => (
-            <p key={index} style={{ color: entry.color }} className="text-sm">
-              {entry.name}:{" "}
-              {entry.name.includes("Receitas") ||
-              entry.name.includes("Despesas") ||
-              entry.name.includes("Saldo")
-                ? formatCurrency(entry.value)
-                : `${entry.value} ${entry.name === "Clientes" ? "clientes" : entry.name === "Casos" ? "casos" : ""}`}
-            </p>
-          ))}
-        </div>
-      );
+    try {
+      if (active && payload && Array.isArray(payload) && payload.length > 0) {
+        return (
+          <div className="bg-background border border-border rounded-lg shadow-lg p-3">
+            <p className="font-medium">{label || 'Dados'}</p>
+            {payload.map((entry: any, index: number) => {
+              if (!entry || typeof entry.value === 'undefined') return null;
+              
+              return (
+                <p key={index} style={{ color: entry.color || '#000' }} className="text-sm">
+                  {entry.name || 'Valor'}:{" "}
+                  {entry.name && (entry.name.includes("Receitas") ||
+                  entry.name.includes("Despesas") ||
+                  entry.name.includes("Saldo"))
+                    ? formatCurrency(entry.value)
+                    : `${entry.value} ${entry.name === "Clientes" ? "clientes" : entry.name === "Casos" ? "casos" : ""}`}
+                </p>
+              );
+            })}
+          </div>
+        );
+      }
+      return null;
+    } catch (err) {
+      console.error('Error rendering tooltip:', err);
+      return null;
     }
-    return null;
   };
 
   const renderCustomLabel = ({
