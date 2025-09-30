@@ -1,8 +1,8 @@
-replit_final_file>
-import { Request, Response, NextFunction } from 'express';
+
+import type { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import { database } from '../config/database';
-import { authService } from '../services/authService';
+import { database } from '../config/database.js';
+import { authService } from '../services/authService.js';
 
 export interface AuthenticatedRequest extends Request {
   user?: {
@@ -129,10 +129,8 @@ export const authenticateToken = async (req: AuthenticatedRequest, res: Response
     };
     req.tenantId = String(user.tenantId || user.tenant_id);
 
-
     // Se não é admin, verificar tenant
     if (!decoded.role && decoded.tenantId) {
-      const { database } = await import('../config/database');
       const tenantsResult = await database.getAllTenants();
       const tenants = Array.isArray(tenantsResult) ? tenantsResult : tenantsResult.rows || [];
       const tenant = tenants.find((t: any) => t.id === decoded.tenantId);
@@ -147,7 +145,7 @@ export const authenticateToken = async (req: AuthenticatedRequest, res: Response
         return res.status(403).json({ error: 'Tenant is inactive' });
       }
 
-      req.tenantId = tenant.id; // Set tenantId on AuthenticatedRequest
+      req.tenantId = tenant.id;
     }
 
     next();
@@ -245,4 +243,3 @@ export const requireSettingsAccess = (
 
   next();
 };
-</replit_final_file>
