@@ -126,7 +126,20 @@ export class AuthService {
     // Generate new tokens
     const tokens = await this.generateTokens(user);
     
-    return { user, tokens };
+    // Clean user object to remove BigInt values
+    const cleanUser = {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      accountType: user.accountType || user.account_type,
+      tenantId: user.tenantId || user.tenant_id,
+      isActive: user.isActive,
+      lastLogin: user.lastLogin,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt
+    };
+    
+    return { user: cleanUser, tokens };
   }
 
   async revokeAllTokens(userId: string, isAdmin: boolean = false) {
@@ -164,10 +177,20 @@ export class AuthService {
 
     const tokens = await this.generateTokens(user);
     
-    // Remove password from response
-    const { password: _, ...userWithoutPassword } = user;
+    // Clean user object to remove BigInt and password
+    const cleanUser = {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      accountType: user.accountType || user.account_type,
+      tenantId: user.tenantId || user.tenant_id,
+      isActive: user.isActive,
+      lastLogin: user.lastLogin,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt
+    };
     
-    return { user: userWithoutPassword, tokens };
+    return { user: cleanUser, tokens };
   }
 
   async loginAdmin(email: string, password: string) {
@@ -326,8 +349,18 @@ export class AuthService {
 
     const tokens = await this.generateTokens(user);
     
-    // Remove password from response
-    const { password: _, ...userWithoutPassword } = user;
+    // Clean user object to remove BigInt and password
+    const cleanUser = {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      accountType: user.accountType || user.account_type,
+      tenantId: user.tenantId || user.tenant_id,
+      isActive: user.isActive,
+      lastLogin: user.lastLogin,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt
+    };
     
     console.log('Registration completed successfully for:', {
       userId: user.id,
@@ -338,7 +371,7 @@ export class AuthService {
     
     console.log('=== USER REGISTRATION COMPLETED ===');
     
-    return { user: userWithoutPassword, tokens, isNewTenant: false };
+    return { user: cleanUser, tokens, isNewTenant: false };
   }
 }
 

@@ -1,4 +1,4 @@
-
+replit_final_file>
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { database } from '../config/database';
@@ -111,7 +111,24 @@ export const authenticateToken = async (req: AuthenticatedRequest, res: Response
       return res.status(403).json({ error: 'Invalid token: missing tenant information' });
     }
 
-    req.user = decoded;
+    // Get fresh user data for regular users
+    const user = await database.findUserByEmail(decoded.email);
+    if (!user || !user.isActive) {
+      return res.status(401).json({
+        error: 'User inactive or not found',
+        code: 'AUTH_003'
+      });
+    }
+
+    req.user = {
+      id: String(user.id),
+      email: String(user.email),
+      tenantId: String(user.tenantId || user.tenant_id),
+      accountType: String(user.accountType || user.account_type),
+      name: String(user.name),
+    };
+    req.tenantId = String(user.tenantId || user.tenant_id);
+
 
     // Se não é admin, verificar tenant
     if (!decoded.role && decoded.tenantId) {
@@ -228,3 +245,4 @@ export const requireSettingsAccess = (
 
   next();
 };
+</replit_final_file>
