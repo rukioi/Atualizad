@@ -1,0 +1,191 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// ADMIN SCHEMA - Gestão Global do SaaS
+// ============================================================================
+
+model Tenant {
+  id          String   @id @default(uuid())
+  name        String
+  schemaName  String   @unique @map("schema_name")
+  planType    String   @default("basic") @map("plan_type")
+  isActive    Boolean  @default(true) @map("is_active")
+  maxUsers    Int      @default(5) @map("max_users")
+  maxStorage  BigInt   @default(1073741824) @map("max_storage") // 1GB
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  users           User[]
+  registrationKeys RegistrationKey[]
+  systemLogs      SystemLog[]
+  apiConfigs      TenantApiConfig[]
+
+  @@map("tenants")
+}
+
+model User {
+  id          String      @id @default(uuid())
+  email       String      @unique
+  password    String
+  name        String
+  accountType AccountType @map("account_type")
+  tenantId    String      @map("tenant_id")
+  isActive    Boolean     @default(true) @map("is_active")
+  mustChangePassword Boolean @default(false) @map("must_change_password")
+  lastLogin   DateTime?   @map("last_login")
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+
+  // Relations
+  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  refreshTokens RefreshToken[]
+  auditLogs     AuditLog[]
+
+  @@map("users")
+}
+
+model RegistrationKey {
+  id          String      @id @default(uuid())
+  keyHash     String      @map("key_hash")
+  tenantId    String?     @map("tenant_id")
+  accountType AccountType @map("account_type")
+  usesAllowed Int         @default(1) @map("uses_allowed")
+  usesLeft    Int         @map("uses_left")
+  singleUse   Boolean     @default(true) @map("single_use")
+  expiresAt   DateTime?   @map("expires_at")
+  revoked     Boolean     @default(false)
+  metadata    Json?
+  createdBy   String      @map("created_by")
+  createdAt   DateTime    @default(now()) @map("created_at")
+  usedLogs    Json?       @map("used_logs")
+
+  // Relations
+  tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("registration_keys")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  tokenHash String   @map("token_hash")
+  userId    String   @map("user_id")
+  expiresAt DateTime @map("expires_at")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("refresh_tokens")
+}
+
+model SystemLog {
+  id        String   @id @default(uuid())
+  tenantId  String?  @map("tenant_id")
+  level     String   // info, warn, error, critical
+  message   String
+  metadata  Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("system_logs")
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  tenantId  String   @map("tenant_id")
+  tableName String   @map("table_name")
+  recordId  String?  @map("record_id")
+  operation String   // CREATE, UPDATE, DELETE
+  oldData   Json?    @map("old_data")
+  newData   Json?    @map("new_data")
+  ipAddress String?  @map("ip_address")
+  userAgent String?  @map("user_agent")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("audit_logs")
+}
+
+enum AccountType {
+  SIMPLES
+  COMPOSTA
+  GERENCIAL
+}
+
+// ============================================================================
+// ADMIN USER SCHEMA - Sistema de Administração
+// ============================================================================
+
+model AdminUser {
+  id          String   @id @default(uuid())
+  email       String   @unique
+  password    String
+  name        String
+  role        String   @default("admin") // admin, superadmin
+  isActive    Boolean  @default(true) @map("is_active")
+  lastLogin   DateTime? @map("last_login")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  refreshTokens AdminRefreshToken[]
+
+  @@map("admin_users")
+}
+
+model AdminRefreshToken {
+  id        String    @id @default(uuid())
+  tokenHash String    @map("token_hash")
+  adminId   String    @map("admin_id")
+  expiresAt DateTime  @map("expires_at")
+  isActive  Boolean   @default(true) @map("is_active")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  // Relations
+  admin AdminUser @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@map("admin_refresh_tokens")
+}
+
+model TenantApiConfig {
+  id                  String   @id @default(uuid())
+  tenantId            String   @unique @map("tenant_id")
+  whatsappApiKey      String?  @map("whatsapp_api_key")
+  whatsappPhoneNumber String?  @map("whatsapp_phone_number")
+  resendApiKey        String?  @map("resend_api_key")
+  stripeSecretKey     String?  @map("stripe_secret_key")
+  stripeWebhookSecret String?  @map("stripe_webhook_secret")
+  codiloApiKey        String?  @map("codilo_api_key")
+  n8nWebhookUrl       String?  @map("n8n_webhook_url")
+  settings            Json     @default("{}")
+  isActive            Boolean  @default(true) @map("is_active")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("tenant_api_configs")
+}
+// ============================================================================
+// TENANT SCHEMA MODELS - Serão criados dinamicamente por tenant
+// ============================================================================
+// Nota: Estes modelos servem como referência para a criação dos schemas
+// Os schemas reais serão criados via SQL functions

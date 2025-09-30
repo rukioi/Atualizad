@@ -1,0 +1,6 @@
+docs/*
+.builder/*
+client/components/Tasks/*
+client/components/Receivables/*
+client/components/Dashboard/*
+client/lib/*
