@@ -72,10 +72,10 @@ export function Login() {
   const handleLogin = async (data: LoginFormData) => {
     setIsLoading(true);
     setErrorMessage('');
-    
+
     try {
       console.log('Attempting login with:', data.email);
-      
+
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: {
@@ -85,7 +85,7 @@ export function Login() {
       });
 
       console.log('Login response status:', response.status);
-      
+
       const result = await response.json();
       console.log('Login response data:', result);
 
@@ -93,13 +93,11 @@ export function Login() {
         // Store tokens
         localStorage.setItem('access_token', result.tokens.accessToken);
         localStorage.setItem('refresh_token', result.tokens.refreshToken);
-        
+
         setSuccessMessage('Login realizado com sucesso! Redirecionando...');
-        
-        // Redirect to dashboard
-        setTimeout(() => {
-          window.location.href = '/';
-        }, 1000);
+
+        // Reload page to trigger AuthProvider to pick up the tokens
+        window.location.href = '/';
       } else {
         setErrorMessage(result.error || 'Email ou senha incorretos');
       }
@@ -114,7 +112,7 @@ export function Login() {
   const handleRegister = async (data: RegisterFormData) => {
     setIsLoading(true);
     setErrorMessage('');
-    
+
     try {
       const response = await fetch('/api/auth/register', {
         method: 'POST',
@@ -151,13 +149,13 @@ export function Login() {
   const handleForgotPassword = async (data: ForgotPasswordFormData) => {
     setIsLoading(true);
     setErrorMessage('');
-    
+
     try {
       // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 1500));
-      
+
       setSuccessMessage('Email de recuperação enviado! Verifique sua caixa de entrada.');
-      
+
       // Clear form
       forgotPasswordForm.reset();
     } catch (error) {

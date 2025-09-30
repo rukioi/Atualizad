@@ -23,6 +23,7 @@ import { Login } from "./pages/Login";
 import NotFound from "./pages/NotFound";
 import { AccessDenied } from "./pages/AccessDenied";
 import { ProtectedRoute } from "./components/ProtectedRoute";
+import { AuthProvider } from "./hooks/useAuth";
 import { initializeResizeObserverFix } from "@/lib/resize-observer-fix";
 import {
   UIErrorBoundary,
@@ -62,49 +63,51 @@ const AppContent = () => {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter 
-          future={{ 
-            v7_startTransition: true, 
-            v7_relativeSplatPath: true 
-          }}
-        >
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route path="/admin/*" element={<AdminApp />} />
-            <Route path="/acesso-negado" element={<AccessDenied />} />
-            <Route path="/" element={isAuthenticated() ? <Dashboard /> : <Login />} />
-            <Route path="/crm" element={<ProtectedRoute><CRM /></ProtectedRoute>} />
-            <Route path="/projetos" element={<ProtectedRoute><Projects /></ProtectedRoute>} />
-            <Route path="/tarefas" element={<ProtectedRoute><Tasks /></ProtectedRoute>} />
-            <Route path="/cobranca" element={<ProtectedRoute><Billing /></ProtectedRoute>} />
-            <Route path="/recebiveis" element={<ProtectedRoute><Receivables /></ProtectedRoute>} />
-            <Route 
-              path="/fluxo-caixa" 
-              element={
-                <ProtectedRoute requiredAccountTypes={['COMPOSTA', 'GERENCIAL']}>
-                  <CashFlow />
-                </ProtectedRoute>
-              } 
-            />
-            <Route path="/publicacoes" element={<ProtectedRoute><Publications /></ProtectedRoute>} />
-            <Route path="/publicacoes/:id" element={<ProtectedRoute><PublicationDetail /></ProtectedRoute>} />
-            <Route 
-              path="/configuracoes" 
-              element={
-                <ProtectedRoute requiredAccountTypes={['GERENCIAL']}>
-                  <Settings />
-                </ProtectedRoute>
-              } 
-            />
-            <Route path="/notificacoes" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
+      <AuthProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter 
+            future={{ 
+              v7_startTransition: true, 
+              v7_relativeSplatPath: true 
+            }}
+          >
+            <Routes>
+              <Route path="/login" element={<Login />} />
+              <Route path="/admin/*" element={<AdminApp />} />
+              <Route path="/acesso-negado" element={<AccessDenied />} />
+              <Route path="/" element={isAuthenticated() ? <Dashboard /> : <Login />} />
+              <Route path="/crm" element={<ProtectedRoute><CRM /></ProtectedRoute>} />
+              <Route path="/projetos" element={<ProtectedRoute><Projects /></ProtectedRoute>} />
+              <Route path="/tarefas" element={<ProtectedRoute><Tasks /></ProtectedRoute>} />
+              <Route path="/cobranca" element={<ProtectedRoute><Billing /></ProtectedRoute>} />
+              <Route path="/recebiveis" element={<ProtectedRoute><Receivables /></ProtectedRoute>} />
+              <Route 
+                path="/fluxo-caixa" 
+                element={
+                  <ProtectedRoute requiredAccountTypes={['COMPOSTA', 'GERENCIAL']}>
+                    <CashFlow />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route path="/publicacoes" element={<ProtectedRoute><Publications /></ProtectedRoute>} />
+              <Route path="/publicacoes/:id" element={<ProtectedRoute><PublicationDetail /></ProtectedRoute>} />
+              <Route 
+                path="/configuracoes" 
+                element={
+                  <ProtectedRoute requiredAccountTypes={['GERENCIAL']}>
+                    <Settings />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route path="/notificacoes" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
+              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </TooltipProvider>
+      </AuthProvider>
     </QueryClientProvider>
   );
 };

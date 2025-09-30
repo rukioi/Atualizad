@@ -1,4 +1,4 @@
-import { useState, useEffect, createContext, useContext } from 'react';
+import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
 import { apiService } from '../services/apiService';
 
 interface User {
@@ -47,7 +47,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // Set token in apiService
       apiService.setToken(token);
-      
+
       const response = await apiService.getProfile();
       setUser(response.user);
     } catch (error) {
