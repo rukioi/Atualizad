@@ -27,8 +27,8 @@ export class AuthService {
       email: user.email,
       name: user.name,
       ...(user.role ? { role: user.role } : {
-        tenantId: user.tenantId,
-        accountType: user.accountType,
+        tenantId: user.tenantId || user.tenant_id,
+        accountType: user.accountType || user.account_type,
       }),
     };
 
@@ -303,8 +303,9 @@ export class AuthService {
     console.log('User created successfully:', {
       id: user.id,
       email: user.email,
-      tenantId: user.tenantId,
-      accountType: user.accountType
+      tenantId: user.tenantId || user.tenant_id,
+      accountType: user.accountType || user.account_type,
+      userObject: user
     });
 
     // Update registration key usage

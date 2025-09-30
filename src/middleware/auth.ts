@@ -116,8 +116,9 @@ export const authenticateToken = async (req: AuthenticatedRequest, res: Response
     // Se não é admin, verificar tenant
     if (!decoded.role && decoded.tenantId) {
       const { database } = await import('../config/database');
-      const tenants = await database.getAllTenants();
-      const tenant = tenants.rows.find((t: any) => t.id === decoded.tenantId);
+      const tenantsResult = await database.getAllTenants();
+      const tenants = Array.isArray(tenantsResult) ? tenantsResult : tenantsResult.rows || [];
+      const tenant = tenants.find((t: any) => t.id === decoded.tenantId);
 
       if (!tenant) {
         console.error('Tenant not found for user:', decoded.userId, 'tenantId:', decoded.tenantId);
