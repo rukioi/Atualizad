@@ -61,17 +61,18 @@ import { cn } from "@/lib/utils";
 import { UserProfileDialog } from "./UserProfileDialog";
 import { NotificationsPanel } from "./NotificationsPanel";
 import { useDialogBodyFix } from "@/hooks/use-dialog-body-fix";
+import { useAuth } from "@/hooks/useAuth";
 
 const navigation = [
-  { name: "Dashboard", href: "/", icon: LayoutDashboard },
-  { name: "CRM", href: "/crm", icon: Users },
-  { name: "Projetos", href: "/projetos", icon: FolderKanban },
-  { name: "Tarefas", href: "/tarefas", icon: CheckSquare },
-  { name: "Cobrança", href: "/cobranca", icon: FileText },
-  { name: "Gestão de Recebíveis", href: "/recebiveis", icon: CreditCard },
-  { name: "Fluxo de Caixa", href: "/fluxo-caixa", icon: TrendingUp },
-  { name: "Painel de Publicações", href: "/publicacoes", icon: Newspaper },
-  { name: "Configurações", href: "/configuracoes", icon: Settings },
+  { name: "Dashboard", href: "/", icon: LayoutDashboard, allowedAccountTypes: ['SIMPLES', 'COMPOSTA', 'GERENCIAL'] },
+  { name: "CRM", href: "/crm", icon: Users, allowedAccountTypes: ['SIMPLES', 'COMPOSTA', 'GERENCIAL'] },
+  { name: "Projetos", href: "/projetos", icon: FolderKanban, allowedAccountTypes: ['SIMPLES', 'COMPOSTA', 'GERENCIAL'] },
+  { name: "Tarefas", href: "/tarefas", icon: CheckSquare, allowedAccountTypes: ['SIMPLES', 'COMPOSTA', 'GERENCIAL'] },
+  { name: "Cobrança", href: "/cobranca", icon: FileText, allowedAccountTypes: ['SIMPLES', 'COMPOSTA', 'GERENCIAL'] },
+  { name: "Gestão de Recebíveis", href: "/recebiveis", icon: CreditCard, allowedAccountTypes: ['SIMPLES', 'COMPOSTA', 'GERENCIAL'] },
+  { name: "Fluxo de Caixa", href: "/fluxo-caixa", icon: TrendingUp, allowedAccountTypes: ['COMPOSTA', 'GERENCIAL'] },
+  { name: "Painel de Publicações", href: "/publicacoes", icon: Newspaper, allowedAccountTypes: ['SIMPLES', 'COMPOSTA', 'GERENCIAL'] },
+  { name: "Configurações", href: "/configuracoes", icon: Settings, allowedAccountTypes: ['GERENCIAL'] },
 ];
 
 interface DashboardLayoutProps {
@@ -84,9 +85,17 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const location = useLocation();
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   // Apply global dialog body freeze fix
   useDialogBodyFix();
+
+  // Filter navigation based on account type
+  const filteredNavigation = navigation.filter((item) => {
+    if (!item.allowedAccountTypes) return true;
+    if (!user?.accountType) return true;
+    return item.allowedAccountTypes.includes(user.accountType as any);
+  });
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -151,7 +160,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
         {/* Navigation */}
         <nav className="flex-1 p-4 space-y-2">
-          {navigation.map((item) => {
+          {filteredNavigation.map((item) => {
             const isActive = location.pathname === item.href;
             return (
               <Link

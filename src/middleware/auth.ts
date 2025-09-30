@@ -166,3 +166,55 @@ export const tenantMiddleware = (
 
   next();
 };
+
+// Middleware to block cash flow module access for SIMPLES accounts
+export const requireCashFlowAccess = (
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  if (!req.user) {
+    return res.status(401).json({ 
+      error: 'Authentication required',
+      code: 'AUTH_001' 
+    });
+  }
+
+  // SIMPLES accounts don't have access to cash flow module
+  if (req.user.accountType === 'SIMPLES') {
+    return res.status(403).json({
+      error: 'Access denied: Cash flow module requires COMPOSTA or GERENCIAL account',
+      code: 'PERMISSION_DENIED',
+      requiredAccountTypes: ['COMPOSTA', 'GERENCIAL'],
+      currentAccountType: req.user.accountType,
+    });
+  }
+
+  next();
+};
+
+// Middleware to block settings module access for SIMPLES and COMPOSTA accounts
+export const requireSettingsAccess = (
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  if (!req.user) {
+    return res.status(401).json({ 
+      error: 'Authentication required',
+      code: 'AUTH_001' 
+    });
+  }
+
+  // Only GERENCIAL accounts have access to settings
+  if (req.user.accountType !== 'GERENCIAL') {
+    return res.status(403).json({
+      error: 'Access denied: Settings module requires GERENCIAL account',
+      code: 'PERMISSION_DENIED',
+      requiredAccountTypes: ['GERENCIAL'],
+      currentAccountType: req.user.accountType,
+    });
+  }
+
+  next();
+};

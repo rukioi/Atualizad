@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { transactionsController } from '../controllers/transactionsController';
-import { authenticateToken, tenantMiddleware, requireAccountType } from '../middleware/auth';
+import { authenticateToken, tenantMiddleware, requireCashFlowAccess } from '../middleware/auth';
 
 const router = Router();
 
@@ -8,8 +8,8 @@ const router = Router();
 router.use(authenticateToken);
 router.use(tenantMiddleware);
 
-// Financial data only for COMPOSTA and GERENCIAL accounts
-router.use(requireAccountType(['COMPOSTA', 'GERENCIAL']));
+// Financial data only for COMPOSTA and GERENCIAL accounts (Cash Flow module)
+router.use(requireCashFlowAccess);
 
 router.get('/', transactionsController.getTransactions);
 router.get('/:id', transactionsController.getTransaction);

@@ -9,6 +9,7 @@ import projectsRoutes from './routes/projects';
 import tasksRoutes from './routes/tasks';
 import transactionsRoutes from './routes/transactions';
 import invoicesRoutes from './routes/invoices';
+import settingsRoutes from './routes/settings';
 import adminRoutes from './routes/admin';
 import adminAuthRoutes from './routes/adminAuth';
 import notificationsRoutes from './routes/notifications';
@@ -38,6 +39,7 @@ export function createApp() {
   app.use('/api/tasks', tasksRoutes);
   app.use('/api/transactions', transactionsRoutes);
   app.use('/api/invoices', invoicesRoutes);
+  app.use('/api/settings', settingsRoutes);
   app.use('/api/admin', adminRoutes);
   app.use('/api/admin/auth', adminAuthRoutes);
   app.use('/api/notifications', notificationsRoutes);

@@ -55,6 +55,13 @@ class ApiService {
         }
       }
 
+      if (response.status === 403) {
+        // Permission denied - redirect to access denied page
+        const error = await response.json().catch(() => ({}));
+        window.location.href = '/acesso-negado';
+        throw new Error(error.message || 'Access denied');
+      }
+
       if (!response.ok) {
         const error = await response.json();
         throw new Error(error.message || `API Error: ${response.status}`);

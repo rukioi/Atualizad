@@ -1,0 +1,36 @@
+Veja TODO O MEU SISTEMA E CONSERTE O QUE VOU TE CITAR. Muitas coisas ja estão feitas mas são feitas da maneira errada ou estão faltando! verifique também para utilizar as mesmas funcoes e variaveis evitando criar duplicações, tome cuidado com os nomes!
+
+Administrative Panel(Admin Panel) > Registration Keys > Create Key > Ao escolher os tipos de contas (Contas Simples, Compostas e Gerencial) deve ter como escolher a qual tenant eu quero relacionar essa key [A key so pode ser gerada para um tenant], a key deve estar ligada ao tenant, assim que for criado o usuario deve atualizar no painel administrativo +1 users sair de 0/5 para 1/5 FAÇA frontend + backend completo seja profissional (Lembre-se que é um Saas Multi tenants) todas as contas de um respectivo tenant vai conseguir ver todos os dados desse tenant (O banco de dados guardará e exibirá os mesmos dados, atualizacoes, clientes e etc para todos os usuarios desse mesmo tenant)
+
+Administrative Panel(Admin Panel) > Registration Keys > Create Key > Contas Simples, Compostas e Gerencial devem ter os seus atributos definidos corretamente ao serem criadas
+
+1. Conta Simples
+Dashboard: Apenas estatísticas de clientes[Infomações vem do módulo CRM,projetos,tarefas,cobrança,gestão recebíveis e Painel de publicacões], (gráficos financeiros zerados [Pois informações dos gráficos financeiros vem do módulo Fluxo de caixa (Com endpoint fluxo-caixa) e conta Simples nao tem acesso a esse modulo nem ao grafico com informacoes desse modulo!])
+Funcionalidades: CRM, Projetos, Tarefas básicas, Crud completo
+Limitações: Sem acesso a dados financeiros detalhados e ao modulo fluxo de caixa (Ter uma restrição quando esse tipo de conta tentar entrar no módulo Fluxo de Caixa[fluxo-caixa])
+2. Conta Composta
+Dashboard: Acesso completo a todos os gráficos
+Funcionalidades: Todos os módulos exceto Configurações (Não vai conseguir entrar no módulo de configurações)
+Permissões: Completas menos acessar o módulo de configurações (Vai ter acesso aos dados do Dashboard)
+3. Conta Gerencial
+Dashboard: Acesso total + métricas avançadas
+Funcionalidades: Todos os módulos incluindo Configurações
+Permissões: Administração completa do tenant (Acesso ao módulo de configurações)
+
+
+certifique-se que Autenticação + claims no JWT — inclua tenantId e accountType (simples | composta | gerencial) no token (ISSO É MUITO IMPORTANTE)
+
+Proteção no backend —  valida token, valida tenant e bloqueia acesso às rotas do fluxo de caixa (retorna 401/403).
+
+Proteção no frontend (duas camadas):
+
+Ocultar/remoção de links no UI para contas simples.
+
+Protected Route no React Router que bloqueia acesso direto (ex.: usuário digitando /fluxo-caixa) e redireciona para página “sem permissão”.
+
+Tratamento global de erros de API — interceptar 401/403 e redirecionar/mostrar mensagem apropriada.
+
+Evitar erro de rota no Vite/prod — garanta que o servidor (Express ou Nginx) entregue index.html como fallback para rotas SPA (catch-all).
+
+Haja como um profissional da área e cuidado com erros de rotas duplicadas e renderização duplicadas!
+Para esconder os dados do Dashboard na Conta Simples (Deixe os dados zerados para evitar erros)

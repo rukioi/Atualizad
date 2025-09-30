@@ -26,7 +26,7 @@ export class AdminController {
       console.log('Creating registration key with data:', req.body);
 
       const createKeySchema = z.object({
-        tenantId: z.string().uuid().optional(),
+        tenantId: z.string().uuid({ message: 'TenantId is required and must be a valid UUID' }),
         accountType: z.enum(['SIMPLES', 'COMPOSTA', 'GERENCIAL']),
         usesAllowed: z.number().int().min(1).optional().default(1),
         expiresAt: z.string().datetime().optional(),
@@ -140,6 +140,17 @@ export class AdminController {
             invoices: 0,
           };
 
+          // Count users for this tenant
+          let userCount = 0;
+          try {
+            const users = await database.prisma.user.findMany({
+              where: { tenantId: tenant.id, isActive: true }
+            });
+            userCount = users.length;
+          } catch (userCountError) {
+            console.warn(`Error counting users for tenant ${tenant.id}:`, userCountError);
+          }
+
           try {
             // First check if schema exists before querying
             const { TenantDatabase } = await import('../config/database');
@@ -189,7 +200,7 @@ export class AdminController {
             planType: tenant.planType,
             isActive: tenant.isActive,
             maxUsers: tenant.maxUsers,
-            userCount: 0, // TODO: implementar contagem real de usuários
+            userCount: userCount,
             createdAt: tenant.createdAt,
             stats,
           };

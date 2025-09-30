@@ -64,10 +64,15 @@ export function RegistrationKeyForm({ open, onOpenChange, onSuccess }: Registrat
     e.preventDefault();
     setError('');
 
+    if (!formData.tenantId) {
+      setError('Tenant is required. Please select a tenant.');
+      return;
+    }
+
     try {
       setIsLoading(true);
       const result = await createRegistrationKey({
-        tenantId: formData.tenantId || undefined,
+        tenantId: formData.tenantId,
         accountType: formData.accountType as any,
         usesAllowed: formData.usesAllowed,
         expiresAt: formData.expiresAt,
@@ -207,20 +212,22 @@ export function RegistrationKeyForm({ open, onOpenChange, onSuccess }: Registrat
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="tenantId">Assign to Tenant (Optional)</Label>
+            <Label htmlFor="tenantId">Assign to Tenant <span className="text-red-500">*</span></Label>
             <Select value={formData.tenantId} onValueChange={(value) => handleInputChange('tenantId', value)}>
               <SelectTrigger>
-                <SelectValue placeholder="Create new tenant" />
+                <SelectValue placeholder="Select a tenant" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Create New Tenant</SelectItem>
                 {tenants.map((tenant) => (
                   <SelectItem key={tenant.id} value={tenant.id}>
-                    {tenant.name}
+                    {tenant.name} ({tenant.userCount || 0}/{tenant.maxUsers || 5} users)
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+            <p className="text-xs text-muted-foreground">
+              Registration keys must be associated with a specific tenant
+            </p>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
