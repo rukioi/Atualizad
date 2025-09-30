@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { authenticateToken, tenantMiddleware, requireSettingsAccess } from '../middleware/auth';
+import { authenticateToken, tenantMiddleware, requireSettingsAccess, AuthenticatedRequest } from '../middleware/auth';
 
 const router = Router();
 
@@ -11,14 +11,14 @@ router.use(tenantMiddleware);
 router.use(requireSettingsAccess);
 
 // Placeholder settings routes
-router.get('/profile', (req, res) => {
+router.get('/profile', (req: AuthenticatedRequest, res) => {
   res.json({ 
     message: 'Settings profile endpoint',
     user: req.user 
   });
 });
 
-router.get('/preferences', (req, res) => {
+router.get('/preferences', (req: AuthenticatedRequest, res) => {
   res.json({ 
     message: 'Settings preferences endpoint'
   });
