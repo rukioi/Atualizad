@@ -14,8 +14,9 @@ export default defineConfig(({ mode }) => ({
       port: 5000,
     },
     allowedHosts: [
-      '8a85e153-2921-423e-b2f7-467f10582209-00-14tack9nfpjwm.janeway.replit.dev',
-      '*',
+      "8a85e153-2921-423e-b2f7-467f10582209-00-14tack9nfpjwm.janeway.replit.dev",
+      "bd8678a7-061c-4e4a-9b6d-ab45d11816eb-00-10kl02qjgfajp.kirk.replit.dev", // ✅ adicionado
+      "*",
     ],
     fs: {
       allow: ["./client", "./shared", "./admin", "./src", "./"],
