@@ -1,4 +1,4 @@
-replit_final_file>
+
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { database } from '../config/database';
@@ -139,7 +139,6 @@ export const authenticateToken = async (req: AuthenticatedRequest, res: Response
   }
 };
 
-
 // Authorization middleware for account types
 export const requireAccountType = (allowedTypes: string[]) => {
   return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
@@ -228,4 +227,3 @@ export const requireSettingsAccess = (
 
   next();
 };
-</replit_final_file>
