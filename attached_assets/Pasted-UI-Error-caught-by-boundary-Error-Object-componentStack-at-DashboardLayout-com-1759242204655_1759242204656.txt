@@ -1,0 +1,11 @@
+UI Error caught by boundary: 
+Error {}
+ 
+Object {componentStack: "↵    at DashboardLayout…"}
+componentStack: "↵ at DashboardLayout (https://bd8678a7-061c-4e4a-9b6d-ab45d11816eb-00-10kl02qjgfajp.kirk.replit.dev/client/components/Layout/DashboardLayout.tsx:149:35)↵ at Dashboard (https://bd8678a7-061c-4e4a-9b6d-ab45d11816eb-00-10kl02qjgfajp.kirk.replit.dev/client/pages/Dashboard.tsx:179:22)↵ at RenderedRoute (https://bd8678a7-061c-4e4a-9b6d-ab45d11816eb-00-10kl02qjgfajp.kirk.replit.dev/node_modules/.vite/deps/react-router-dom.js?v=8de49ce3:4088:5)↵ at Routes (https://bd8678a7-061c-4e4a-9b6d-ab45d11816eb-00-10kl02qjgfajp.kirk.replit.dev/node_modules/.vite/deps/react-router-dom.js?v=8de49ce3:4558:5)↵ at Router (https://bd8678a7-061c-4e4a-9b6d-ab45d11816eb-00-10kl02qjgfajp.kirk.replit.dev/node_modules/.vite/deps/react-router-dom.js?v=8de49ce3:4501:15)↵ at BrowserRouter (https://bd8678a7-061c-4e4a-9b6d-ab45d11816eb-00-10kl02qjgfajp.kirk.replit.dev/node_modules/.vite/deps/react-router-dom.js?v=8de49ce3:5247:5)↵ at Provider (https://bd8678a7-061c-4e4a-9b6d-ab45d11816eb-00-10kl02qjgfajp.kirk.replit.dev/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=8de49ce3:38:15)↵ at TooltipProvider (https://bd8678a7-061c-4e4a-9b6d-ab45d11816eb-00-10kl02qjgfajp.kirk.replit.dev/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=8de49ce3:65:5)↵ at QueryClientProvider (https://bd8678a7-061c-4e4a-9b6d-ab45d11816eb-00-10kl02qjgfajp.kirk.replit.dev/node_modules/.vite/deps/@tanstack_react-query.js?v=8de49ce3:2934:3)↵ at AppContent (https://bd8678a7-061c-4e4a-9b6d-ab45d11816eb-00-10kl02qjgfajp.kirk.replit.dev/client/App.tsx:60:5)↵ at UIErrorBoundary (https://bd8678a7-061c-4e4a-9b6d-ab45d11816eb-00-10kl02qjgfajp.kirk.replit.dev/client/lib/error-boundary.tsx:84:9)↵ at App"
+[[Prototype]]: Object
+
+at t.value (https://bd8678a7-061c-4e4a-9b6d-ab45d11816eb-00-10kl02qjgfajp.kirk.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:17465)
+at new t (https://bd8678a7-061c-4e4a-9b6d-ab45d11816eb-00-10kl02qjgfajp.kirk.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:12630)
+at t.value (https://bd8678a7-061c-4e4a-9b6d-ab45d11816eb-00-10kl02qjgfajp.kirk.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:32766)
+at https://bd8678a7-061c-4e4a-9b6d-ab45d11816eb-00-10kl02qjgfajp.kirk.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:34400
