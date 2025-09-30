@@ -56,11 +56,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       console.error('Auth check failed:', error);
       
-      // Clear invalid tokens
-      localStorage.removeItem('access_token');
-      localStorage.removeItem('refresh_token');
-      apiService.clearToken();
-      setUser(null);
+      // Only clear tokens if it's an authentication error, not a network error
+      if (error?.response?.status === 401 || error?.response?.status === 403) {
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
+        apiService.clearToken();
+        setUser(null);
+      }
     } finally {
       setIsLoading(false);
     }

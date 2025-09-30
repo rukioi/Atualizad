@@ -1,5 +1,6 @@
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { DashboardLayout } from '@/components/Layout/DashboardLayout';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -41,5 +42,9 @@ export function ProtectedRoute({ children, requiredAccountTypes }: ProtectedRout
   }
 
   console.log('Protected route access granted for user:', user?.email);
-  return <>{children}</>;
+  return (
+    <DashboardLayout>
+      {children}
+    </DashboardLayout>
+  );
 }

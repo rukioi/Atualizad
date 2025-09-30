@@ -64,6 +64,22 @@ const AppRoutes = () => {
     );
   }
 
+  // For admin routes, don't check main authentication
+  if (isAdminRoute) {
+    return (
+      <BrowserRouter 
+        future={{ 
+          v7_startTransition: true, 
+          v7_relativeSplatPath: true 
+        }}
+      >
+        <Routes>
+          <Route path="/admin/*" element={<AdminApp />} />
+        </Routes>
+      </BrowserRouter>
+    );
+  }
+
   return (
     <BrowserRouter 
       future={{ 
