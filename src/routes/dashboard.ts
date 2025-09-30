@@ -3,12 +3,14 @@ import { dashboardController } from '../controllers/dashboardController';
 import { authenticateToken, tenantMiddleware, AuthenticatedRequest } from '../middleware/auth';
 import { Request, Response } from 'express';
 import { dashboardService } from '../services/dashboardService';
+import { validateTenantAccess } from '../middleware/tenant-isolation';
 
 const router = Router();
 
 // All dashboard routes require authentication and tenant context
 router.use(authenticateToken);
 router.use(tenantMiddleware);
+router.use(validateTenantAccess);
 
 // GET /api/dashboard/metrics
 router.get('/metrics', async (req: AuthenticatedRequest, res: Response) => {

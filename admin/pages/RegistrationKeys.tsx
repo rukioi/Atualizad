@@ -108,9 +108,21 @@ export function AdminRegistrationKeys() {
       setError(null);
       
       if (!selectedTenantId) {
-        setError('Please select a tenant before creating a registration key');
+        setError('Tenant selection is required. Please select a tenant before creating a registration key.');
         return;
       }
+
+      if (!selectedAccountType) {
+        setError('Account type is required. Please select an account type.');
+        return;
+      }
+
+      console.log('Creating registration key with:', {
+        tenantId: selectedTenantId,
+        accountType: selectedAccountType,
+        usesAllowed: 1,
+        singleUse: true,
+      });
 
       const newKey = await createRegistrationKey({
         tenantId: selectedTenantId,
@@ -118,6 +130,7 @@ export function AdminRegistrationKeys() {
         usesAllowed: 1,
         singleUse: true,
       });
+      
       setSuccess(`Registration key created successfully: ${newKey.key}`);
       setIsCreateDialogOpen(false);
       setSelectedTenantId('');

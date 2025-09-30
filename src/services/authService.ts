@@ -198,9 +198,12 @@ export class AuthService {
   }
 
   async registerUser(email: string, password: string, name: string, key: string) {
+    console.log('=== STARTING USER REGISTRATION ===');
+    console.log('Registration data:', { email, name, keyPreview: key.substring(0, 8) + '...' });
+    
     // Validate registration key
     const validKeys = await database.findValidRegistrationKeys();
-    console.log('Available keys:', validKeys.length);
+    console.log('Available registration keys:', validKeys.length);
     console.log('Looking for key:', key.substring(0, 8) + '...');
     
     let registrationKey = null;
@@ -233,7 +236,18 @@ export class AuthService {
       throw new Error('Invalid or expired registration key');
     }
 
-    console.log('Valid registration key found:', registrationKey.id);
+    console.log('Valid registration key found:', {
+      id: registrationKey.id,
+      tenantId: registrationKey.tenantId,
+      accountType: registrationKey.accountType,
+      usesLeft: registrationKey.usesLeft
+    });
+
+    // Verificar se tenantId está presente na chave de registro
+    if (!registrationKey.tenantId) {
+      console.error('Registration key without tenantId:', registrationKey.id);
+      throw new Error('Invalid registration key: missing tenant association');
+    }
 
     // Check if user already exists
     const existingUser = await database.findUserByEmail(email);
@@ -243,32 +257,29 @@ export class AuthService {
 
     const hashedPassword = await this.hashPassword(password);
     
-    let tenant;
-    let isNewTenant = false;
-
-    // Create or use existing tenant
-    if (registrationKey.tenantId) {
-      // Use existing tenant
-      const tenantsResult = await database.getAllTenants();
-      const tenants = Array.isArray(tenantsResult) ? tenantsResult : tenantsResult.rows || [];
-      tenant = tenants.find(t => t.id === registrationKey.tenantId);
-      if (!tenant) {
-        throw new Error('Associated tenant not found');
-      }
-    } else {
-      // Create new tenant
-      tenant = await database.createTenant({
-        name: `${name}'s Law Firm`,
-        schemaName: `tenant_${Date.now()}`,
-        planType: 'basic',
-        isActive: true,
-        maxUsers: 5,
-        maxStorage: 1073741824, // 1GB
-      });
-      isNewTenant = true;
+    // Use existing tenant (tenantId is now required)
+    const tenantsResult = await database.getAllTenants();
+    const tenants = Array.isArray(tenantsResult) ? tenantsResult : tenantsResult.rows || [];
+    const tenant = tenants.find(t => t.id === registrationKey.tenantId);
+    
+    if (!tenant) {
+      console.error('Associated tenant not found:', registrationKey.tenantId);
+      throw new Error('Associated tenant not found');
     }
 
-    // Create user
+    if (!tenant.isActive) {
+      console.error('Associated tenant is inactive:', registrationKey.tenantId);
+      throw new Error('Cannot register user for inactive tenant');
+    }
+
+    console.log('Using tenant:', {
+      id: tenant.id,
+      name: tenant.name,
+      isActive: tenant.isActive,
+      maxUsers: tenant.maxUsers
+    });
+
+    // Create user with proper tenant association
     const userData = {
       email,
       password: hashedPassword,
@@ -279,7 +290,22 @@ export class AuthService {
       mustChangePassword: false,
     };
 
+    console.log('Creating user with data:', {
+      email: userData.email,
+      name: userData.name,
+      accountType: userData.accountType,
+      tenantId: userData.tenantId,
+      tenantName: tenant.name
+    });
+
     const user = await database.createUser(userData);
+    
+    console.log('User created successfully:', {
+      id: user.id,
+      email: user.email,
+      tenantId: user.tenantId,
+      accountType: user.accountType
+    });
 
     // Update registration key usage
     const currentUsedLogs = registrationKey.usedLogs;
@@ -302,7 +328,16 @@ export class AuthService {
     // Remove password from response
     const { password: _, ...userWithoutPassword } = user;
     
-    return { user: userWithoutPassword, tokens, isNewTenant };
+    console.log('Registration completed successfully for:', {
+      userId: user.id,
+      email: user.email,
+      tenantId: user.tenantId,
+      accountType: user.accountType
+    });
+    
+    console.log('=== USER REGISTRATION COMPLETED ===');
+    
+    return { user: userWithoutPassword, tokens, isNewTenant: false };
   }
 }
 

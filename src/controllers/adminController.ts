@@ -27,7 +27,9 @@ export class AdminController {
 
       const createKeySchema = z.object({
         tenantId: z.string().uuid('TenantId is required and must be a valid UUID'),
-        accountType: z.enum(['SIMPLES', 'COMPOSTA', 'GERENCIAL']),
+        accountType: z.enum(['SIMPLES', 'COMPOSTA', 'GERENCIAL'], {
+          errorMap: () => ({ message: 'Account type must be SIMPLES, COMPOSTA, or GERENCIAL' })
+        }),
         usesAllowed: z.number().int().min(1).optional().default(1),
         expiresAt: z.string().datetime().optional(),
         singleUse: z.boolean().optional().default(true),
@@ -35,6 +37,26 @@ export class AdminController {
 
       const validatedData = createKeySchema.parse(req.body);
       console.log('Validated data:', validatedData);
+
+      // Verificar se o tenant existe e está ativo
+      const tenants = await database.getAllTenants();
+      const tenant = tenants.rows.find(t => t.id === validatedData.tenantId);
+      
+      if (!tenant) {
+        console.error('Tenant not found:', validatedData.tenantId);
+        return res.status(400).json({
+          error: 'Invalid tenant',
+          message: 'The specified tenant does not exist',
+        });
+      }
+
+      if (!tenant.isActive) {
+        console.error('Tenant is inactive:', validatedData.tenantId);
+        return res.status(400).json({
+          error: 'Inactive tenant',
+          message: 'Cannot create registration keys for inactive tenants',
+        });
+      }
 
       const { registrationKeyService } = await import('../services/registrationKeyService');
       const key = await registrationKeyService.generateKey({

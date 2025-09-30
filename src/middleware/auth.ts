@@ -1,3 +1,4 @@
+replit_final_file>
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { database } from '../config/database';
@@ -41,9 +42,9 @@ export const authenticateAdminToken = async (
   });
 
   if (!token) {
-    return res.status(401).json({ 
+    return res.status(401).json({
       error: 'Admin access token required',
-      code: 'ADMIN_AUTH_001' 
+      code: 'ADMIN_AUTH_001'
     });
   }
 
@@ -67,9 +68,9 @@ export const authenticateAdminToken = async (
     // Verify this is an admin user (has role)
     if (!decoded.role) {
       console.log('User has no admin role');
-      return res.status(401).json({ 
+      return res.status(401).json({
         error: 'Admin access required',
-        code: 'ADMIN_AUTH_002' 
+        code: 'ADMIN_AUTH_002'
       });
     }
 
@@ -84,7 +85,7 @@ export const authenticateAdminToken = async (
     next();
   } catch (error) {
     console.error('Admin token verification failed:', error);
-    return res.status(403).json({ 
+    return res.status(403).json({
       error: 'Invalid admin token',
       code: 'ADMIN_AUTH_003',
       details: error instanceof Error ? error.message : 'Token verification failed',
@@ -93,43 +94,51 @@ export const authenticateAdminToken = async (
   }
 };
 
-export const authenticateToken = async (
-  req: AuthenticatedRequest,
-  res: Response,
-  next: NextFunction
-) => {
-  const authHeader = req.headers.authorization;
-  const token = authHeader?.split(' ')[1];
-
-  if (!token) {
-    return res.status(401).json({ 
-      error: 'Access token required',
-      code: 'AUTH_001' 
-    });
-  }
-
+export const authenticateToken = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
-    const decoded = await authService.verifyAccessToken(token);
+    const authHeader = req.headers.authorization;
+    const token = authHeader && authHeader.split(' ')[1];
 
-    // Add user info to request
-    req.user = {
-      id: decoded.userId,
-      email: decoded.email,
-      tenantId: decoded.tenantId,
-      accountType: decoded.accountType,
-      name: decoded.name,
-    };
-    req.tenantId = decoded.tenantId;
+    if (!token) {
+      return res.status(401).json({ error: 'Access token required' });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_ACCESS_SECRET || 'dev-secret-change-in-production') as any;
+
+    // Validar se o usuário tem tenantId (não é admin)
+    if (!decoded.role && !decoded.tenantId) {
+      console.error('Token without tenantId for regular user:', decoded.userId);
+      return res.status(403).json({ error: 'Invalid token: missing tenant information' });
+    }
+
+    req.user = decoded;
+
+    // Se não é admin, verificar tenant
+    if (!decoded.role && decoded.tenantId) {
+      const { database } = await import('../config/database');
+      const tenants = await database.getAllTenants();
+      const tenant = tenants.rows.find((t: any) => t.id === decoded.tenantId);
+
+      if (!tenant) {
+        console.error('Tenant not found for user:', decoded.userId, 'tenantId:', decoded.tenantId);
+        return res.status(403).json({ error: 'Invalid tenant' });
+      }
+
+      if (!tenant.isActive) {
+        console.error('Inactive tenant for user:', decoded.userId, 'tenantId:', decoded.tenantId);
+        return res.status(403).json({ error: 'Tenant is inactive' });
+      }
+
+      req.tenantId = tenant.id; // Set tenantId on AuthenticatedRequest
+    }
 
     next();
   } catch (error) {
-    return res.status(403).json({ 
-      error: 'Invalid token',
-      code: 'AUTH_003',
-      details: error instanceof Error ? error.message : 'Token verification failed'
-    });
+    console.error('Authentication error:', error);
+    return res.status(403).json({ error: 'Invalid or expired token' });
   }
 };
+
 
 // Authorization middleware for account types
 export const requireAccountType = (allowedTypes: string[]) => {
@@ -157,10 +166,11 @@ export const tenantMiddleware = (
   res: Response,
   next: NextFunction
 ) => {
+  // Use req.tenantId from authenticateToken
   if (!req.tenantId) {
-    return res.status(403).json({ 
+    return res.status(403).json({
       error: 'Tenant not identified',
-      code: 'TENANT_001' 
+      code: 'TENANT_001'
     });
   }
 
@@ -174,9 +184,9 @@ export const requireCashFlowAccess = (
   next: NextFunction
 ) => {
   if (!req.user) {
-    return res.status(401).json({ 
+    return res.status(401).json({
       error: 'Authentication required',
-      code: 'AUTH_001' 
+      code: 'AUTH_001'
     });
   }
 
@@ -200,9 +210,9 @@ export const requireSettingsAccess = (
   next: NextFunction
 ) => {
   if (!req.user) {
-    return res.status(401).json({ 
+    return res.status(401).json({
       error: 'Authentication required',
-      code: 'AUTH_001' 
+      code: 'AUTH_001'
     });
   }
 
@@ -218,3 +228,4 @@ export const requireSettingsAccess = (
 
   next();
 };
+</replit_final_file>
