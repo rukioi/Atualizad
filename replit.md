@@ -6,6 +6,15 @@ This is a comprehensive SaaS legal practice management system built as a full-st
 
 # Recent Changes
 
+## September 30, 2025 - Replit Environment Setup
+- **Database Configuration**: Configured PostgreSQL (Neon) database with Replit's built-in database service
+- **Prisma Migrations**: Successfully applied database migrations (migration `20250910190139_init`)
+- **Workflow Configuration**: Removed separate Backend workflow; integrated Express backend into Vite dev server via expressPlugin
+- **Production Build Fix**: Fixed `server/node-build.ts` to use `createApp()` with all API routes instead of minimal `createServer()`
+- **Port Configuration**: Updated production server to use port 5000 and bind to 0.0.0.0 for Replit compatibility
+- **Host Configuration**: Vite already configured with `allowedHosts: ['*']` for Replit proxy support
+- **Deployment Setup**: Configured autoscale deployment with `build:full` and production server command
+
 ## August 29, 2025 - Admin System Enhancement
 - **Admin Authentication Routes**: Implemented complete `/api/admin/auth/*` endpoints (login, logout, refresh, profile)
 - **Database Schema Updates**: Added AdminUser and AdminRefreshToken models to Prisma schema
