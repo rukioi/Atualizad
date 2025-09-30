@@ -41,6 +41,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const token = localStorage.getItem('access_token');
       if (!token) {
+        console.log('No access token found');
         setIsLoading(false);
         return;
       }
@@ -48,11 +49,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Set token in apiService
       apiService.setToken(token);
 
+      console.log('Checking auth status with token...');
       const response = await apiService.getProfile();
+      console.log('Auth check successful:', response.user);
       setUser(response.user);
     } catch (error) {
       console.error('Auth check failed:', error);
+      
+      // Clear invalid tokens
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
       apiService.clearToken();
+      setUser(null);
     } finally {
       setIsLoading(false);
     }
