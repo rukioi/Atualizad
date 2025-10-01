@@ -126,17 +126,25 @@ export class AdminController {
           try {
             const { prisma } = await import('../config/database');
             
-            // Look for users created around the time this key was used
+            // Buscar usuários que usaram esta key
             if (key.used_logs && key.used_logs !== '[]') {
               const usedLogs = typeof key.used_logs === 'string' ? JSON.parse(key.used_logs) : key.used_logs;
               if (Array.isArray(usedLogs) && usedLogs.length > 0) {
                 const lastUsage = usedLogs[usedLogs.length - 1];
                 if (lastUsage && lastUsage.email) {
-                  // Find the user by email
+                  // Buscar o usuário por email no tenant correto
                   const user = await prisma.user.findFirst({
                     where: {
                       email: lastUsage.email,
-                      tenantId: key.tenant_id
+                      tenantId: key.tenant_id || undefined
+                    },
+                    select: {
+                      id: true,
+                      name: true,
+                      email: true,
+                      isActive: true,
+                      createdAt: true,
+                      accountType: true
                     }
                   });
                   
@@ -146,15 +154,22 @@ export class AdminController {
                       name: user.name,
                       email: user.email,
                       isActive: user.isActive,
-                      usedAt: lastUsage.usedAt || user.createdAt
+                      usedAt: lastUsage.usedAt || user.createdAt.toISOString(),
+                      accountType: user.accountType
                     };
-                    isActive = false; // Key is used, so not active
+                    isActive = false; // Key foi usada, então não está ativa
                   }
                 }
               }
             }
+
+            // Se não encontrou nos logs, tentar buscar por outras formas
+            if (!userInfo && key.uses_left < key.uses_allowed) {
+              // Key foi usada mas pode não ter logs completos
+              isActive = false;
+            }
           } catch (error) {
-            console.warn('Error checking key usage:', error);
+            console.warn('Error checking key usage for key', key.id, ':', error);
           }
 
           // Determine if key is truly inactive (not used and not expired)
@@ -243,6 +258,9 @@ export class AdminController {
       const { prisma } = await import('../config/database');
       
       let isUsed = false;
+      let userName = '';
+      
+      // Verificar se key foi usada pelos logs
       if (keyDetails.used_logs && keyDetails.used_logs !== '[]') {
         const usedLogs = typeof keyDetails.used_logs === 'string' ? JSON.parse(keyDetails.used_logs) : keyDetails.used_logs;
         if (Array.isArray(usedLogs) && usedLogs.length > 0) {
@@ -252,18 +270,40 @@ export class AdminController {
             const user = await prisma.user.findFirst({
               where: {
                 email: lastUsage.email,
-                tenantId: keyDetails.tenant_id
+                tenantId: keyDetails.tenant_id || undefined
+              },
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                isActive: true
               }
             });
-            isUsed = !!user;
+            
+            if (user) {
+              isUsed = true;
+              userName = user.name;
+            }
           }
         }
       }
 
+      // Verificar também se uses_left é menor que uses_allowed (indicativo de uso)
+      if (!isUsed && keyDetails.uses_left < keyDetails.uses_allowed) {
+        isUsed = true;
+      }
+
       if (isUsed) {
         return res.status(400).json({
-          error: 'Cannot delete registration key that has been used',
-          message: 'Esta key já foi utilizada para registrar um usuário e não pode ser deletada'
+          error: 'Cannot delete used registration key',
+          message: `Esta registration key já foi utilizada${userName ? ` pelo usuário "${userName}"` : ''} e não pode ser deletada. Apenas keys INATIVAS podem ser removidas.`,
+          details: {
+            keyId: keyId,
+            isUsed: true,
+            userName: userName || 'Usuário não identificado',
+            usesLeft: keyDetails.uses_left,
+            usesAllowed: keyDetails.uses_allowed
+          }
         });
       }
 

@@ -43,13 +43,31 @@ export interface RegistrationKey {
   id: string;
   key?: string;
   accountType: string;
+  isUsed: boolean;
+  isRevoked: boolean;
+  isActive: boolean;
+  isExpired: boolean;
+  usedBy?: string;
+  usedAt?: string;
+  userInfo?: {
+    id: string;
+    name: string;
+    email: string;
+    isActive: boolean;
+    usedAt: string;
+    accountType?: string;
+  };
+  tenantInfo?: {
+    id: string;
+    name: string;
+    isActive: boolean;
+  };
   usesAllowed: number;
   usesLeft: number;
   expiresAt?: string;
   createdAt: string;
   revoked: boolean;
-  tenant?: { id: string };
-  usageCount: number;
+  status: 'ACTIVE' | 'USED' | 'EXPIRED' | 'REVOKED';
   metadata?: any;
 }
 
@@ -164,7 +182,17 @@ export function useAdminApi() {
   const getRegistrationKeys = useCallback(async () => {
     try {
       const response = await apiCall('/keys');
-      return response.keys || [];
+      console.log('Registration keys response:', response);
+      
+      // A resposta do backend já é um array direto
+      if (Array.isArray(response)) {
+        return response;
+      } else if (response.keys && Array.isArray(response.keys)) {
+        return response.keys;
+      } else {
+        console.warn('Unexpected response format for registration keys:', response);
+        return [];
+      }
     } catch (error) {
       console.error('Error getting registration keys:', error);
       throw error;

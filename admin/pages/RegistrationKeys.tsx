@@ -179,7 +179,9 @@ export function AdminRegistrationKeys() {
       return;
     }
 
-    if (!confirm(`⚠️ DELETAR REGISTRATION KEY?\n\n🗑️ Esta ação é IRREVERSÍVEL!\n\nKey: ${key.id.substring(0, 8)}...\nStatus: ${key.status}\nTenant: ${key.tenantInfo?.name || 'N/A'}\n\nTem certeza que deseja DELETAR permanentemente?`)) {
+    const confirmMessage = `⚠️ DELETAR REGISTRATION KEY?\n\n🗑️ Esta ação é IRREVERSÍVEL!\n\n📋 DETALHES DA KEY:\n• ID: ${key.id.substring(0, 8)}...\n• Status: ${key.status}\n• Tipo: ${key.accountType}\n• Tenant: ${key.tenantInfo?.name || 'Sem tenant'}\n• Usuário Vinculado: ${key.userInfo ? key.userInfo.name : 'Nenhum (Key Inativa)'}\n\n${key.userInfo ? '❌ ATENÇÃO: Esta key já foi UTILIZADA e NÃO pode ser deletada!' : '✅ Esta key está INATIVA e pode ser deletada com segurança.'}\n\nTem certeza que deseja DELETAR permanentemente?`;
+    
+    if (!confirm(confirmMessage)) {
       return;
     }
 
@@ -203,15 +205,15 @@ export function AdminRegistrationKeys() {
   const getStatusBadge = (key: RegistrationKey) => {
     switch (key.status) {
       case 'USED':
-        return <Badge variant="secondary" className="flex items-center bg-green-100 text-green-800"><CheckCircle className="h-3 w-3 mr-1" />Used</Badge>;
+        return <Badge variant="secondary" className="flex items-center bg-green-100 text-green-800"><CheckCircle className="h-3 w-3 mr-1" />Utilizada</Badge>;
       case 'REVOKED':
-        return <Badge variant="destructive" className="flex items-center"><XCircle className="h-3 w-3 mr-1" />Revoked</Badge>;
+        return <Badge variant="destructive" className="flex items-center"><XCircle className="h-3 w-3 mr-1" />Revogada</Badge>;
       case 'EXPIRED':
-        return <Badge variant="outline" className="flex items-center text-orange-600 border-orange-600"><AlertTriangle className="h-3 w-3 mr-1" />Expired</Badge>;
+        return <Badge variant="outline" className="flex items-center text-orange-600 border-orange-600"><AlertTriangle className="h-3 w-3 mr-1" />Expirada</Badge>;
       case 'ACTIVE':
-        return <Badge variant="default" className="flex items-center bg-blue-100 text-blue-800"><Key className="h-3 w-3 mr-1" />Active</Badge>;
+        return <Badge variant="default" className="flex items-center bg-blue-100 text-blue-800"><Key className="h-3 w-3 mr-1" />Ativa</Badge>;
       default:
-        return <Badge variant="outline" className="flex items-center"><Key className="h-3 w-3 mr-1" />Unknown</Badge>;
+        return <Badge variant="outline" className="flex items-center text-gray-600"><Key className="h-3 w-3 mr-1" />Desconhecido</Badge>;
     }
   };
 
@@ -388,16 +390,36 @@ export function AdminRegistrationKeys() {
                       <TableCell>{getStatusBadge(key)}</TableCell>
                       <TableCell>
                         {key.userInfo ? (
-                          <div>
-                            <p className="text-sm font-medium text-green-700">👤 {key.userInfo.name}</p>
-                            <p className="text-xs text-gray-500">{key.userInfo.email}</p>
-                            <p className="text-xs text-gray-400">
-                              Usado em: {new Date(key.userInfo.usedAt).toLocaleDateString()}
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                              <p className="text-sm font-medium text-green-700">👤 {key.userInfo.name}</p>
+                            </div>
+                            <p className="text-xs text-gray-600 pl-4">{key.userInfo.email}</p>
+                            {key.userInfo.accountType && (
+                              <p className="text-xs text-blue-600 pl-4 font-medium">
+                                🏷️ {key.userInfo.accountType}
+                              </p>
+                            )}
+                            <p className="text-xs text-gray-500 pl-4">
+                              📅 Registrado: {new Date(key.userInfo.usedAt).toLocaleDateString('pt-BR')}
+                            </p>
+                            <p className="text-xs pl-4">
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                                key.userInfo.isActive 
+                                  ? 'bg-green-100 text-green-800' 
+                                  : 'bg-red-100 text-red-800'
+                              }`}>
+                                {key.userInfo.isActive ? '✅ Usuário Ativo' : '❌ Usuário Inativo'}
+                              </span>
                             </p>
                           </div>
                         ) : (
-                          <div className="text-sm text-orange-600 font-medium">
-                            🔄 Key Inativa
+                          <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 bg-orange-400 rounded-full animate-pulse"></div>
+                            <div className="text-sm text-orange-600 font-medium">
+                              🔄 Key Inativa
+                            </div>
                           </div>
                         )}
                       </TableCell>
@@ -409,27 +431,39 @@ export function AdminRegistrationKeys() {
                       </TableCell>
                       <TableCell>
                         <div className="flex space-x-1">
-                          {!key.isUsed && !key.isRevoked && (
+                          {/* Botão Revogar - só para keys ativas e não usadas */}
+                          {key.status === 'ACTIVE' && !key.isUsed && !key.isRevoked && (
                             <Button
                               size="sm"
                               variant="ghost"
                               onClick={() => handleRevokeKey(key.id)}
-                              className="text-orange-600 hover:text-orange-700"
-                              title="Revogar Key"
+                              className="text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+                              title="Revogar Registration Key"
+                              disabled={isLoading}
                             >
                               <XCircle className="h-3 w-3" />
                             </Button>
                           )}
-                          {key.status === 'ACTIVE' && !key.isUsed && (
+                          
+                          {/* Botão Deletar - só para keys INATIVAS (não usadas) */}
+                          {key.status === 'ACTIVE' && !key.isUsed && !key.userInfo && (
                             <Button
                               size="sm"
                               variant="ghost"
                               onClick={() => handleDeleteKey(key)}
-                              className="text-red-600 hover:text-red-700"
-                              title="Deletar Key Inativa"
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                              title="Deletar Registration Key Inativa"
+                              disabled={isLoading}
                             >
                               <Trash2 className="h-3 w-3" />
                             </Button>
+                          )}
+                          
+                          {/* Indicador visual quando não há ações disponíveis */}
+                          {(key.isUsed || key.userInfo || key.status !== 'ACTIVE') && (
+                            <div className="text-xs text-gray-400 px-2 py-1">
+                              {key.isUsed || key.userInfo ? '🔒 Usada' : '❌ Inativa'}
+                            </div>
                           )}
                         </div>
                       </TableCell>
