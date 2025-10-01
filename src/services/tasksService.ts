@@ -80,7 +80,7 @@ class TasksService {
    */
   private async ensureTables(tenantDB: TenantDatabase): Promise<void> {
     const createTableQuery = `
-      CREATE TABLE IF NOT EXISTS \${schema}.${this.tableName} (
+      CREATE TABLE IF NOT EXISTS ${this.tableName} (
         id VARCHAR PRIMARY KEY,
         title VARCHAR NOT NULL,
         description TEXT,
@@ -105,18 +105,18 @@ class TasksService {
         is_active BOOLEAN DEFAULT TRUE
       )
     `;
-    
+
     await queryTenantSchema(tenantDB, createTableQuery);
-    
+
     // Criar índices para performance otimizada
     const indexes = [
-      `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_assigned_to ON \${schema}.${this.tableName}(assigned_to)`,
-      `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_status ON \${schema}.${this.tableName}(status)`,
-      `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_priority ON \${schema}.${this.tableName}(priority)`,
-      `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_project_id ON \${schema}.${this.tableName}(project_id)`,
-      `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_active ON \${schema}.${this.tableName}(is_active)`
+      `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_assigned_to ON ${this.tableName}(assigned_to)`,
+      `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_status ON ${this.tableName}(status)`,
+      `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_priority ON ${this.tableName}(priority)`,
+      `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_project_id ON ${this.tableName}(project_id)`,
+      `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_active ON ${this.tableName}(is_active)`
     ];
-    
+
     for (const indexQuery of indexes) {
       await queryTenantSchema(tenantDB, indexQuery);
     }
@@ -172,13 +172,13 @@ class TasksService {
     const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
 
     const tasksQuery = `
-      SELECT * FROM \${schema}.${this.tableName}
+      SELECT * FROM ${this.tableName}
       ${whereClause}
       ORDER BY created_at DESC
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
     `;
 
-    const countQuery = `SELECT COUNT(*) as total FROM \${schema}.${this.tableName} ${whereClause}`;
+    const countQuery = `SELECT COUNT(*) as total FROM ${this.tableName} ${whereClause}`;
 
     const [tasks, countResult] = await Promise.all([
       queryTenantSchema<Task>(tenantDB, tasksQuery, [...queryParams, limit, offset]),
@@ -200,7 +200,7 @@ class TasksService {
   async getTaskById(tenantDB: TenantDatabase, taskId: string): Promise<Task | null> {
     await this.ensureTables(tenantDB);
 
-    const query = `SELECT * FROM \${schema}.${this.tableName} WHERE id = $1 AND is_active = TRUE`;
+    const query = `SELECT * FROM ${this.tableName} WHERE id = $1 AND is_active = TRUE`;
     const result = await queryTenantSchema<Task>(tenantDB, query, [taskId]);
     return result[0] || null;
   }
@@ -284,32 +284,34 @@ class TasksService {
    * Obtém estatísticas das tarefas
    */
   async getTaskStats(tenantDB: TenantDatabase): Promise<{
-    total: string;
-    completed: string;
-    in_progress: string;
-    not_started: string;
-    urgent: string;
+    total: number;
+    completed: number;
+    in_progress: number;
+    not_started: number;
+    urgent: number;
   }> {
     await this.ensureTables(tenantDB);
 
     const query = `
       SELECT 
         COUNT(*) as total,
-        COUNT(CASE WHEN status = 'completed' THEN 1 END) as completed,
-        COUNT(CASE WHEN status = 'in_progress' THEN 1 END) as in_progress,
-        COUNT(CASE WHEN status = 'not_started' THEN 1 END) as not_started,
-        COUNT(CASE WHEN priority = 'urgent' THEN 1 END) as urgent
-      FROM \${schema}.${this.tableName}
+        COUNT(*) FILTER (WHERE status = 'completed') as completed,
+        COUNT(*) FILTER (WHERE status = 'in_progress') as in_progress,
+        COUNT(*) FILTER (WHERE status = 'not_started') as not_started,
+        COUNT(*) FILTER (WHERE priority = 'urgent') as urgent
+      FROM ${this.tableName}
       WHERE is_active = TRUE
     `;
 
     const result = await queryTenantSchema<any>(tenantDB, query);
-    return result[0] || {
-      total: '0',
-      completed: '0',
-      in_progress: '0',
-      not_started: '0',
-      urgent: '0'
+    const stats = result[0];
+
+    return {
+      total: parseInt(stats.total || '0'),
+      completed: parseInt(stats.completed || '0'),
+      in_progress: parseInt(stats.in_progress || '0'),
+      not_started: parseInt(stats.not_started || '0'),
+      urgent: parseInt(stats.urgent || '0')
     };
   }
 }

@@ -247,6 +247,44 @@ class ProjectsService {
     const project = await softDeleteInTenantSchema<Project>(tenantDB, this.tableName, projectId);
     return !!project;
   }
+
+  /**
+   * Obtém estatísticas dos projetos
+   */
+  async getProjectsStats(tenantDB: TenantDatabase): Promise<{
+    total: number;
+    contacted: number;
+    proposal: number;
+    won: number;
+    lost: number;
+    thisMonth: number;
+  }> {
+    await this.ensureTables(tenantDB);
+    
+    const query = `
+      SELECT 
+        COUNT(*) as total,
+        COUNT(*) FILTER (WHERE status = 'contacted') as contacted,
+        COUNT(*) FILTER (WHERE status = 'proposal') as proposal,
+        COUNT(*) FILTER (WHERE status = 'won') as won,
+        COUNT(*) FILTER (WHERE status = 'lost') as lost,
+        COUNT(*) FILTER (WHERE created_at >= DATE_TRUNC('month', NOW())) as this_month
+      FROM \${schema}.${this.tableName}
+      WHERE is_active = TRUE
+    `;
+    
+    const result = await queryTenantSchema<any>(tenantDB, query);
+    const stats = result[0];
+    
+    return {
+      total: parseInt(stats.total || '0'),
+      contacted: parseInt(stats.contacted || '0'),
+      proposal: parseInt(stats.proposal || '0'),
+      won: parseInt(stats.won || '0'),
+      lost: parseInt(stats.lost || '0'),
+      thisMonth: parseInt(stats.this_month || '0')
+    };
+  }
 }
 
 export const projectsService = new ProjectsService();

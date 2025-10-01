@@ -1119,5 +1119,6 @@ export const tenantDB = {
     const schemaName = await database.ensureTenantSchema(tenantId, tenant.schemaName);
 
     return new TenantDatabase(tenantId, schemaName);
-  }
+  },
+  TenantDatabase
 };
