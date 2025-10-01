@@ -21,7 +21,7 @@ class ApiService {
 
   private async request(endpoint: string, options: RequestInit = {}) {
     const url = `${this.baseUrl}${endpoint}`;
-    
+
     const config: RequestInit = {
       ...options,
       headers: {
@@ -33,7 +33,7 @@ class ApiService {
 
     try {
       const response = await fetch(url, config);
-      
+
       if (response.status === 401) {
         // Token expired, try to refresh
         const refreshed = await this.refreshToken();
@@ -116,10 +116,10 @@ class ApiService {
       method: 'POST',
       body: JSON.stringify({ email, password }),
     });
-    
+
     this.setToken(response.tokens.accessToken);
     localStorage.setItem('refresh_token', response.tokens.refreshToken);
-    
+
     return response;
   }
 
@@ -128,10 +128,10 @@ class ApiService {
       method: 'POST',
       body: JSON.stringify({ email, password, name, key }),
     });
-    
+
     this.setToken(response.tokens.accessToken);
     localStorage.setItem('refresh_token', response.tokens.refreshToken);
-    
+
     return response;
   }
 
@@ -329,10 +329,10 @@ class ApiService {
     return this.request(`/dashboard/chart-data?period=${period}`);
   }
 
-  // Notifications
+  // Notifications endpoints
   async getNotifications(params: any = {}) {
-    const query = new URLSearchParams(params).toString();
-    return this.request(`/notifications?${query}`);
+    const queryString = new URLSearchParams(params).toString();
+    return this.request(`/notifications?${queryString}`);
   }
 
   async getUnreadCount() {

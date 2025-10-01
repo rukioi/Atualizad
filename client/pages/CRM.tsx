@@ -3,6 +3,7 @@ import {
   createSafeOnOpenChange,
   createSafeDialogHandler,
 } from "@/lib/dialog-fix";
+import { useClients } from "@/hooks/useClients";
 import { DashboardLayout } from "@/components/Layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -292,7 +293,7 @@ export function CRM() {
   const [dealInitialStage, setDealInitialStage] = useState<
     DealStage | undefined
   >();
-  const [clients, setClients] = useState<Client[]>(mockClients);
+  const { clients, createClient, updateClient, deleteClient, isLoading: clientsLoading } = useClients();
   const [deals, setDeals] = useState<Deal[]>(mockDeals);
   const [selectedClients, setSelectedClients] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -395,53 +396,19 @@ export function CRM() {
     deals: filteredDeals.filter((deal) => deal.stage === stage.id),
   }));
 
-  const handleSubmitClient = (data: any) => {
-    if (editingClient) {
-      setClients(
-        clients.map((client) =>
-          client.id === editingClient.id
-            ? { ...client, ...data, updatedAt: new Date().toISOString() }
-            : client,
-        ),
-      );
-      setEditingClient(undefined);
-    } else {
-      const newClient: Client = {
-        ...data,
-        id: Date.now().toString(),
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        status: "active" as const,
-      };
-      setClients([...clients, newClient]);
-
-      // NOVIDADE: Enviar notificação quando novo cliente for cadastrado
-      // Em produção, isso seria uma chamada para API de notificações
-      console.log("📢 NOTIFICAÇÃO ENVIADA: Novo cliente cadastrado", {
-        type: "info",
-        title: "Novo Cliente Cadastrado",
-        message: `${newClient.name} foi adicionado ao CRM`,
-        category: "client",
-        createdBy: "Usuário Atual", // Em produção: pegar do contexto de auth
-        clientData: {
-          id: newClient.id,
-          name: newClient.name,
-          email: newClient.email,
-          tags: newClient.tags,
-        },
-      });
-
-      // FUTURO: Integração com sistema de notificações
-      // await NotificationService.create({
-      //   type: 'client_created',
-      //   title: 'Novo Cliente Cadastrado',
-      //   message: `${newClient.name} foi adicionado ao CRM`,
-      //   entityId: newClient.id,
-      //   entityType: 'client',
-      //   userId: currentUser.id
-      // });
+  const handleSubmitClient = async (data: any) => {
+    try {
+      if (editingClient) {
+        await updateClient(editingClient.id, data);
+        setEditingClient(undefined);
+      } else {
+        await createClient(data);
+      }
+      setShowClientForm(false);
+    } catch (error) {
+      console.error('Erro ao salvar cliente:', error);
+      // Mostrar toast de erro aqui se necessário
     }
-    setShowClientForm(false);
   };
 
   const handleSelectClient = (clientId: string) => {
@@ -463,9 +430,13 @@ export function CRM() {
     setShowClientForm(true);
   };
 
-  const handleDeleteClient = (clientId: string) => {
-    setClients(clients.filter((client) => client.id !== clientId));
-    setSelectedClients(selectedClients.filter((id) => id !== clientId));
+  const handleDeleteClient = async (clientId: string) => {
+    try {
+      await deleteClient(clientId);
+      setSelectedClients(selectedClients.filter((id) => id !== clientId));
+    } catch (error) {
+      console.error('Erro ao excluir cliente:', error);
+    }
   };
 
   const handleViewClient = (client: Client) => {
@@ -543,34 +514,42 @@ export function CRM() {
       };
       setDeals([...deals, newDeal]);
 
-      // NOVIDADE: Enviar notificação quando novo negócio for adicionado ao Pipeline
-      // Em produção, isso seria uma chamada para API de notificações
-      console.log("📢 NOTIFICAÇÃO ENVIADA: Novo negócio no pipeline", {
-        type: "info",
-        title: "Novo Negócio Adicionado",
-        message: `${newDeal.title} foi adicionado ao Pipeline de Vendas`,
-        category: "pipeline",
-        createdBy: "Usuário Atual", // Em produção: pegar do contexto de auth
-        dealData: {
-          id: newDeal.id,
-          title: newDeal.title,
-          contactName: newDeal.contactName,
-          stage: newDeal.stage,
-          budget: newDeal.budget,
-          tags: newDeal.tags,
-        },
-      });
+      // ✅ IMPLEMENTAÇÃO: Criar notificação real para novo negócio
+      try {
+        const response = await fetch('/api/notifications', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          },
+          body: JSON.stringify({
+            type: 'project',
+            title: 'Novo Negócio no Pipeline',
+            message: `${newDeal.title} foi adicionado ao Pipeline de Vendas`,
+            payload: {
+              dealId: newDeal.id,
+              dealTitle: newDeal.title,
+              contactName: newDeal.contactName,
+              stage: newDeal.stage,
+              budget: newDeal.budget,
+              tags: newDeal.tags,
+              action: 'deal_created'
+            },
+            link: '/crm?tab=pipeline'
+          }),
+        });
 
-      // FUTURO: Integração com sistema de notificações
-      // await NotificationService.create({
-      //   type: 'deal_created',
-      //   title: 'Novo Negócio Adicionado',
-      //   message: `${newDeal.title} foi adicionado ao Pipeline de Vendas`,
-      //   entityId: newDeal.id,
-      //   entityType: 'deal',
-      //   userId: currentUser.id,
-      //   metadata: { stage: newDeal.stage, budget: newDeal.budget }
-      // });
+        if (!response.ok) {
+          console.warn('Falha ao criar notificação de negócio:', await response.text());
+        } else {
+          console.log("✅ NOTIFICAÇÃO CRIADA: Novo negócio no pipeline", {
+            dealTitle: newDeal.title,
+            dealId: newDeal.id
+          });
+        }
+      } catch (error) {
+        console.error('Erro ao criar notificação de negócio:', error);
+      }
     }
     setShowDealForm(false);
     setDealInitialStage(undefined);

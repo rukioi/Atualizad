@@ -120,7 +120,7 @@ export function NotificationsPanel() {
       case 'task':
         return <Calendar className="h-4 w-4 text-orange-500" />;
       case 'client':
-        return <Users className="h-4 w-4 text-blue-500" />;
+        return <Users className="h-4 w-4 text-green-500" />;
       case 'project':
         return <FileText className="h-4 w-4 text-purple-500" />;
       default:

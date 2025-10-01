@@ -25,6 +25,25 @@ export function useClients() {
   const createClient = async (data: any) => {
     try {
       const response = await apiService.createClient(data);
+      
+      // Criar notificação após sucesso
+      try {
+        await apiService.createNotification({
+          type: 'client',
+          title: 'Novo Cliente Cadastrado',
+          message: `${data.name} foi adicionado ao CRM`,
+          payload: {
+            clientId: response.client?.id,
+            clientName: data.name,
+            clientEmail: data.email,
+            action: 'client_created'
+          },
+          link: '/crm'
+        });
+      } catch (notifError) {
+        console.warn('Falha ao criar notificação:', notifError);
+      }
+      
       await loadClients(); // Reload list
       return response;
     } catch (err) {
