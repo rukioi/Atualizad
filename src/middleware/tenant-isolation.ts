@@ -59,7 +59,7 @@ export const validateTenantAccess = async (req: TenantRequest, res: Response, ne
     };
 
     console.log('Tenant access validated:', {
-      userId: user.userId,
+      userId: user?.userId || user?.id,
       tenantId: tenant.id,
       tenantName: tenant.name,
       accountType: user.accountType

@@ -74,7 +74,7 @@ export class DashboardService {
   /**
    * Obtém métricas agregadas do dashboard
    */
-  async getDashboardMetrics(tenantId: string, userId: string, accountType: 'SIMPLES' | 'COMPOSTA' | 'GERENCIAL'): Promise<DashboardMetrics> {
+  async getDashboardMetrics(tenantId: string, userId: string | undefined, accountType: 'SIMPLES' | 'COMPOSTA' | 'GERENCIAL'): Promise<DashboardMetrics> {
     try {
       console.log(`=== DASHBOARD METRICS REQUEST ===`);
       console.log(`Tenant ID: ${tenantId}`);
@@ -85,7 +85,8 @@ export class DashboardService {
         throw new Error('TenantId is required for dashboard metrics');
       }
       if (!userId) {
-        throw new Error('UserId is required for dashboard metrics');
+        console.warn('Dashboard metrics requested without userId, using tenant-wide metrics');
+        // Continue without userId for tenant-wide metrics
       }
       if (!accountType) {
         throw new Error('AccountType is required for dashboard metrics');
@@ -166,7 +167,7 @@ export class DashboardService {
   /**
    * Obtém atividades recentes do usuário
    */
-  async getRecentActivity(tenantId: string, userId: string, limit: number = 10): Promise<RecentActivity[]> {
+  async getRecentActivity(tenantId: string, userId: string | undefined, limit: number = 10): Promise<RecentActivity[]> {
     try {
       console.log(`Getting recent activity for tenant: ${tenantId}, user: ${userId}`);
 
@@ -174,7 +175,8 @@ export class DashboardService {
         throw new Error('TenantId is required for recent activity');
       }
       if (!userId) {
-        throw new Error('UserId is required for recent activity');
+        console.warn('Recent activity requested without userId, returning empty array');
+        return [];
       }
 
       const activities: RecentActivity[] = [];
@@ -375,32 +377,32 @@ export class DashboardService {
     // For demonstration, we'll assume `tenantDB.executeInTenantSchema` handles the connection.
     // If `tenantDB.executeInTenantSchema` requires a pre-established connection object,
     // you'd return that object here.
-    
+
     // Simulate a delay or async operation
     await new Promise(resolve => setTimeout(resolve, 50)); 
 
     // Mocking the return value assuming tenantDB.executeInTenantSchema will use the tenantId internally
     // or that this function is meant to return something that can be used to get the schema name.
     // If tenantDB itself is the object that has executeInTenantSchema, then this might just return tenantDB.
-    
+
     // If tenantDB is an object that already has executeInTenantSchema, and schema name retrieval is separate:
     // return {
     //     execute: async (query: string, params: any[]) => await tenantDB.executeInTenantSchema(tenantId, query, params),
     //     getSchema: () => tenantDB.getSchemaName(tenantId)
     // };
-    
+
     // Given the usage in private methods: `${tenantDB.getSchemaName(tenantId)}.${tableName}`
     // It seems `tenantDB` is an object that has both `executeInTenantSchema` and `getSchemaName`.
     // So, we might not need to return anything specific from `getTenantDatabase` if `tenantDB` is already imported and configured.
     // Let's assume `tenantDB` is globally accessible and configured.
-    
+
     // If `getTenantDatabase` is truly needed to *initialize* something for the tenant:
     // return { execute: async (q, p) => tenantDB.executeInTenantSchema(tenantId, q, p), getSchema: () => tenantDB.getSchemaName(tenantId) };
 
     // For the current structure, it seems `tenantDB` is directly used, so this method might just confirm existence or setup.
     // If `tenantDB.executeInTenantSchema` requires a connection object, this method would return it.
     // Let's refine based on common patterns: assume `tenantDB` is the module/object providing the execution.
-    
+
     // If `tenantDB` is a module that handles connections internally per call to `executeInTenantSchema`:
     if (tenantId) {
         // Simulate successful initialization check

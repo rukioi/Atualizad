@@ -165,7 +165,8 @@ export class AdminController {
           // Count users for this tenant
           let userCount = 0;
           try {
-            const users = await database.prisma.user.findMany({
+            const { prisma } = await import('../config/database');
+            const users = await prisma.user.findMany({
               where: { tenantId: tenant.id, isActive: true }
             });
             userCount = users.length;
@@ -175,8 +176,7 @@ export class AdminController {
 
           try {
             // First check if schema exists before querying
-            const { TenantDatabase } = await import('../config/database');
-            const tenantDB = new TenantDatabase(tenant.id);
+            const { prisma } = await import('../config/database');
             
             const schemaCheckQuery = `
               SELECT EXISTS(
@@ -185,28 +185,29 @@ export class AdminController {
               ) as schema_exists
             `;
             
-            const schemaCheck = await tenantDB.query(schemaCheckQuery, [tenant.schemaName]);
+            const schemaCheckResult = await prisma.$queryRawUnsafe(schemaCheckQuery, tenant.schemaName);
+            const schemaExists = schemaCheckResult?.[0]?.schema_exists;
             
-            if (schemaCheck?.rows?.[0]?.schema_exists) {
+            if (schemaExists) {
               // Only query stats if schema exists
               const statsQuery = `
                 SELECT 
-                  COALESCE((SELECT COUNT(*) FROM ${tenant.schemaName}.clients WHERE is_active = true), 0) as clients,
-                  COALESCE((SELECT COUNT(*) FROM ${tenant.schemaName}.projects WHERE is_active = true), 0) as projects,
-                  COALESCE((SELECT COUNT(*) FROM ${tenant.schemaName}.tasks WHERE is_active = true), 0) as tasks,
-                  COALESCE((SELECT COUNT(*) FROM ${tenant.schemaName}.transactions WHERE is_active = true), 0) as transactions,
-                  COALESCE((SELECT COUNT(*) FROM ${tenant.schemaName}.invoices WHERE is_active = true), 0) as invoices
+                  COALESCE((SELECT COUNT(*) FROM "${tenant.schemaName}".clients WHERE is_active = true), 0)::int as clients,
+                  COALESCE((SELECT COUNT(*) FROM "${tenant.schemaName}".projects WHERE is_active = true), 0)::int as projects,
+                  COALESCE((SELECT COUNT(*) FROM "${tenant.schemaName}".tasks WHERE is_active = true), 0)::int as tasks,
+                  COALESCE((SELECT COUNT(*) FROM "${tenant.schemaName}".transactions WHERE is_active = true), 0)::int as transactions,
+                  COALESCE((SELECT COUNT(*) FROM "${tenant.schemaName}".invoices WHERE is_active = true), 0)::int as invoices
               `;
 
-              const result = await tenantDB.query(statsQuery);
+              const result = await prisma.$queryRawUnsafe(statsQuery);
 
-              if (result && result.rows && result.rows[0]) {
+              if (result && result[0]) {
                 stats = {
-                  clients: parseInt(result.rows[0].clients || '0'),
-                  projects: parseInt(result.rows[0].projects || '0'),
-                  tasks: parseInt(result.rows[0].tasks || '0'),
-                  transactions: parseInt(result.rows[0].transactions || '0'),
-                  invoices: parseInt(result.rows[0].invoices || '0'),
+                  clients: result[0].clients || 0,
+                  projects: result[0].projects || 0,
+                  tasks: result[0].tasks || 0,
+                  transactions: result[0].transactions || 0,
+                  invoices: result[0].invoices || 0,
                 };
               }
             }
@@ -259,8 +260,9 @@ export class AdminController {
 
       // Criar schema e tabelas para o tenant
       try {
-        // TODO: Implementar criação de schema para tenant
-        console.log(`Schema should be created for tenant: ${tenant.schemaName}`);
+        console.log(`Creating schema for tenant: ${tenant.schemaName}`);
+        await this.createTenantSchema(tenant.id, tenant.schemaName);
+        console.log(`Schema created successfully for tenant: ${tenant.schemaName}`);
       } catch (schemaError) {
         console.error('Error creating tenant schema:', schemaError);
         // Se falhou ao criar schema, remover o tenant criado
@@ -413,6 +415,103 @@ export class AdminController {
       res.status(500).json({
         error: 'Failed to fetch global metrics',
       });
+    }
+  }
+
+  // Helper method to create tenant schema
+  private async createTenantSchema(tenantId: string, schemaName: string) {
+    try {
+      const { prisma } = await import('../config/database');
+      
+      // Create schema
+      await prisma.$executeRawUnsafe(`CREATE SCHEMA IF NOT EXISTS "${schemaName}"`);
+      console.log(`Schema ${schemaName} created successfully`);
+
+      // Create tables in the tenant schema
+      const createTablesSQL = `
+        -- Clients table
+        CREATE TABLE IF NOT EXISTS "${schemaName}".clients (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          name VARCHAR(255) NOT NULL,
+          email VARCHAR(255),
+          phone VARCHAR(50),
+          cpf_cnpj VARCHAR(20),
+          address TEXT,
+          notes TEXT,
+          is_active BOOLEAN DEFAULT true,
+          created_at TIMESTAMPTZ DEFAULT NOW(),
+          updated_at TIMESTAMPTZ DEFAULT NOW()
+        );
+
+        -- Projects table
+        CREATE TABLE IF NOT EXISTS "${schemaName}".projects (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          name VARCHAR(255) NOT NULL,
+          description TEXT,
+          client_id UUID,
+          status VARCHAR(50) DEFAULT 'proposal',
+          priority VARCHAR(20) DEFAULT 'medium',
+          progress INTEGER DEFAULT 0,
+          estimated_value DECIMAL(12,2),
+          start_date DATE,
+          end_date DATE,
+          is_active BOOLEAN DEFAULT true,
+          created_at TIMESTAMPTZ DEFAULT NOW(),
+          updated_at TIMESTAMPTZ DEFAULT NOW()
+        );
+
+        -- Tasks table
+        CREATE TABLE IF NOT EXISTS "${schemaName}".tasks (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          title VARCHAR(255) NOT NULL,
+          description TEXT,
+          project_id UUID,
+          assigned_to VARCHAR(255),
+          status VARCHAR(50) DEFAULT 'not_started',
+          priority VARCHAR(20) DEFAULT 'medium',
+          due_date DATE,
+          is_active BOOLEAN DEFAULT true,
+          created_at TIMESTAMPTZ DEFAULT NOW(),
+          updated_at TIMESTAMPTZ DEFAULT NOW()
+        );
+
+        -- Transactions table
+        CREATE TABLE IF NOT EXISTS "${schemaName}".transactions (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          description VARCHAR(255) NOT NULL,
+          amount DECIMAL(12,2) NOT NULL,
+          type VARCHAR(20) NOT NULL CHECK (type IN ('income', 'expense')),
+          category VARCHAR(100),
+          date DATE NOT NULL,
+          project_id UUID,
+          client_id UUID,
+          is_active BOOLEAN DEFAULT true,
+          created_at TIMESTAMPTZ DEFAULT NOW(),
+          updated_at TIMESTAMPTZ DEFAULT NOW()
+        );
+
+        -- Invoices table
+        CREATE TABLE IF NOT EXISTS "${schemaName}".invoices (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          number VARCHAR(50) NOT NULL,
+          client_id UUID,
+          project_id UUID,
+          amount DECIMAL(12,2) NOT NULL,
+          due_date DATE NOT NULL,
+          status VARCHAR(20) DEFAULT 'pending',
+          description TEXT,
+          is_active BOOLEAN DEFAULT true,
+          created_at TIMESTAMPTZ DEFAULT NOW(),
+          updated_at TIMESTAMPTZ DEFAULT NOW()
+        );
+      `;
+
+      await prisma.$executeRawUnsafe(createTablesSQL);
+      console.log(`Tables created successfully in schema ${schemaName}`);
+
+    } catch (error) {
+      console.error(`Error creating schema ${schemaName}:`, error);
+      throw error;
     }
   }
 }
