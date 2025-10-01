@@ -434,17 +434,8 @@ export class AdminController {
 
       const tenant = await database.createTenant(tenantData);
 
-      // Criar schema e tabelas para o tenant
-      try {
-        console.log(`Creating schema for tenant: ${tenant.schemaName}`);
-        await this.createTenantSchema(tenant.id, tenant.schemaName);
-        console.log(`Schema created successfully for tenant: ${tenant.schemaName}`);
-      } catch (schemaError) {
-        console.error('Error creating tenant schema:', schemaError);
-        // Se falhou ao criar schema, remover o tenant criado
-        await database.deleteTenant(tenant.id);
-        throw new Error('Failed to create tenant schema');
-      }
+      // Schema já foi criado pela função ensureTenantSchema no database.createTenant
+      console.log(`Schema created successfully for tenant: ${tenant.schemaName}`);
 
       res.status(201).json({
         message: 'Tenant created successfully',
