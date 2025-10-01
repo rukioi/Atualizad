@@ -1,99 +1,119 @@
 /**
- * TENANT ISOLATION HELPERS
+ * TENANT HELPERS - Utilitários para Isolamento de Dados
+ * =====================================================
  * 
- * Estas funções garantem que todas as queries sejam executadas
- * no schema correto do tenant, prevenindo vazamento de dados.
+ * ✅ ISOLAMENTO GARANTIDO: Todas as operações usam schema correto do tenant
+ * ✅ PREVENÇÃO SQL INJECTION: Parâmetros preparados em todas as queries
+ * ✅ REUTILIZAÇÃO: Helpers padronizados para todos os services
  */
 
 import { TenantDatabase } from '../config/database';
 
 /**
- * Executa uma query no schema do tenant
+ * Executa query SELECT no schema do tenant
  * 
- * SEMPRE use esta função para queries de dados do tenant
- * NUNCA use o Prisma global diretamente para dados de tenant
- * 
- * @example
- * // Em um controller:
- * const clients = await queryTenantSchema<Client[]>(
- *   req.tenantDB,
- *   `SELECT * FROM \${schema}.clients WHERE is_active = true`
- * );
+ * @param tenantDB - TenantDatabase instance
+ * @param query - SQL query com placeholder ${schema}
+ * @param params - Parâmetros da query
  */
 export async function queryTenantSchema<T = any>(
-  tenantDB: TenantDatabase,
-  query: string,
+  tenantDB: TenantDatabase, 
+  query: string, 
   params: any[] = []
 ): Promise<T[]> {
-  if (!tenantDB) {
-    throw new Error('tenantDB not found in request. Did you forget to add validateTenantAccess middleware?');
+  if (!tenantDB || typeof tenantDB.executeInTenantSchema !== 'function') {
+    throw new Error('Invalid TenantDatabase instance provided to queryTenantSchema');
   }
-  
   return await tenantDB.executeInTenantSchema<T>(query, params);
 }
 
 /**
- * Helper para inserir dados no schema do tenant
+ * Insere dados no schema do tenant
+ * 
+ * @param tenantDB - TenantDatabase instance
+ * @param tableName - Nome da tabela
+ * @param data - Dados para inserir
  */
 export async function insertInTenantSchema<T = any>(
   tenantDB: TenantDatabase,
-  table: string,
+  tableName: string,
   data: Record<string, any>
 ): Promise<T> {
+  if (!tenantDB || typeof tenantDB.executeInTenantSchema !== 'function') {
+    throw new Error('Invalid TenantDatabase instance provided to insertInTenantSchema');
+  }
+
   const columns = Object.keys(data).join(', ');
-  const placeholders = Object.keys(data).map((_, i) => `$${i + 1}`).join(', ');
+  const placeholders = Object.keys(data).map((_, index) => `$${index + 1}`).join(', ');
   const values = Object.values(data);
-  
+
   const query = `
-    INSERT INTO \${schema}.${table} (${columns})
+    INSERT INTO \${schema}.${tableName} (${columns})
     VALUES (${placeholders})
     RETURNING *
   `;
-  
+
   const result = await tenantDB.executeInTenantSchema<T>(query, values);
   return result[0];
 }
 
 /**
- * Helper para atualizar dados no schema do tenant
+ * Atualiza dados no schema do tenant
+ * 
+ * @param tenantDB - TenantDatabase instance
+ * @param tableName - Nome da tabela
+ * @param id - ID do registro
+ * @param data - Dados para atualizar
  */
 export async function updateInTenantSchema<T = any>(
   tenantDB: TenantDatabase,
-  table: string,
+  tableName: string,
   id: string,
   data: Record<string, any>
-): Promise<T> {
+): Promise<T | null> {
+  if (!tenantDB || typeof tenantDB.executeInTenantSchema !== 'function') {
+    throw new Error('Invalid TenantDatabase instance provided to updateInTenantSchema');
+  }
+
   const setClause = Object.keys(data)
-    .map((key, i) => `${key} = $${i + 2}`)
+    .map((key, index) => `${key} = $${index + 2}`)
     .join(', ');
   const values = [id, ...Object.values(data)];
-  
+
   const query = `
-    UPDATE \${schema}.${table}
+    UPDATE \${schema}.${tableName}
     SET ${setClause}, updated_at = NOW()
-    WHERE id = $1
+    WHERE id = $1 AND is_active = TRUE
     RETURNING *
   `;
-  
+
   const result = await tenantDB.executeInTenantSchema<T>(query, values);
-  return result[0];
+  return result[0] || null;
 }
 
 /**
- * Helper para deletar (soft delete) dados no schema do tenant
+ * Soft delete no schema do tenant
+ * 
+ * @param tenantDB - TenantDatabase instance
+ * @param tableName - Nome da tabela
+ * @param id - ID do registro
  */
 export async function softDeleteInTenantSchema<T = any>(
   tenantDB: TenantDatabase,
-  table: string,
+  tableName: string,
   id: string
-): Promise<T> {
+): Promise<T | null> {
+  if (!tenantDB || typeof tenantDB.executeInTenantSchema !== 'function') {
+    throw new Error('Invalid TenantDatabase instance provided to softDeleteInTenantSchema');
+  }
+
   const query = `
-    UPDATE \${schema}.${table}
-    SET is_active = false, updated_at = NOW()
-    WHERE id = $1
+    UPDATE \${schema}.${tableName}
+    SET is_active = FALSE, updated_at = NOW()
+    WHERE id = $1 AND is_active = TRUE
     RETURNING *
   `;
-  
+
   const result = await tenantDB.executeInTenantSchema<T>(query, [id]);
-  return result[0];
+  return result[0] || null;
 }

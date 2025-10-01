@@ -58,7 +58,7 @@ export const validateTenantAccess = async (req: TenantRequest, res: Response, ne
     };
 
     // CRÍTICO: Adicionar TenantDatabase ao request para isolamento real
-    req.tenantDB = new tenantDB.TenantDatabase(user.tenantId);
+    req.tenantDB = await tenantDB.getTenantDatabase(user.tenantId);
 
     console.log('Tenant access validated:', {
       userId: user?.userId || user?.id,
