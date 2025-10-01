@@ -96,22 +96,94 @@ export class AdminController {
       const tenantId = req.query.tenantId as string;
 
       const { registrationKeyService } = await import('../services/registrationKeyService');
-      const keys = await registrationKeyService.listKeys(tenantId);
+      const keys = await registrationKeyService.listKeysWithDetails(tenantId);
 
-      // Transform the data to match the expected format
-      const formattedKeys = keys.map(key => ({
-        id: key.id,
-        key: '***HIDDEN***', // Never return the actual key
-        accountType: key.account_type,
-        isUsed: key.uses_left === 0,
-        isRevoked: key.revoked,
-        usedBy: key.used_logs ? JSON.parse(key.used_logs)[0]?.email : null,
-        usedAt: key.used_logs ? JSON.parse(key.used_logs)[0]?.usedAt : null,
-        createdAt: key.created_at,
-        expiresAt: key.expires_at,
-        usesAllowed: key.uses_allowed,
-        usesLeft: key.uses_left,
-      }));
+      // Transform the data to match the expected format with complete information
+      const formattedKeys = await Promise.all(
+        keys.map(async (key: any) => {
+          let tenantInfo = null;
+          let userInfo = null;
+          let isActive = true;
+
+          // Get tenant information
+          if (key.tenant_id) {
+            try {
+              const tenants = await database.getAllTenants();
+              const tenant = tenants.rows.find((t: any) => t.id === key.tenant_id);
+              if (tenant) {
+                tenantInfo = {
+                  id: tenant.id,
+                  name: tenant.name,
+                  isActive: tenant.isActive
+                };
+              }
+            } catch (error) {
+              console.warn('Error fetching tenant info:', error);
+            }
+          }
+
+          // Check if key has been used by looking for users registered with this key
+          try {
+            const { prisma } = await import('../config/database');
+            
+            // Look for users created around the time this key was used
+            if (key.used_logs && key.used_logs !== '[]') {
+              const usedLogs = typeof key.used_logs === 'string' ? JSON.parse(key.used_logs) : key.used_logs;
+              if (Array.isArray(usedLogs) && usedLogs.length > 0) {
+                const lastUsage = usedLogs[usedLogs.length - 1];
+                if (lastUsage && lastUsage.email) {
+                  // Find the user by email
+                  const user = await prisma.user.findFirst({
+                    where: {
+                      email: lastUsage.email,
+                      tenantId: key.tenant_id
+                    }
+                  });
+                  
+                  if (user) {
+                    userInfo = {
+                      id: user.id,
+                      name: user.name,
+                      email: user.email,
+                      isActive: user.isActive,
+                      usedAt: lastUsage.usedAt || user.createdAt
+                    };
+                    isActive = false; // Key is used, so not active
+                  }
+                }
+              }
+            }
+          } catch (error) {
+            console.warn('Error checking key usage:', error);
+          }
+
+          // Determine if key is truly inactive (not used and not expired)
+          const isExpired = key.expires_at ? new Date(key.expires_at) < new Date() : false;
+          const isRevoked = key.revoked;
+          const hasNoUsesLeft = key.uses_left <= 0;
+          
+          isActive = !userInfo && !isExpired && !isRevoked && !hasNoUsesLeft;
+
+          return {
+            id: key.id,
+            key: '***HIDDEN***', // Never return the actual key
+            accountType: key.account_type,
+            isUsed: !!userInfo,
+            isRevoked: key.revoked,
+            isActive: isActive,
+            isExpired: isExpired,
+            usedBy: userInfo?.email || null,
+            usedAt: userInfo?.usedAt || null,
+            userInfo: userInfo,
+            tenantInfo: tenantInfo,
+            createdAt: key.created_at,
+            expiresAt: key.expires_at,
+            usesAllowed: key.uses_allowed,
+            usesLeft: key.uses_left,
+            status: userInfo ? 'USED' : (isExpired ? 'EXPIRED' : (isRevoked ? 'REVOKED' : 'ACTIVE'))
+          };
+        })
+      );
 
       res.json(formattedKeys);
     } catch (error) {
@@ -142,6 +214,69 @@ export class AdminController {
       console.error('Revoke registration key error:', error);
       res.status(500).json({
         error: error instanceof Error ? error.message : 'Failed to revoke registration key',
+      });
+    }
+  }
+
+  async deleteRegistrationKey(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+
+      if (!id) {
+        return res.status(400).json({
+          error: 'Registration key ID is required',
+        });
+      }
+
+      const { registrationKeyService } = await import('../services/registrationKeyService');
+      
+      // Verificar se a key está inativa antes de deletar
+      const keyDetails = await registrationKeyService.getKeyDetails(id);
+      
+      if (!keyDetails) {
+        return res.status(404).json({
+          error: 'Registration key not found',
+        });
+      }
+
+      // Verificar se a key foi usada
+      const { prisma } = await import('../config/database');
+      
+      let isUsed = false;
+      if (keyDetails.used_logs && keyDetails.used_logs !== '[]') {
+        const usedLogs = typeof keyDetails.used_logs === 'string' ? JSON.parse(keyDetails.used_logs) : keyDetails.used_logs;
+        if (Array.isArray(usedLogs) && usedLogs.length > 0) {
+          const lastUsage = usedLogs[usedLogs.length - 1];
+          if (lastUsage && lastUsage.email) {
+            // Verificar se existe usuário registrado com esta key
+            const user = await prisma.user.findFirst({
+              where: {
+                email: lastUsage.email,
+                tenantId: keyDetails.tenant_id
+              }
+            });
+            isUsed = !!user;
+          }
+        }
+      }
+
+      if (isUsed) {
+        return res.status(400).json({
+          error: 'Cannot delete registration key that has been used',
+          message: 'Esta key já foi utilizada para registrar um usuário e não pode ser deletada'
+        });
+      }
+
+      // Se chegou até aqui, a key está inativa e pode ser deletada
+      await registrationKeyService.deleteKey(id);
+
+      res.json({
+        message: 'Registration key deleted successfully',
+      });
+    } catch (error) {
+      console.error('Delete registration key error:', error);
+      res.status(500).json({
+        error: error instanceof Error ? error.message : 'Failed to delete registration key',
       });
     }
   }

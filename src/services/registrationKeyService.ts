@@ -58,8 +58,27 @@ export class RegistrationKeyService {
     return data;
   }
 
+  async listKeysWithDetails(tenantId?: string) {
+    const data = await database.getAllRegistrationKeys();
+    
+    if (tenantId) {
+      return data.filter(key => key.tenant_id === tenantId);
+    }
+    
+    return data;
+  }
+
+  async getKeyDetails(keyId: string) {
+    const keys = await database.getAllRegistrationKeys();
+    return keys.find(k => k.id === keyId);
+  }
+
   async revokeKey(keyId: string) {
     await database.revokeRegistrationKey(keyId);
+  }
+
+  async deleteKey(keyId: string) {
+    await database.deleteRegistrationKey(keyId);
   }
 
   async getKeyUsage(keyId: string) {
