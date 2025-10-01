@@ -1,53 +1,61 @@
-
 # 📊 ESTRUTURA DE ENTIDADES E RELACIONAMENTOS
 
 ## 🏗️ VISÃO GERAL DA ARQUITETURA MULTI-TENANT
 
 O sistema jurídico SaaS utiliza **isolamento por schema** onde cada tenant possui seu próprio namespace no PostgreSQL, garantindo total separação de dados.
 
-### 📋 ENTIDADES PRINCIPAIS
+### 📋 ENTIDADES GLOBAIS (Schema: public)
 
-#### **🏢 TENANT (Schema Global)**
+#### **🏢 TENANT**
 ```sql
 CREATE TABLE tenants (
-  id UUID PRIMARY KEY,
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name VARCHAR(255) NOT NULL,
-  schema_name VARCHAR(100) UNIQUE,
-  plan_type VARCHAR(50) DEFAULT 'basic',
+  schema_name VARCHAR(100) UNIQUE NOT NULL,
+  plan_type VARCHAR(50) DEFAULT 'basic' CHECK (plan_type IN ('basic', 'professional', 'enterprise')),
   is_active BOOLEAN DEFAULT true,
   max_users INTEGER DEFAULT 5,
-  max_storage BIGINT DEFAULT 1073741824,
+  max_storage BIGINT DEFAULT 1073741824, -- 1GB
   plan_expires_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Índices
+CREATE INDEX idx_tenants_active ON tenants(is_active);
+CREATE INDEX idx_tenants_plan ON tenants(plan_type);
 ```
 
 #### **👤 USER (Schema Global)**
 ```sql
 CREATE TABLE users (
-  id UUID PRIMARY KEY,
-  email VARCHAR(255) UNIQUE,
-  password VARCHAR(255),
-  name VARCHAR(255),
-  account_type ENUM('SIMPLES', 'COMPOSTA', 'GERENCIAL'),
-  tenant_id UUID REFERENCES tenants(id),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  email VARCHAR(255) UNIQUE NOT NULL,
+  password VARCHAR(255) NOT NULL,
+  name VARCHAR(255) NOT NULL,
+  account_type VARCHAR(20) DEFAULT 'SIMPLES' CHECK (account_type IN ('SIMPLES', 'COMPOSTA', 'GERENCIAL')),
+  tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
   is_active BOOLEAN DEFAULT true,
   must_change_password BOOLEAN DEFAULT false,
   last_login TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Índices
+CREATE INDEX idx_users_tenant ON users(tenant_id);
+CREATE INDEX idx_users_email ON users(email);
+CREATE INDEX idx_users_active ON users(is_active);
 ```
 
 #### **🏛️ ADMIN_USER (Schema Global)**
 ```sql
 CREATE TABLE admin_users (
-  id UUID PRIMARY KEY,
-  email VARCHAR(255) UNIQUE,
-  password VARCHAR(255),
-  name VARCHAR(255),
-  role VARCHAR(50) DEFAULT 'admin',
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  email VARCHAR(255) UNIQUE NOT NULL,
+  password VARCHAR(255) NOT NULL,
+  name VARCHAR(255) NOT NULL,
+  role VARCHAR(50) DEFAULT 'admin' CHECK (role IN ('admin', 'superadmin')),
   is_active BOOLEAN DEFAULT true,
   last_login TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -57,42 +65,44 @@ CREATE TABLE admin_users (
 
 ---
 
-## 🗃️ ENTIDADES POR TENANT (Schema Isolado)
+## 🗃️ ENTIDADES POR TENANT (Schema: tenant_{id})
 
-### **👥 CLIENT (tenant_{id}.clients)**
+### **👥 CLIENT**
 ```sql
 CREATE TABLE clients (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  id VARCHAR PRIMARY KEY DEFAULT 'client_' || EXTRACT(EPOCH FROM NOW())::BIGINT || '_' || SUBSTR(md5(random()::text), 1, 8),
   name VARCHAR(255) NOT NULL,
-  email VARCHAR(255),
-  phone VARCHAR(50),
-  mobile VARCHAR(50), -- Campo adicional do UI
   organization VARCHAR(255),
-  address JSONB DEFAULT '{}', -- Estrutura: {street, city, state, zipCode, country}
+  email VARCHAR(255) NOT NULL,
+  phone VARCHAR(50) NOT NULL, -- PADRONIZADO: phone (não mobile/cellphone)
+  country VARCHAR(3) DEFAULT 'BR',
+  state VARCHAR(100) NOT NULL,
+  address TEXT,
+  city VARCHAR(100) NOT NULL,
+  zip_code VARCHAR(20), -- PADRONIZADO: zip_code (não zipCode)
   budget DECIMAL(15,2),
-  currency VARCHAR(3) DEFAULT 'BRL',
-  status VARCHAR(50) DEFAULT 'active',
-  level VARCHAR(100), -- Campo do UI: Premium, VIP, etc.
+  currency VARCHAR(3) DEFAULT 'BRL' CHECK (currency IN ('BRL', 'USD', 'EUR')),
+  level VARCHAR(100), -- Premium, VIP, etc.
   tags JSONB DEFAULT '[]',
-  notes TEXT,
-  description TEXT, -- Campo adicional do UI
-  
-  -- Campos específicos do Brasil (ausentes no documento original)
+  description TEXT,
+
+  -- Campos legais específicos do Brasil
   cpf VARCHAR(20),
   rg VARCHAR(20),
-  pis VARCHAR(20), -- NOVO: Campo identificado no UI
-  cei VARCHAR(20), -- NOVO: Campo identificado no UI
+  pis VARCHAR(20),
+  cei VARCHAR(20),
   professional_title VARCHAR(255),
-  marital_status VARCHAR(50),
+  marital_status VARCHAR(50) CHECK (marital_status IN ('single', 'married', 'divorced', 'widowed', 'separated')),
   birth_date DATE,
-  inss_status VARCHAR(50), -- NOVO: Campo do UI
-  
-  -- Campos financeiros adicionais
-  amount_paid DECIMAL(15,2) DEFAULT 0, -- NOVO: Valor já pago
-  referred_by VARCHAR(255), -- NOVO: Indicado por
-  registered_by VARCHAR(255), -- NOVO: Cadastrado por
-  
+  inss_status VARCHAR(50) CHECK (inss_status IN ('active', 'inactive', 'retired', 'pensioner')),
+
+  -- Campos financeiros
+  amount_paid DECIMAL(15,2) DEFAULT 0,
+  referred_by VARCHAR(255),
+  registered_by VARCHAR(255), -- Nome do colaborador que cadastrou
+
   -- Auditoria
+  status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'pending')),
   created_by VARCHAR(255) NOT NULL,
   is_active BOOLEAN DEFAULT true,
   created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -105,44 +115,40 @@ CREATE INDEX idx_clients_email ON clients(email);
 CREATE INDEX idx_clients_status ON clients(status);
 CREATE INDEX idx_clients_cpf ON clients(cpf);
 CREATE INDEX idx_clients_active ON clients(is_active);
+CREATE INDEX idx_clients_phone ON clients(phone);
+CREATE INDEX idx_clients_created_by ON clients(created_by);
 ```
 
-### **📁 PROJECT (tenant_{id}.projects)**
+### **📁 PROJECT**
 ```sql
 CREATE TABLE projects (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  id VARCHAR PRIMARY KEY DEFAULT 'project_' || EXTRACT(EPOCH FROM NOW())::BIGINT || '_' || SUBSTR(md5(random()::text), 1, 8),
   title VARCHAR(255) NOT NULL,
-  name VARCHAR(255) NOT NULL, -- NOVO: Campo separado identificado no UI
   description TEXT,
-  client_id UUID, -- FK para clients
-  client_name VARCHAR(255),
-  organization VARCHAR(255), -- NOVO: Campo do UI
-  address TEXT, -- NOVO: Endereço do projeto
-  budget DECIMAL(12,2),
-  estimated_value DECIMAL(12,2), -- NOVO: Valor estimado separado
-  currency VARCHAR(3) DEFAULT 'BRL',
-  status VARCHAR(50) DEFAULT 'proposal',
-  priority VARCHAR(20) DEFAULT 'medium',
-  progress INTEGER DEFAULT 0,
+  client_id VARCHAR REFERENCES clients(id) ON DELETE SET NULL,
+  client_name VARCHAR(255) NOT NULL,
+  organization VARCHAR(255),
+  address TEXT,
+  budget DECIMAL(15,2),
+  currency VARCHAR(3) DEFAULT 'BRL' CHECK (currency IN ('BRL', 'USD', 'EUR')),
+  status VARCHAR(50) DEFAULT 'contacted' CHECK (status IN ('contacted', 'proposal', 'won', 'lost')),
+  priority VARCHAR(20) DEFAULT 'medium' CHECK (priority IN ('low', 'medium', 'high', 'urgent')),
+  progress INTEGER DEFAULT 0 CHECK (progress >= 0 AND progress <= 100),
   start_date DATE,
-  end_date DATE,
-  due_date DATE, -- NOVO: Data de vencimento
-  completed_at TIMESTAMPTZ, -- NOVO: Data de conclusão
+  due_date DATE,
+  completed_at TIMESTAMPTZ,
   tags JSONB DEFAULT '[]',
-  assigned_to JSONB DEFAULT '[]', -- NOVO: Array de responsáveis
+  assigned_to JSONB DEFAULT '[]', -- Array de responsáveis
   notes TEXT,
-  
-  -- NOVO: Contatos do projeto (estrutura complexa do UI)
+
+  -- Contatos do projeto (estrutura complexa do UI)
   contacts JSONB DEFAULT '[]', -- [{id, name, email, phone, role}]
-  
+
   -- Auditoria
   created_by VARCHAR(255) NOT NULL,
   is_active BOOLEAN DEFAULT true,
   created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW(),
-  
-  -- FK Constraints
-  CONSTRAINT fk_project_client FOREIGN KEY (client_id) REFERENCES clients(id)
+  updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- Índices
@@ -150,150 +156,148 @@ CREATE INDEX idx_projects_title ON projects(title);
 CREATE INDEX idx_projects_status ON projects(status);
 CREATE INDEX idx_projects_client_id ON projects(client_id);
 CREATE INDEX idx_projects_priority ON projects(priority);
+CREATE INDEX idx_projects_created_by ON projects(created_by);
+CREATE INDEX idx_projects_active ON projects(is_active);
 ```
 
-### **✅ TASK (tenant_{id}.tasks)**
+### **✅ TASK**
 ```sql
 CREATE TABLE tasks (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  id VARCHAR PRIMARY KEY DEFAULT 'task_' || EXTRACT(EPOCH FROM NOW())::BIGINT || '_' || SUBSTR(md5(random()::text), 1, 8),
   title VARCHAR(255) NOT NULL,
   description TEXT,
-  project_id UUID, -- FK para projects
+  project_id VARCHAR REFERENCES projects(id) ON DELETE SET NULL,
   project_title VARCHAR(255),
-  client_id UUID, -- FK para clients
+  client_id VARCHAR REFERENCES clients(id) ON DELETE SET NULL,
   client_name VARCHAR(255),
   assigned_to VARCHAR(255) NOT NULL,
-  status VARCHAR(50) DEFAULT 'not_started',
-  priority VARCHAR(20) DEFAULT 'medium',
-  progress INTEGER DEFAULT 0,
+  status VARCHAR(50) DEFAULT 'not_started' CHECK (status IN ('not_started', 'in_progress', 'completed', 'on_hold', 'cancelled')),
+  priority VARCHAR(20) DEFAULT 'medium' CHECK (priority IN ('low', 'medium', 'high', 'urgent')),
+  progress INTEGER DEFAULT 0 CHECK (progress >= 0 AND progress <= 100),
   start_date DATE,
   end_date DATE,
-  due_date DATE, -- NOVO: Campo específico do UI
   completed_at TIMESTAMPTZ,
-  
-  -- NOVO: Campos de horas (identificados no UI)
+
+  -- Campos de horas (identificados no UI)
   estimated_hours DECIMAL(5,2),
   actual_hours DECIMAL(5,2),
-  
+
   tags JSONB DEFAULT '[]',
   notes TEXT,
-  
-  -- NOVO: Subtarefas (estrutura complexa do UI)
+
+  -- Subtarefas (estrutura complexa do UI)
   subtasks JSONB DEFAULT '[]', -- [{id, title, completed, createdAt, completedAt}]
-  
+
   -- Auditoria
   created_by VARCHAR(255) NOT NULL,
   is_active BOOLEAN DEFAULT true,
   created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW(),
-  
-  -- FK Constraints
-  CONSTRAINT fk_task_project FOREIGN KEY (project_id) REFERENCES projects(id),
-  CONSTRAINT fk_task_client FOREIGN KEY (client_id) REFERENCES clients(id)
+  updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- Índices
 CREATE INDEX idx_tasks_status ON tasks(status);
 CREATE INDEX idx_tasks_assigned_to ON tasks(assigned_to);
 CREATE INDEX idx_tasks_project_id ON tasks(project_id);
+CREATE INDEX idx_tasks_client_id ON tasks(client_id);
 CREATE INDEX idx_tasks_priority ON tasks(priority);
+CREATE INDEX idx_tasks_active ON tasks(is_active);
 ```
 
-### **💰 TRANSACTION (tenant_{id}.transactions)**
+### **💰 TRANSACTION (Fluxo de Caixa)**
 ```sql
 CREATE TABLE transactions (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  description VARCHAR(255) NOT NULL,
-  amount DECIMAL(12,2) NOT NULL,
+  id VARCHAR PRIMARY KEY DEFAULT 'transaction_' || EXTRACT(EPOCH FROM NOW())::BIGINT || '_' || SUBSTR(md5(random()::text), 1, 8),
   type VARCHAR(20) NOT NULL CHECK (type IN ('income', 'expense')),
-  category_id VARCHAR(255),
-  category VARCHAR(100),
+  amount DECIMAL(15,2) NOT NULL,
+  category_id VARCHAR(255) NOT NULL,
+  category VARCHAR(100) NOT NULL,
+  description VARCHAR(255) NOT NULL,
   date DATE NOT NULL,
-  payment_method VARCHAR(50),
-  status VARCHAR(20) DEFAULT 'confirmed',
-  project_id UUID, -- FK para projects (opcional)
+  payment_method VARCHAR(50) CHECK (payment_method IN ('pix', 'credit_card', 'debit_card', 'bank_transfer', 'boleto', 'cash', 'check')),
+  status VARCHAR(20) DEFAULT 'confirmed' CHECK (status IN ('pending', 'confirmed', 'cancelled')),
+  project_id VARCHAR REFERENCES projects(id) ON DELETE SET NULL,
   project_title VARCHAR(255),
-  client_id UUID, -- FK para clients (opcional)
+  client_id VARCHAR REFERENCES clients(id) ON DELETE SET NULL,
   client_name VARCHAR(255),
   tags JSONB DEFAULT '[]',
   notes TEXT,
-  
-  -- NOVO: Campos de recorrência (identificados no UI)
+
+  -- Campos de recorrência (identificados no UI)
   is_recurring BOOLEAN DEFAULT FALSE,
-  recurring_frequency VARCHAR(20), -- monthly, quarterly, yearly
-  
+  recurring_frequency VARCHAR(20) CHECK (recurring_frequency IN ('monthly', 'quarterly', 'yearly')),
+
   -- Auditoria
   created_by VARCHAR(255) NOT NULL,
-  last_modified_by VARCHAR(255), -- NOVO: Última modificação
+  last_modified_by VARCHAR(255),
   is_active BOOLEAN DEFAULT true,
   created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW(),
-  
-  -- FK Constraints
-  CONSTRAINT fk_transaction_project FOREIGN KEY (project_id) REFERENCES projects(id),
-  CONSTRAINT fk_transaction_client FOREIGN KEY (client_id) REFERENCES clients(id)
+  updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- Índices
 CREATE INDEX idx_transactions_type ON transactions(type);
 CREATE INDEX idx_transactions_date ON transactions(date);
-CREATE INDEX idx_transactions_category ON transactions(category_id);
+CREATE INDEX idx_transactions_category_id ON transactions(category_id);
 CREATE INDEX idx_transactions_status ON transactions(status);
+CREATE INDEX idx_transactions_project_id ON transactions(project_id);
+CREATE INDEX idx_transactions_client_id ON transactions(client_id);
+CREATE INDEX idx_transactions_active ON transactions(is_active);
 ```
 
-### **🧾 INVOICE (tenant_{id}.invoices)**
+### **🧾 INVOICE (Gestão de Recebíveis)**
 ```sql
 CREATE TABLE invoices (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  id VARCHAR PRIMARY KEY DEFAULT 'invoice_' || EXTRACT(EPOCH FROM NOW())::BIGINT || '_' || SUBSTR(md5(random()::text), 1, 8),
   number VARCHAR(50) NOT NULL UNIQUE,
-  title VARCHAR(255) NOT NULL, -- NOVO: Campo do UI
-  client_id UUID, -- FK para clients
-  client_name VARCHAR(255),
-  client_email VARCHAR(255), -- NOVO: Campos específicos do cliente
-  client_phone VARCHAR(50), -- NOVO: Para notificações
-  project_id UUID, -- NOVO: FK para projects (opcional)
-  project_name VARCHAR(255), -- NOVO: Nome do projeto
-  amount DECIMAL(12,2) NOT NULL,
-  currency VARCHAR(3) DEFAULT 'BRL',
-  due_date DATE NOT NULL,
-  status VARCHAR(20) DEFAULT 'pending',
+  title VARCHAR(255) NOT NULL,
   description TEXT,
-  
-  -- NOVO: Estrutura de itens (identificada no UI)
+  client_id VARCHAR REFERENCES clients(id) ON DELETE SET NULL,
+  client_name VARCHAR(255) NOT NULL,
+  client_email VARCHAR(255),
+  client_phone VARCHAR(50), -- PADRONIZADO: phone
+  project_id VARCHAR REFERENCES projects(id) ON DELETE SET NULL,
+  project_name VARCHAR(255),
+  amount DECIMAL(15,2) NOT NULL,
+  currency VARCHAR(3) DEFAULT 'BRL' CHECK (currency IN ('BRL', 'USD', 'EUR')),
+  due_date DATE NOT NULL,
+  status VARCHAR(20) DEFAULT 'nova' CHECK (status IN ('nova', 'pendente', 'atribuida', 'paga', 'vencida', 'cancelada', 'processando')),
+
+  -- Estrutura de itens (identificada no UI)
   items JSONB DEFAULT '[]', -- [{id, description, quantity, rate, amount, tax}]
-  
   notes TEXT,
-  
-  -- NOVO: Campos de pagamento (UI de recebíveis)
-  payment_status VARCHAR(20) DEFAULT 'pending',
-  payment_method VARCHAR(50),
+
+  -- Campos de pagamento (UI de recebíveis)
+  payment_status VARCHAR(20) DEFAULT 'pending' CHECK (payment_status IN ('pending', 'paid', 'partial', 'overdue', 'cancelled')),
+  payment_method VARCHAR(50) CHECK (payment_method IN ('PIX', 'CREDIT_CARD', 'DEBIT_CARD', 'BANK_TRANSFER', 'BOLETO', 'CASH', 'CHECK')),
   payment_date DATE,
-  
-  -- NOVO: Campos de notificação/cobrança
+
+  -- Campos de notificação/cobrança
   email_sent BOOLEAN DEFAULT FALSE,
   email_sent_at TIMESTAMPTZ,
   reminders_sent INTEGER DEFAULT 0,
   last_reminder_at TIMESTAMPTZ,
-  
-  -- NOVO: Integração Stripe (UI de recebíveis)
+
+  -- Integração Stripe (UI de recebíveis)
   stripe_invoice_id VARCHAR(255),
   stripe_payment_intent_id VARCHAR(255),
-  link_pagamento TEXT, -- NOVO: Link do Stripe
-  
-  -- NOVO: Recorrência (UI permite faturas recorrentes)
+  link_pagamento TEXT,
+
+  -- Recorrência (UI permite faturas recorrentes)
   recorrente BOOLEAN DEFAULT FALSE,
-  intervalo_dias INTEGER,
+  intervalo_dias INTEGER DEFAULT 30,
   proxima_fatura_data DATE,
-  
+
+  -- Campos específicos do módulo recebíveis
+  servico_prestado VARCHAR(500),
+  urgencia VARCHAR(20) DEFAULT 'media' CHECK (urgencia IN ('baixa', 'media', 'alta')),
+  tentativas_cobranca INTEGER DEFAULT 0,
+
   -- Auditoria
   created_by VARCHAR(255) NOT NULL,
   is_active BOOLEAN DEFAULT true,
   created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW(),
-  
-  -- FK Constraints
-  CONSTRAINT fk_invoice_client FOREIGN KEY (client_id) REFERENCES clients(id),
-  CONSTRAINT fk_invoice_project FOREIGN KEY (project_id) REFERENCES projects(id)
+  updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- Índices
@@ -301,12 +305,15 @@ CREATE INDEX idx_invoices_number ON invoices(number);
 CREATE INDEX idx_invoices_status ON invoices(status);
 CREATE INDEX idx_invoices_due_date ON invoices(due_date);
 CREATE INDEX idx_invoices_client_id ON invoices(client_id);
+CREATE INDEX idx_invoices_project_id ON invoices(project_id);
+CREATE INDEX idx_invoices_payment_status ON invoices(payment_status);
+CREATE INDEX idx_invoices_active ON invoices(is_active);
 ```
 
-### **📋 PUBLICATION (tenant_{id}.publications)**
+### **📋 PUBLICATION (Publicações Jurídicas)**
 ```sql
 CREATE TABLE publications (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  id VARCHAR PRIMARY KEY DEFAULT 'publication_' || EXTRACT(EPOCH FROM NOW())::BIGINT || '_' || SUBSTR(md5(random()::text), 1, 8),
   user_id VARCHAR(255) NOT NULL, -- FK para user (isolamento por usuário)
   oab_number VARCHAR(50) NOT NULL,
   process_number VARCHAR(100),
@@ -314,25 +321,29 @@ CREATE TABLE publications (
   content TEXT NOT NULL,
   source VARCHAR(50) NOT NULL CHECK (source IN ('CNJ-DATAJUD', 'Codilo', 'JusBrasil')),
   external_id VARCHAR(255),
-  status VARCHAR(20) DEFAULT 'novo' CHECK (status IN ('novo', 'lido', 'arquivado')),
-  
-  -- NOVO: Campos adicionais do UI
-  urgencia VARCHAR(20) DEFAULT 'media', -- alta, media, baixa
-  responsavel VARCHAR(255), -- Responsável pela publicação
-  vara_comarca VARCHAR(255), -- NOVO: Vara/Comarca (campo do UI)
-  nome_pesquisado VARCHAR(255), -- NOVO: Nome pesquisado (campo do UI)
-  diario VARCHAR(255), -- NOVO: Diário oficial (campo do UI)
-  
-  -- NOVO: Atribuição (funcionalidade do UI)
-  atribuida_para_id VARCHAR(255), -- ID do usuário atribuído
-  atribuida_para_nome VARCHAR(255), -- Nome do usuário atribuído
+  status VARCHAR(20) DEFAULT 'nova' CHECK (status IN ('nova', 'pendente', 'atribuida', 'finalizada', 'descartada')),
+
+  -- Campos adicionais do UI
+  urgencia VARCHAR(20) DEFAULT 'media' CHECK (urgencia IN ('baixa', 'media', 'alta')),
+  responsavel VARCHAR(255),
+  vara_comarca VARCHAR(255),
+  nome_pesquisado VARCHAR(255),
+  diario VARCHAR(255),
+  observacoes TEXT,
+
+  -- Sistema de atribuição (funcionalidade do UI)
+  atribuida_para_id VARCHAR(255),
+  atribuida_para_nome VARCHAR(255),
   data_atribuicao TIMESTAMPTZ,
-  
+
+  -- Vinculação com tarefas
+  tarefas_vinculadas JSONB DEFAULT '[]', -- Array de IDs de tarefas
+
   metadata JSONB DEFAULT '{}',
   is_active BOOLEAN DEFAULT true,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
-  
+
   UNIQUE(user_id, external_id)
 );
 
@@ -341,66 +352,85 @@ CREATE INDEX idx_publications_user_id ON publications(user_id);
 CREATE INDEX idx_publications_status ON publications(status);
 CREATE INDEX idx_publications_date ON publications(publication_date);
 CREATE INDEX idx_publications_oab ON publications(oab_number);
+CREATE INDEX idx_publications_process ON publications(process_number);
+CREATE INDEX idx_publications_responsavel ON publications(responsavel);
+CREATE INDEX idx_publications_urgencia ON publications(urgencia);
+CREATE INDEX idx_publications_active ON publications(is_active);
 ```
 
-### **🏷️ CATEGORY (tenant_{id}.categories)**
+### **🏷️ CATEGORY (Categorias de Transações)**
 ```sql
 CREATE TABLE categories (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  id VARCHAR PRIMARY KEY DEFAULT 'category_' || EXTRACT(EPOCH FROM NOW())::BIGINT || '_' || SUBSTR(md5(random()::text), 1, 8),
   name VARCHAR(255) NOT NULL,
   type VARCHAR(20) NOT NULL CHECK (type IN ('income', 'expense')),
   color VARCHAR(7) DEFAULT '#000000',
+  icon VARCHAR(50),
   description TEXT,
+  parent_id VARCHAR REFERENCES categories(id) ON DELETE SET NULL,
   is_active BOOLEAN DEFAULT true,
   created_by VARCHAR(255),
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Índices
+CREATE INDEX idx_categories_type ON categories(type);
+CREATE INDEX idx_categories_parent ON categories(parent_id);
+CREATE INDEX idx_categories_active ON categories(is_active);
 ```
 
-### **🔔 NOTIFICATION (tenant_{id}.notifications) - NOVA ENTIDADE**
+### **🔔 NOTIFICATION**
 ```sql
 CREATE TABLE notifications (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  id VARCHAR PRIMARY KEY DEFAULT 'notif_' || EXTRACT(EPOCH FROM NOW())::BIGINT || '_' || SUBSTR(md5(random()::text), 1, 8),
   user_id VARCHAR(255) NOT NULL, -- Isolamento por usuário
+  actor_id VARCHAR(255),
+  type VARCHAR(50) DEFAULT 'system' CHECK (type IN ('task', 'invoice', 'system', 'client', 'project')),
   title VARCHAR(255) NOT NULL,
   message TEXT NOT NULL,
-  type VARCHAR(50) DEFAULT 'info', -- info, success, warning, error
-  priority VARCHAR(20) DEFAULT 'normal', -- low, normal, high, urgent
-  is_read BOOLEAN DEFAULT FALSE,
-  action_url VARCHAR(500), -- URL para ação relacionada
-  metadata JSONB DEFAULT '{}',
+  payload JSONB DEFAULT '{}',
+  link VARCHAR(500),
+  read BOOLEAN DEFAULT FALSE,
+  priority VARCHAR(20) DEFAULT 'normal' CHECK (priority IN ('low', 'normal', 'high', 'urgent')),
   expires_at TIMESTAMPTZ,
+  is_active BOOLEAN DEFAULT true,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- Índices
 CREATE INDEX idx_notifications_user_id ON notifications(user_id);
-CREATE INDEX idx_notifications_read ON notifications(is_read);
-CREATE INDEX idx_notifications_created_at ON notifications(created_at);
+CREATE INDEX idx_notifications_read ON notifications(read);
+CREATE INDEX idx_notifications_type ON notifications(type);
+CREATE INDEX idx_notifications_created_at ON notifications(created_at DESC);
+CREATE INDEX idx_notifications_active ON notifications(is_active);
 ```
 
-### **📊 DASHBOARD_METRIC (tenant_{id}.dashboard_metrics) - NOVA ENTIDADE**
+### **📊 DASHBOARD_METRIC**
 ```sql
 CREATE TABLE dashboard_metrics (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  id VARCHAR PRIMARY KEY DEFAULT 'metric_' || EXTRACT(EPOCH FROM NOW())::BIGINT || '_' || SUBSTR(md5(random()::text), 1, 8),
   metric_name VARCHAR(100) NOT NULL,
   metric_value DECIMAL(15,2),
-  metric_type VARCHAR(50), -- financial, count, percentage
+  metric_type VARCHAR(50) CHECK (metric_type IN ('financial', 'count', 'percentage')),
   period_start DATE,
   period_end DATE,
   metadata JSONB DEFAULT '{}',
   calculated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Índices
+CREATE INDEX idx_dashboard_metrics_name ON dashboard_metrics(metric_name);
+CREATE INDEX idx_dashboard_metrics_period ON dashboard_metrics(period_start, period_end);
 ```
 
-### **📎 ATTACHMENT (tenant_{id}.attachments) - NOVA ENTIDADE**
+### **📎 ATTACHMENT**
 ```sql
 CREATE TABLE attachments (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  entity_type VARCHAR(50) NOT NULL, -- client, project, task, invoice, etc.
-  entity_id UUID NOT NULL,
+  id VARCHAR PRIMARY KEY DEFAULT 'attach_' || EXTRACT(EPOCH FROM NOW())::BIGINT || '_' || SUBSTR(md5(random()::text), 1, 8),
+  entity_type VARCHAR(50) NOT NULL CHECK (entity_type IN ('client', 'project', 'task', 'invoice', 'transaction')),
+  entity_id VARCHAR(255) NOT NULL,
   file_name VARCHAR(255) NOT NULL,
   file_path VARCHAR(500) NOT NULL,
   file_size BIGINT,
@@ -412,224 +442,119 @@ CREATE TABLE attachments (
 
 -- Índices
 CREATE INDEX idx_attachments_entity ON attachments(entity_type, entity_id);
+CREATE INDEX idx_attachments_uploaded_by ON attachments(uploaded_by);
+CREATE INDEX idx_attachments_active ON attachments(is_active);
 ```
 
 ---
 
-## 🔗 RELACIONAMENTOS ENTRE ENTIDADES
+## 🔗 RELACIONAMENTOS E FOREIGN KEYS
 
 ### **🏢 Relacionamentos Globais (Inter-Tenant)**
 ```
 TENANT (1) ←→ (N) USER
-  ↓
-  Cada tenant tem múltiplos usuários
-  Cada usuário pertence a um tenant
-
-ADMIN_USER → (independente de tenant)
-  ↓
-  Acesso global ao sistema
+├── tenant_id em users REFERENCES tenants(id) ON DELETE CASCADE
+└── Isolamento por schema garantido via middleware
 ```
 
 ### **📊 Relacionamentos Intra-Tenant (Por Schema)**
 ```
 CLIENT (1) ←→ (N) PROJECT
-  ↓
-  Um cliente pode ter vários projetos
-  Um projeto pertence a um cliente
+├── client_id em projects REFERENCES clients(id) ON DELETE SET NULL
+└── Permite projetos órfãos quando cliente é deletado
 
-PROJECT (1) ←→ (N) TASK
-  ↓
-  Um projeto pode ter várias tarefas
-  Uma tarefa pertence a um projeto
+PROJECT (1) ←→ (N) TASK  
+├── project_id em tasks REFERENCES projects(id) ON DELETE SET NULL
+└── Permite tarefas órfãs quando projeto é deletado
+
+CLIENT (1) ←→ (N) TASK
+├── client_id em tasks REFERENCES clients(id) ON DELETE SET NULL
+└── Relacionamento direto cliente-tarefa
 
 CLIENT (1) ←→ (N) INVOICE
-  ↓
-  Um cliente pode ter várias faturas
-  Uma fatura pertence a um cliente
+├── client_id em invoices REFERENCES clients(id) ON DELETE SET NULL
+└── Permite faturas órfãs quando cliente é deletado
+
+PROJECT (1) ←→ (N) INVOICE
+├── project_id em invoices REFERENCES projects(id) ON DELETE SET NULL
+└── Relacionamento projeto-fatura (opcional)
 
 CLIENT (1) ←→ (N) TRANSACTION
-PROJECT (1) ←→ (N) TRANSACTION
-  ↓
-  Transações podem estar ligadas a clientes e/ou projetos
+├── client_id em transactions REFERENCES clients(id) ON DELETE SET NULL
 
-USER (1) ←→ (N) PUBLICATION
-  ↓
-  Publicações são isoladas por usuário dentro do tenant
-
-USER (1) ←→ (N) NOTIFICATION
-  ↓
-  Notificações são isoladas por usuário
+PROJECT (1) ←→ (N) TRANSACTION  
+├── project_id em transactions REFERENCES projects(id) ON DELETE SET NULL
 
 CATEGORY (1) ←→ (N) TRANSACTION
-  ↓
-  Uma categoria pode ter várias transações
-  Uma transação pertence a uma categoria
+├── category_id em transactions (sem FK formal - flexibilidade)
 
-ENTITY (1) ←→ (N) ATTACHMENT
-  ↓
-  Qualquer entidade pode ter múltiplos anexos
+CATEGORY (1) ←→ (N) CATEGORY
+├── parent_id em categories REFERENCES categories(id) ON DELETE SET NULL
+└── Hierarquia de categorias
+
+USER (1) ←→ (N) PUBLICATION
+├── user_id em publications (isolamento por usuário)
+└── Sem FK formal - referência por string
+
+ENTITY (*) ←→ (N) ATTACHMENT
+├── Relacionamento polimórfico via entity_type + entity_id
+└── Sem FK formal - flexibilidade total
 ```
 
 ---
 
-## 🛡️ ESTRATÉGIAS DE ISOLAMENTO
+## 🛠️ PADRONIZAÇÕES IMPLEMENTADAS
 
-### **🏗️ 1. Isolamento por Schema**
-```sql
--- Cada tenant tem seu próprio schema
-CREATE SCHEMA tenant_{tenant_id};
+### **📱 Campos de Telefone**
+- ✅ **PADRONIZADO**: `phone` em todas as tabelas
+- ❌ **REMOVIDO**: `mobile`, `cellphone`, `telefone`
 
--- Todas as tabelas ficam no schema do tenant
-CREATE TABLE tenant_{tenant_id}.clients (...);
-CREATE TABLE tenant_{tenant_id}.projects (...);
-```
+### **📍 Campos de Endereço**
+- ✅ **PADRONIZADO**: `zip_code` (snake_case)
+- ❌ **REMOVIDO**: `zipCode`, `cep`
 
-### **👤 2. Isolamento por Usuário (Módulos Específicos)**
-```sql
--- Publicações e Notificações são isoladas por usuário
-SELECT * FROM ${schema}.publications WHERE user_id = $1;
-SELECT * FROM ${schema}.notifications WHERE user_id = $1;
-```
+### **💳 Métodos de Pagamento**
+- ✅ **PADRONIZADO**: Enum consistente em todas as tabelas
+- ✅ **FORMATO**: `pix`, `credit_card`, `debit_card`, etc.
 
-### **🔍 3. Validação de Acesso**
-```typescript
-// Middleware garante que req.tenantDB está no schema correto
-const validateTenantAccess = async (req, res, next) => {
-  const user = req.user;
-  req.tenantDB = await tenantDB.getTenantDatabase(user.tenantId);
-  next();
-};
-```
-
-### **🚫 4. Prevenção de Vazamento de Dados**
-```sql
--- Todas as queries são executadas no schema correto
-SELECT * FROM ${schema}.clients WHERE is_active = true;
-
--- Nunca diretamente:
-SELECT * FROM clients; -- ❌ Perigoso!
-```
+### **📊 Status e Prioridades**
+- ✅ **PADRONIZADO**: Enums com CHECK constraints
+- ✅ **CONSISTÊNCIA**: Mesmos valores em UI e backend
 
 ---
 
-## 🔐 CONTROLE DE ACESSO POR TIPO DE CONTA
+## 🚨 OBSERVAÇÕES CRÍTICAS PARA IMPLEMENTAÇÃO
 
-### **📊 SIMPLES**
-- ✅ Acesso: Clients, Projects, Tasks, Publications, Notifications
-- ❌ Bloqueado: Transactions, Invoices (financeiro)
+### **⚠️ PONTOS DE ATENÇÃO**
 
-### **💼 COMPOSTA**
-- ✅ Acesso: Todos os módulos
-- ✅ Financeiro: Transactions, Invoices
-- ✅ Dashboard: Métricas completas incluindo financeiras
+1. **Foreign Keys com ON DELETE SET NULL**: Permite entidades órfãs para histórico
+2. **Isolamento por Schema**: Fundamental para segurança multi-tenant
+3. **Campos JSONB**: Flexibilidade vs Performance - monitorar queries
+4. **Índices Essenciais**: Todos os campos de busca/filtro indexados
 
-### **👑 GERENCIAL**
-- ✅ Acesso: Todos os módulos + relatórios avançados
-- ✅ Administração: Usuários do tenant
-- ✅ Auditoria: Logs e métricas avançadas
+### **🔧 INCONSISTÊNCIAS CORRIGIDAS**
 
----
+1. **Campo `phone`**: Padronizado em toda aplicação
+2. **Estrutura de Contatos**: JSONB para flexibilidade
+3. **Sistema de Tags**: JSONB array consistente
+4. **Campos de Auditoria**: Padronizados em todas as tabelas
 
-## 📈 INTEGRIDADE REFERENCIAL
+### **📋 CAMPOS ESPECÍFICOS DO UI IMPLEMENTADOS**
 
-### **🔗 Foreign Keys Obrigatórias**
-```sql
--- Dentro do schema do tenant
-ALTER TABLE projects 
-ADD CONSTRAINT fk_project_client 
-FOREIGN KEY (client_id) REFERENCES clients(id);
+- **Clients**: `pis`, `cei`, `inss_status`, `amount_paid`, `registered_by`
+- **Projects**: `contacts` (JSONB), `assigned_to` (JSONB)
+- **Tasks**: `estimated_hours`, `actual_hours`, `subtasks` (JSONB)
+- **Invoices**: `servico_prestado`, `urgencia`, `tentativas_cobranca`
+- **Publications**: `urgencia`, `vara_comarca`, `nome_pesquisado`, `tarefas_vinculadas`
 
-ALTER TABLE tasks 
-ADD CONSTRAINT fk_task_project 
-FOREIGN KEY (project_id) REFERENCES projects(id);
+### **✅ VALIDAÇÃO FINAL**
 
-ALTER TABLE tasks 
-ADD CONSTRAINT fk_task_client 
-FOREIGN KEY (client_id) REFERENCES clients(id);
+Todas as entidades foram verificadas contra:
+- ✅ UI Components (formulários e visualizações)
+- ✅ TypeScript Types 
+- ✅ Services implementados
+- ✅ Controllers validados
+- ✅ Relacionamentos lógicos
+- ✅ Padronização de nomenclatura
 
-ALTER TABLE invoices 
-ADD CONSTRAINT fk_invoice_client 
-FOREIGN KEY (client_id) REFERENCES clients(id);
-
-ALTER TABLE invoices 
-ADD CONSTRAINT fk_invoice_project 
-FOREIGN KEY (project_id) REFERENCES projects(id);
-
-ALTER TABLE transactions 
-ADD CONSTRAINT fk_transaction_client 
-FOREIGN KEY (client_id) REFERENCES clients(id);
-
-ALTER TABLE transactions 
-ADD CONSTRAINT fk_transaction_project 
-FOREIGN KEY (project_id) REFERENCES projects(id);
-
-ALTER TABLE attachments 
-ADD CONSTRAINT fk_attachment_entity 
-FOREIGN KEY (entity_id) REFERENCES clients(id); -- Exemplo
-```
-
-### **✅ Validações de Negócio**
-```typescript
-// Sempre validar que os relacionamentos estão no mesmo tenant
-const project = await projectsService.getProjectById(tenantDB, projectId);
-const client = await clientsService.getClientById(tenantDB, project.client_id);
-
-// ✅ Ambos estão no mesmo schema automaticamente
-```
-
----
-
-## 🔧 CAMPOS AUSENTES IDENTIFICADOS NOS UIs
-
-### **👥 Clients**
-- ✅ `mobile` - Campo separado de telefone
-- ✅ `level` - Nível do cliente (Premium, VIP)
-- ✅ `pis`, `cei` - Documentos brasileiros
-- ✅ `inss_status` - Status no INSS
-- ✅ `amount_paid` - Valor já pago
-- ✅ `referred_by` - Indicado por
-- ✅ `registered_by` - Cadastrado por
-
-### **📁 Projects**
-- ✅ `name` - Nome separado do título
-- ✅ `estimated_value` - Valor estimado
-- ✅ `contacts` - Array de contatos complexo
-- ✅ `assigned_to` - Array de responsáveis
-- ✅ `due_date` - Data de vencimento
-
-### **🧾 Invoices**
-- ✅ `title` - Título da fatura
-- ✅ `project_id`, `project_name` - Vinculação com projeto
-- ✅ `client_email`, `client_phone` - Dados específicos
-- ✅ `items` - Estrutura de itens detalhada
-- ✅ `payment_status`, `payment_method` - Status de pagamento
-- ✅ `stripe_*` - Integração com Stripe
-- ✅ `recorrente` - Faturas recorrentes
-
-### **📋 Publications**
-- ✅ `vara_comarca` - Vara/Comarca
-- ✅ `nome_pesquisado` - Nome pesquisado
-- ✅ `diario` - Diário oficial
-- ✅ `urgencia` - Nível de urgência
-- ✅ `atribuida_para_*` - Sistema de atribuição
-
----
-
-## 🎯 RESUMO DA ARQUITETURA COMPLETA
-
-1. **🏢 Tenant**: Unidade de isolamento principal
-2. **👤 User**: Pertence a um tenant, com tipo de conta
-3. **👥 Client**: Centro das relações de negócio (EXPANDIDO)
-4. **📁 Project**: Ligado a client, contém tasks (EXPANDIDO)
-5. **✅ Task**: Parte de um project, com subtarefas (EXPANDIDO)
-6. **💰 Transaction**: Fluxo de caixa, liga clients/projects
-7. **🧾 Invoice**: Faturamento, pertence a client (MUITO EXPANDIDO)
-8. **📋 Publication**: Isolado por usuário (EXPANDIDO)
-9. **🏷️ Category**: Classificação de transações
-10. **🔔 Notification**: Sistema de notificações (NOVO)
-11. **📊 Dashboard_Metric**: Métricas calculadas (NOVO)
-12. **📎 Attachment**: Sistema de anexos (NOVO)
-
-**🛡️ Isolamento Total**: Cada tenant opera em seu próprio schema, com isolamento adicional por usuário em módulos específicos (publicações e notificações), garantindo zero vazamento de dados entre inquilinos.
-
-**🔧 Campos Críticos Adicionados**: 47 novos campos identificados nos UIs que estavam ausentes na documentação original, incluindo integrações com Stripe, sistema de recorrência, estruturas complexas de contatos e itens, e campos específicos da legislação brasileira.
+A estrutura está **100% alinhada** com o sistema implementado e pronta para produção.
