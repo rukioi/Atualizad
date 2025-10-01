@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Scale, Eye, EyeOff, Mail, Lock, User, Key } from 'lucide-react';
+import { Scale, Eye, EyeOff, Mail, Lock, User, Key, AlertCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const loginSchema = z.object({
@@ -203,8 +203,9 @@ export function Login() {
               )}
 
               {errorMessage && (
-                <Alert className="mt-4 border-red-200 bg-red-50">
-                  <AlertDescription className="text-red-800">
+                <Alert variant="destructive" className={errorMessage.includes('Renove Sua Conta') ? 'border-orange-500 bg-orange-50' : ''}>
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription className={errorMessage.includes('Renove Sua Conta') ? 'text-orange-800 font-medium' : ''}>
                     {errorMessage}
                   </AlertDescription>
                 </Alert>

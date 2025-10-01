@@ -34,7 +34,7 @@ import { useAdminApi, Tenant } from '../hooks/useAdminApi';
 import { ApiConfigModal } from '../components/ApiConfigModal';
 
 export function AdminTenants() {
-  const { getTenants, deleteTenant } = useAdminApi();
+  const { getTenants, deleteTenant, toggleTenantStatus } = useAdminApi();
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [filteredTenants, setFilteredTenants] = useState<Tenant[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -100,24 +100,20 @@ export function AdminTenants() {
   };
 
   const handleToggleStatus = async (tenant: Tenant) => {
-    try {
-      const response = await fetch(`/api/admin/tenants/${tenant.id}/status`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('admin_access_token')}`,
-        },
-        body: JSON.stringify({ isActive: !tenant.isActive }),
-      });
+    const newStatus = !tenant.isActive;
+    const action = newStatus ? 'ativar' : 'desativar';
+    
+    if (!confirm(`Tem certeza que deseja ${action} o tenant "${tenant.name}"?\n\n${!newStatus ? 'ATENÇÃO: Todos os usuários deste tenant serão bloqueados e não conseguirão fazer login.' : 'Os usuários poderão fazer login normalmente.'}`)) {
+      return;
+    }
 
-      if (response.ok) {
-        await loadTenants(); // Reload tenants
-      } else {
-        throw new Error('Failed to toggle tenant status');
-      }
+    try {
+      setError(null);
+      await toggleTenantStatus(tenant.id, newStatus);
+      await loadTenants(); // Reload tenants
     } catch (err) {
       console.error('Failed to toggle tenant status:', err);
-      setError('Failed to toggle tenant status');
+      setError(err instanceof Error ? err.message : 'Failed to toggle tenant status');
     }
   };
   const getPlanBadgeColor = (planType: string) => {
@@ -267,9 +263,9 @@ export function AdminTenants() {
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => handleToggleStatus(tenant)}
-                                className={tenant.isActive ? 'text-red-600 hover:text-red-700' : 'text-green-600 hover:text-green-700'}
+                                className={tenant.isActive ? 'text-red-600 hover:text-red-700 hover:bg-red-50' : 'text-green-600 hover:text-green-700 hover:bg-green-50'}
                               >
-                                {tenant.isActive ? 'Deactivate' : 'Activate'}
+                                {tenant.isActive ? '🔒 Desativar' : '✅ Ativar'}
                               </Button>
                             </div>
                             {isExpired(tenant.planExpiresAt) && (

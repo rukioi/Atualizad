@@ -148,6 +148,19 @@ export function useAdminApi() {
     }
   };
 
+  const toggleTenantStatus = async (tenantId: string, isActive: boolean): Promise<Tenant> => {
+    setIsLoading(true);
+    try {
+      const data = await apiCall(`/tenants/${tenantId}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify({ isActive }),
+      });
+      return data.tenant;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const getRegistrationKeys = useCallback(async () => {
     try {
       const response = await apiCall('/keys');
@@ -233,6 +246,7 @@ export function useAdminApi() {
     createTenant,
     deleteTenant,
     updateTenant,
+    toggleTenantStatus,
     getRegistrationKeys,
     createRegistrationKey,
     revokeRegistrationKey,

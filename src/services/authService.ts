@@ -167,6 +167,22 @@ export class AuthService {
       throw new Error('Account is deactivated');
     }
 
+    // Verificar se o tenant está ativo
+    const tenantId = user.tenantId || user.tenant_id;
+    if (tenantId) {
+      const tenantsResult = await database.getAllTenants();
+      const tenants = Array.isArray(tenantsResult) ? tenantsResult : tenantsResult.rows || [];
+      const tenant = tenants.find((t: any) => t.id === tenantId);
+
+      if (!tenant) {
+        throw new Error('Tenant not found');
+      }
+
+      if (!tenant.isActive) {
+        throw new Error('Renove Sua Conta ou Entre em contato com o Administrador do Sistema');
+      }
+    }
+
     const isValidPassword = await this.verifyPassword(password, user.password);
     if (!isValidPassword) {
       throw new Error('Invalid credentials');

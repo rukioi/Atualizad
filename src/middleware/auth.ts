@@ -137,12 +137,18 @@ export const authenticateToken = async (req: AuthenticatedRequest, res: Response
 
       if (!tenant) {
         console.error('Tenant not found for user:', decoded.userId, 'tenantId:', decoded.tenantId);
-        return res.status(403).json({ error: 'Invalid tenant' });
+        return res.status(403).json({ 
+          error: 'Invalid tenant',
+          code: 'TENANT_NOT_FOUND'
+        });
       }
 
       if (!tenant.isActive) {
         console.error('Inactive tenant for user:', decoded.userId, 'tenantId:', decoded.tenantId);
-        return res.status(403).json({ error: 'Tenant is inactive' });
+        return res.status(403).json({ 
+          error: 'Renove Sua Conta ou Entre em contato com o Administrador do Sistema',
+          code: 'TENANT_INACTIVE'
+        });
       }
 
       req.tenantId = tenant.id;

@@ -342,8 +342,22 @@ export class AdminController {
       const { id } = req.params;
       const { isActive } = req.body;
 
-      // TODO: Implementar atualização real do status do tenant
-      const updatedTenant = await database.toggleTenantStatus(id, isActive);
+      console.log(`Toggling tenant status for ${id} to ${isActive}`);
+
+      // Validar se o tenant existe
+      const tenants = await database.getAllTenants();
+      const tenant = tenants.rows.find((t: any) => t.id === id);
+      
+      if (!tenant) {
+        return res.status(404).json({
+          error: 'Tenant not found',
+        });
+      }
+
+      // Atualizar status do tenant
+      const updatedTenant = await database.updateTenant(id, { isActive });
+
+      console.log(`Tenant ${id} status updated to ${isActive}`);
 
       res.json({
         message: 'Tenant status updated successfully',

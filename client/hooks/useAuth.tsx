@@ -55,7 +55,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(response.user);
     } catch (error) {
       console.error('Auth check failed:', error);
-      
+
       // Try to refresh token first
       const refreshToken = localStorage.getItem('refresh_token');
       if (refreshToken && (error?.response?.status === 401 || error?.response?.status === 403)) {
@@ -68,7 +68,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           console.error('Token refresh failed:', refreshError);
         }
       }
-      
+
       // Clear tokens if refresh failed or no refresh token
       localStorage.removeItem('access_token');
       localStorage.removeItem('refresh_token');
@@ -80,8 +80,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const login = async (email: string, password: string) => {
-    const response = await apiService.login(email, password);
-    setUser(response.user);
+    try {
+      const response = await apiService.login(email, password);
+      setUser(response.user);
+    } catch (err: any) {
+        const errorData = err.response?.data;
+        let errorMessage = err.response?.data?.error || err.message || 'Login failed';
+
+        // Verificar se é erro de tenant inativo
+        if (errorData?.code === 'TENANT_INACTIVE' || errorMessage.includes('Renove Sua Conta')) {
+          errorMessage = 'Renove Sua Conta ou Entre em contato com o Administrador do Sistema';
+        }
+
+        setError(errorMessage);
+      } finally {
+        setIsLoading(false);
+      }
   };
 
   const register = async (email: string, password: string, name: string, key: string) => {
