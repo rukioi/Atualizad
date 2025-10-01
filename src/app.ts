@@ -1,5 +1,10 @@
 import express from 'express';
 import cors from 'cors';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Import routes
 import authRoutes from './routes/auth';
@@ -44,6 +49,17 @@ export function createApp() {
   app.use('/api/admin/auth', adminAuthRoutes);
   app.use('/api/notifications', notificationsRoutes);
   app.use('/api/publications', publicationsRoutes);
+
+  // Serve static files in production
+  if (process.env.NODE_ENV === 'production') {
+    const spaPath = path.join(__dirname, '../spa');
+    app.use(express.static(spaPath));
+    
+    // SPA fallback - serve index.html for all non-API routes
+    app.get('*', (req, res) => {
+      res.sendFile(path.join(spaPath, 'index.html'));
+    });
+  }
 
   // Error handler
   app.use((error: any, req: express.Request, res: express.Response, next: express.NextFunction) => {

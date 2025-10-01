@@ -17,10 +17,11 @@
     "dev:backend": "tsx watch src/server.ts",
     "build:backend": "tsc -p tsconfig.server.json",
     "start:backend": "node dist/server.js",
-    "build:full": "npm run build:backend && npm run build",
+    "build:full": "prisma generate && npm run build:backend && npm run build",
     "start": "npm run start:backend",
     "db:init": "node scripts/init-database.js",
-    "db:test": "node scripts/test-connection.js"
+    "db:test": "node scripts/test-connection.js",
+    "postinstall": "prisma generate"
   },
   "dependencies": {
     "@prisma/client": "^6.15.0",
