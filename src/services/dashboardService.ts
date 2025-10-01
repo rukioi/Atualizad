@@ -290,7 +290,7 @@ export class DashboardService {
         DATE(date) as day,
         SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END) as income,
         SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END) as expense
-      FROM \${schema}.transactions
+      FROM ${tenantDB.getSchemaName(tenantId)}.transactions
       WHERE is_active = TRUE AND date >= $1::date
       GROUP BY DATE(date)
       ORDER BY day ASC
@@ -320,7 +320,7 @@ export class DashboardService {
         status,
         COUNT(*) as count,
         COALESCE(SUM(budget), 0) as total_budget
-      FROM \${schema}.projects
+      FROM ${tenantDB.getSchemaName(tenantId)}.projects
       WHERE is_active = TRUE AND created_at >= $1::date
       GROUP BY status
     `;
@@ -349,7 +349,7 @@ export class DashboardService {
         priority,
         COUNT(*) as count,
         AVG(progress) as avg_progress
-      FROM \${schema}.tasks
+      FROM ${tenantDB.getSchemaName(tenantId)}.tasks
       WHERE is_active = TRUE AND created_at >= $1::date
       GROUP BY status, priority
     `;
@@ -383,7 +383,7 @@ export class DashboardService {
 
     // Mocking the return value assuming tenantDB.executeInTenantSchema will use the tenantId internally
     // or that this function is meant to return something that can be used to get the schema name.
-    // If tenantDB itself is the object that has executeInTenantSchema, then this might just return tenantDB.
+    // If tenantDB is the object that has executeInTenantSchema, then this might just return tenantDB.
 
     // If tenantDB is an object that already has executeInTenantSchema, and schema name retrieval is separate:
     // return {

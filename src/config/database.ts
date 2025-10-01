@@ -1,3 +1,4 @@
+
 import { PrismaClient } from '@prisma/client';
 
 const databaseUrl = process.env.DATABASE_URL;
@@ -165,19 +166,28 @@ export class Database {
 
   async createTenant(tenantData: any) {
     try {
+      // Generate normalized schema name
+      const baseSchemaName = `tenant_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+      const normalizedSchemaName = baseSchemaName.replace(/-/g, '');
+      
       // Convert snake_case to camelCase for Prisma
       const prismaData = {
         name: tenantData.name,
-        schemaName: tenantData.schema_name || tenantData.schemaName,
-        planType: tenantData.plan_type || tenantData.planType,
-        isActive: tenantData.is_active !== undefined ? tenantData.is_active : tenantData.isActive,
-        maxUsers: tenantData.max_users || tenantData.maxUsers,
-        maxStorage: tenantData.max_storage || tenantData.maxStorage,
+        schemaName: normalizedSchemaName,
+        planType: tenantData.plan_type || tenantData.planType || 'basic',
+        isActive: tenantData.is_active !== undefined ? tenantData.is_active : (tenantData.isActive !== undefined ? tenantData.isActive : true),
+        maxUsers: tenantData.max_users || tenantData.maxUsers || 5,
+        maxStorage: tenantData.max_storage || tenantData.maxStorage || BigInt(1073741824),
       };
       
       const tenant = await prisma.tenant.create({
         data: prismaData
       });
+
+      // Create tenant schema and tables immediately
+      console.log(`Creating schema for new tenant: ${tenant.id}`);
+      await this.ensureTenantSchema(tenant.id, tenant.schemaName);
+      
       return tenant;
     } catch (error) {
       console.error('Error creating tenant:', error);
@@ -203,6 +213,15 @@ export class Database {
 
   async deleteTenant(id: string) {
     try {
+      // Get tenant info first
+      const tenant = await prisma.tenant.findUnique({ where: { id } });
+      
+      if (tenant) {
+        // Drop schema before deleting tenant record
+        console.log(`Dropping schema: ${tenant.schemaName}`);
+        await prisma.$executeRawUnsafe(`DROP SCHEMA IF EXISTS "${tenant.schemaName}" CASCADE`);
+      }
+      
       await prisma.tenant.delete({
         where: { id }
       });
@@ -210,6 +229,357 @@ export class Database {
       console.error('Error deleting tenant:', error);
       throw error;
     }
+  }
+
+  // Schema validation and creation
+  async ensureTenantSchema(tenantId: string, schemaName?: string) {
+    try {
+      let finalSchemaName = schemaName;
+      
+      if (!finalSchemaName) {
+        // Get schema name from tenant record
+        const tenant = await prisma.tenant.findUnique({ 
+          where: { id: tenantId },
+          select: { schemaName: true }
+        });
+        
+        if (!tenant) {
+          throw new Error(`Tenant ${tenantId} not found`);
+        }
+        
+        finalSchemaName = tenant.schemaName;
+      }
+
+      console.log(`Ensuring schema exists: ${finalSchemaName} for tenant: ${tenantId}`);
+
+      // Check if schema exists
+      const schemaCheckQuery = `
+        SELECT EXISTS(
+          SELECT 1 FROM information_schema.schemata 
+          WHERE schema_name = $1
+        ) as schema_exists
+      `;
+      
+      const result = await prisma.$queryRawUnsafe(schemaCheckQuery, finalSchemaName);
+      const schemaExists = result?.[0]?.schema_exists;
+      
+      if (!schemaExists) {
+        console.log(`Schema ${finalSchemaName} doesn't exist, creating...`);
+        await this.createTenantSchemaWithTables(finalSchemaName);
+        console.log(`Schema ${finalSchemaName} created successfully`);
+      } else {
+        console.log(`Schema ${finalSchemaName} already exists`);
+        // Ensure all required tables exist
+        await this.validateTenantTables(finalSchemaName);
+      }
+
+      return finalSchemaName;
+    } catch (error) {
+      console.error(`Error ensuring tenant schema for ${tenantId}:`, error);
+      throw error;
+    }
+  }
+
+  async validateTenantTables(schemaName: string) {
+    try {
+      const requiredTables = [
+        'clients', 'projects', 'tasks', 'transactions', 
+        'invoices', 'publications', 'categories'
+      ];
+
+      // Check which tables exist
+      const tablesQuery = `
+        SELECT table_name 
+        FROM information_schema.tables 
+        WHERE table_schema = $1
+      `;
+      
+      const existingTables = await prisma.$queryRawUnsafe(tablesQuery, schemaName);
+      const existingTableNames = existingTables.map((t: any) => t.table_name);
+      
+      const missingTables = requiredTables.filter(table => 
+        !existingTableNames.includes(table)
+      );
+
+      if (missingTables.length > 0) {
+        console.log(`Creating missing tables in ${schemaName}:`, missingTables);
+        await this.createMissingTables(schemaName, missingTables);
+      }
+
+    } catch (error) {
+      console.error(`Error validating tables for schema ${schemaName}:`, error);
+      throw error;
+    }
+  }
+
+  async createTenantSchemaWithTables(schemaName: string) {
+    try {
+      // Create schema
+      await prisma.$executeRawUnsafe(`CREATE SCHEMA IF NOT EXISTS "${schemaName}"`);
+      console.log(`Schema ${schemaName} created successfully`);
+
+      // Create all required tables
+      const createTablesSQL = this.getTenantTablesSQL(schemaName);
+      await prisma.$executeRawUnsafe(createTablesSQL);
+      console.log(`All tables created successfully in schema ${schemaName}`);
+
+    } catch (error) {
+      console.error(`Error creating schema ${schemaName}:`, error);
+      throw error;
+    }
+  }
+
+  async createMissingTables(schemaName: string, missingTables: string[]) {
+    try {
+      const allTablesSQL = this.getTenantTablesSQL(schemaName);
+      
+      // Extract individual table creation statements
+      for (const tableName of missingTables) {
+        const tableSQL = this.getTableSQL(schemaName, tableName);
+        if (tableSQL) {
+          await prisma.$executeRawUnsafe(tableSQL);
+          console.log(`Table ${tableName} created in schema ${schemaName}`);
+        }
+      }
+
+    } catch (error) {
+      console.error(`Error creating missing tables in ${schemaName}:`, error);
+      throw error;
+    }
+  }
+
+  private getTenantTablesSQL(schemaName: string): string {
+    return `
+      -- Clients table (CRM)
+      CREATE TABLE IF NOT EXISTS "${schemaName}".clients (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        name VARCHAR(255) NOT NULL,
+        email VARCHAR(255),
+        phone VARCHAR(50),
+        cpf_cnpj VARCHAR(20),
+        address TEXT,
+        notes TEXT,
+        organization VARCHAR(255),
+        budget DECIMAL(15,2),
+        currency VARCHAR(3) DEFAULT 'BRL',
+        status VARCHAR(50) DEFAULT 'active',
+        tags JSONB DEFAULT '[]',
+        cpf VARCHAR(20),
+        rg VARCHAR(20),
+        professional_title VARCHAR(255),
+        marital_status VARCHAR(50),
+        birth_date DATE,
+        created_by VARCHAR(255),
+        is_active BOOLEAN DEFAULT true,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+      );
+
+      -- Projects table
+      CREATE TABLE IF NOT EXISTS "${schemaName}".projects (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        title VARCHAR(255) NOT NULL,
+        name VARCHAR(255) NOT NULL,
+        description TEXT,
+        client_id UUID,
+        client_name VARCHAR(255),
+        status VARCHAR(50) DEFAULT 'proposal',
+        priority VARCHAR(20) DEFAULT 'medium',
+        progress INTEGER DEFAULT 0,
+        budget DECIMAL(12,2),
+        estimated_value DECIMAL(12,2),
+        start_date DATE,
+        end_date DATE,
+        tags JSONB DEFAULT '[]',
+        notes TEXT,
+        created_by VARCHAR(255),
+        is_active BOOLEAN DEFAULT true,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+      );
+
+      -- Tasks table
+      CREATE TABLE IF NOT EXISTS "${schemaName}".tasks (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        title VARCHAR(255) NOT NULL,
+        description TEXT,
+        project_id UUID,
+        project_title VARCHAR(255),
+        assigned_to VARCHAR(255),
+        status VARCHAR(50) DEFAULT 'not_started',
+        priority VARCHAR(20) DEFAULT 'medium',
+        progress INTEGER DEFAULT 0,
+        due_date DATE,
+        tags JSONB DEFAULT '[]',
+        notes TEXT,
+        created_by VARCHAR(255),
+        is_active BOOLEAN DEFAULT true,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+      );
+
+      -- Transactions table (Cash Flow)
+      CREATE TABLE IF NOT EXISTS "${schemaName}".transactions (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        description VARCHAR(255) NOT NULL,
+        amount DECIMAL(12,2) NOT NULL,
+        type VARCHAR(20) NOT NULL CHECK (type IN ('income', 'expense')),
+        category_id VARCHAR(255),
+        category VARCHAR(100),
+        date DATE NOT NULL,
+        payment_method VARCHAR(50),
+        status VARCHAR(20) DEFAULT 'confirmed',
+        project_id UUID,
+        project_title VARCHAR(255),
+        client_id UUID,
+        client_name VARCHAR(255),
+        tags JSONB DEFAULT '[]',
+        notes TEXT,
+        is_recurring BOOLEAN DEFAULT FALSE,
+        recurring_frequency VARCHAR(20),
+        created_by VARCHAR(255),
+        is_active BOOLEAN DEFAULT true,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+      );
+
+      -- Invoices table (Billing)
+      CREATE TABLE IF NOT EXISTS "${schemaName}".invoices (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        number VARCHAR(50) NOT NULL,
+        client_id UUID,
+        client_name VARCHAR(255),
+        project_id UUID,
+        project_name VARCHAR(255),
+        amount DECIMAL(12,2) NOT NULL,
+        due_date DATE NOT NULL,
+        status VARCHAR(20) DEFAULT 'pending',
+        description TEXT,
+        items JSONB DEFAULT '[]',
+        notes TEXT,
+        created_by VARCHAR(255),
+        is_active BOOLEAN DEFAULT true,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+      );
+
+      -- Publications table
+      CREATE TABLE IF NOT EXISTS "${schemaName}".publications (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        title VARCHAR(255) NOT NULL,
+        content TEXT,
+        type VARCHAR(50) DEFAULT 'notification',
+        status VARCHAR(20) DEFAULT 'novo',
+        user_id VARCHAR(255),
+        metadata JSONB DEFAULT '{}',
+        is_active BOOLEAN DEFAULT true,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+      );
+
+      -- Categories table (for transactions)
+      CREATE TABLE IF NOT EXISTS "${schemaName}".categories (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        name VARCHAR(255) NOT NULL,
+        type VARCHAR(20) NOT NULL CHECK (type IN ('income', 'expense')),
+        color VARCHAR(7) DEFAULT '#000000',
+        description TEXT,
+        is_active BOOLEAN DEFAULT true,
+        created_by VARCHAR(255),
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+      );
+
+      -- Create indexes for performance
+      CREATE INDEX IF NOT EXISTS idx_${schemaName}_clients_email ON "${schemaName}".clients(email);
+      CREATE INDEX IF NOT EXISTS idx_${schemaName}_clients_status ON "${schemaName}".clients(status);
+      CREATE INDEX IF NOT EXISTS idx_${schemaName}_clients_active ON "${schemaName}".clients(is_active);
+      
+      CREATE INDEX IF NOT EXISTS idx_${schemaName}_projects_status ON "${schemaName}".projects(status);
+      CREATE INDEX IF NOT EXISTS idx_${schemaName}_projects_client_id ON "${schemaName}".projects(client_id);
+      CREATE INDEX IF NOT EXISTS idx_${schemaName}_projects_active ON "${schemaName}".projects(is_active);
+      
+      CREATE INDEX IF NOT EXISTS idx_${schemaName}_tasks_status ON "${schemaName}".tasks(status);
+      CREATE INDEX IF NOT EXISTS idx_${schemaName}_tasks_project_id ON "${schemaName}".tasks(project_id);
+      CREATE INDEX IF NOT EXISTS idx_${schemaName}_tasks_active ON "${schemaName}".tasks(is_active);
+      
+      CREATE INDEX IF NOT EXISTS idx_${schemaName}_transactions_type ON "${schemaName}".transactions(type);
+      CREATE INDEX IF NOT EXISTS idx_${schemaName}_transactions_date ON "${schemaName}".transactions(date);
+      CREATE INDEX IF NOT EXISTS idx_${schemaName}_transactions_active ON "${schemaName}".transactions(is_active);
+      
+      CREATE INDEX IF NOT EXISTS idx_${schemaName}_invoices_status ON "${schemaName}".invoices(status);
+      CREATE INDEX IF NOT EXISTS idx_${schemaName}_invoices_due_date ON "${schemaName}".invoices(due_date);
+      CREATE INDEX IF NOT EXISTS idx_${schemaName}_invoices_active ON "${schemaName}".invoices(is_active);
+      
+      CREATE INDEX IF NOT EXISTS idx_${schemaName}_publications_status ON "${schemaName}".publications(status);
+      CREATE INDEX IF NOT EXISTS idx_${schemaName}_publications_user_id ON "${schemaName}".publications(user_id);
+      CREATE INDEX IF NOT EXISTS idx_${schemaName}_publications_active ON "${schemaName}".publications(is_active);
+      
+      CREATE INDEX IF NOT EXISTS idx_${schemaName}_categories_type ON "${schemaName}".categories(type);
+      CREATE INDEX IF NOT EXISTS idx_${schemaName}_categories_active ON "${schemaName}".categories(is_active);
+    `;
+  }
+
+  private getTableSQL(schemaName: string, tableName: string): string | null {
+    const tableDefinitions: { [key: string]: string } = {
+      clients: `
+        CREATE TABLE IF NOT EXISTS "${schemaName}".clients (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          name VARCHAR(255) NOT NULL,
+          email VARCHAR(255),
+          phone VARCHAR(50),
+          cpf_cnpj VARCHAR(20),
+          address TEXT,
+          notes TEXT,
+          organization VARCHAR(255),
+          budget DECIMAL(15,2),
+          currency VARCHAR(3) DEFAULT 'BRL',
+          status VARCHAR(50) DEFAULT 'active',
+          tags JSONB DEFAULT '[]',
+          cpf VARCHAR(20),
+          rg VARCHAR(20),
+          professional_title VARCHAR(255),
+          marital_status VARCHAR(50),
+          birth_date DATE,
+          created_by VARCHAR(255),
+          is_active BOOLEAN DEFAULT true,
+          created_at TIMESTAMPTZ DEFAULT NOW(),
+          updated_at TIMESTAMPTZ DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS idx_${schemaName}_clients_email ON "${schemaName}".clients(email);
+        CREATE INDEX IF NOT EXISTS idx_${schemaName}_clients_active ON "${schemaName}".clients(is_active);
+      `,
+      
+      projects: `
+        CREATE TABLE IF NOT EXISTS "${schemaName}".projects (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          title VARCHAR(255) NOT NULL,
+          name VARCHAR(255) NOT NULL,
+          description TEXT,
+          client_id UUID,
+          client_name VARCHAR(255),
+          status VARCHAR(50) DEFAULT 'proposal',
+          priority VARCHAR(20) DEFAULT 'medium',
+          progress INTEGER DEFAULT 0,
+          budget DECIMAL(12,2),
+          estimated_value DECIMAL(12,2),
+          start_date DATE,
+          end_date DATE,
+          tags JSONB DEFAULT '[]',
+          notes TEXT,
+          created_by VARCHAR(255),
+          is_active BOOLEAN DEFAULT true,
+          created_at TIMESTAMPTZ DEFAULT NOW(),
+          updated_at TIMESTAMPTZ DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS idx_${schemaName}_projects_status ON "${schemaName}".projects(status);
+        CREATE INDEX IF NOT EXISTS idx_${schemaName}_projects_active ON "${schemaName}".projects(is_active);
+      `,
+      
+      // Add other table definitions as needed...
+    };
+
+    return tableDefinitions[tableName] || null;
   }
 
   // Registration keys operations
@@ -455,182 +825,28 @@ export class Database {
       throw error;
     }
   }
+
+  // Tenant schema utilities
+  static getSchemaName(tenantId: string): string {
+    // Normalize tenant ID removing hyphens for schema name
+    return `tenant_${tenantId.replace(/-/g, '')}`;
+  }
+
+  async getTenantSchema(tenantId: string): Promise<string> {
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { schemaName: true }
+    });
+    
+    if (!tenant) {
+      throw new Error(`Tenant ${tenantId} not found`);
+    }
+    
+    return tenant.schemaName;
+  }
 }
 
 export const database = Database.getInstance();
-
-// Função para criar schema de tenant com todas as tabelas
-async function createTenantSchemaWithTables(tenantId: string, schemaName: string) {
-  try {
-    console.log(`Creating schema and tables for tenant ${tenantId}: ${schemaName}`);
-    
-    // Criar schema
-    await prisma.$executeRawUnsafe(`CREATE SCHEMA IF NOT EXISTS "${schemaName}"`);
-    console.log(`Schema ${schemaName} created successfully`);
-
-    // Criar tabelas no schema do tenant
-    const createTablesSQL = `
-      -- Clients table
-      CREATE TABLE IF NOT EXISTS "${schemaName}".clients (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        name VARCHAR(255) NOT NULL,
-        email VARCHAR(255),
-        phone VARCHAR(50),
-        cpf_cnpj VARCHAR(20),
-        address TEXT,
-        notes TEXT,
-        organization VARCHAR(255),
-        budget DECIMAL(15,2),
-        currency VARCHAR(3) DEFAULT 'BRL',
-        status VARCHAR(50) DEFAULT 'active',
-        tags JSONB DEFAULT '[]',
-        cpf VARCHAR(20),
-        rg VARCHAR(20),
-        professional_title VARCHAR(255),
-        marital_status VARCHAR(50),
-        birth_date DATE,
-        created_by VARCHAR(255),
-        is_active BOOLEAN DEFAULT true,
-        created_at TIMESTAMPTZ DEFAULT NOW(),
-        updated_at TIMESTAMPTZ DEFAULT NOW()
-      );
-
-      -- Projects table
-      CREATE TABLE IF NOT EXISTS "${schemaName}".projects (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        title VARCHAR(255) NOT NULL,
-        name VARCHAR(255) NOT NULL,
-        description TEXT,
-        client_id UUID,
-        client_name VARCHAR(255),
-        status VARCHAR(50) DEFAULT 'proposal',
-        priority VARCHAR(20) DEFAULT 'medium',
-        progress INTEGER DEFAULT 0,
-        budget DECIMAL(12,2),
-        estimated_value DECIMAL(12,2),
-        start_date DATE,
-        end_date DATE,
-        tags JSONB DEFAULT '[]',
-        notes TEXT,
-        created_by VARCHAR(255),
-        is_active BOOLEAN DEFAULT true,
-        created_at TIMESTAMPTZ DEFAULT NOW(),
-        updated_at TIMESTAMPTZ DEFAULT NOW()
-      );
-
-      -- Tasks table
-      CREATE TABLE IF NOT EXISTS "${schemaName}".tasks (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        title VARCHAR(255) NOT NULL,
-        description TEXT,
-        project_id UUID,
-        project_title VARCHAR(255),
-        assigned_to VARCHAR(255),
-        status VARCHAR(50) DEFAULT 'not_started',
-        priority VARCHAR(20) DEFAULT 'medium',
-        progress INTEGER DEFAULT 0,
-        due_date DATE,
-        tags JSONB DEFAULT '[]',
-        notes TEXT,
-        created_by VARCHAR(255),
-        is_active BOOLEAN DEFAULT true,
-        created_at TIMESTAMPTZ DEFAULT NOW(),
-        updated_at TIMESTAMPTZ DEFAULT NOW()
-      );
-
-      -- Transactions table
-      CREATE TABLE IF NOT EXISTS "${schemaName}".transactions (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        description VARCHAR(255) NOT NULL,
-        amount DECIMAL(12,2) NOT NULL,
-        type VARCHAR(20) NOT NULL CHECK (type IN ('income', 'expense')),
-        category_id VARCHAR(255),
-        category VARCHAR(100),
-        date DATE NOT NULL,
-        payment_method VARCHAR(50),
-        status VARCHAR(20) DEFAULT 'confirmed',
-        project_id UUID,
-        project_title VARCHAR(255),
-        client_id UUID,
-        client_name VARCHAR(255),
-        tags JSONB DEFAULT '[]',
-        notes TEXT,
-        is_recurring BOOLEAN DEFAULT FALSE,
-        recurring_frequency VARCHAR(20),
-        created_by VARCHAR(255),
-        is_active BOOLEAN DEFAULT true,
-        created_at TIMESTAMPTZ DEFAULT NOW(),
-        updated_at TIMESTAMPTZ DEFAULT NOW()
-      );
-
-      -- Invoices table
-      CREATE TABLE IF NOT EXISTS "${schemaName}".invoices (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        number VARCHAR(50) NOT NULL,
-        client_id UUID,
-        client_name VARCHAR(255),
-        project_id UUID,
-        project_name VARCHAR(255),
-        amount DECIMAL(12,2) NOT NULL,
-        due_date DATE NOT NULL,
-        status VARCHAR(20) DEFAULT 'pending',
-        description TEXT,
-        items JSONB DEFAULT '[]',
-        notes TEXT,
-        created_by VARCHAR(255),
-        is_active BOOLEAN DEFAULT true,
-        created_at TIMESTAMPTZ DEFAULT NOW(),
-        updated_at TIMESTAMPTZ DEFAULT NOW()
-      );
-
-      -- Publications table (usuário-específico)
-      CREATE TABLE IF NOT EXISTS "${schemaName}".publications (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        title VARCHAR(255) NOT NULL,
-        content TEXT,
-        type VARCHAR(50) DEFAULT 'notification',
-        status VARCHAR(20) DEFAULT 'novo',
-        user_id VARCHAR(255),
-        metadata JSONB DEFAULT '{}',
-        is_active BOOLEAN DEFAULT true,
-        created_at TIMESTAMPTZ DEFAULT NOW(),
-        updated_at TIMESTAMPTZ DEFAULT NOW()
-      );
-
-      -- Criar índices para performance
-      CREATE INDEX IF NOT EXISTS idx_clients_email ON "${schemaName}".clients(email);
-      CREATE INDEX IF NOT EXISTS idx_clients_status ON "${schemaName}".clients(status);
-      CREATE INDEX IF NOT EXISTS idx_clients_active ON "${schemaName}".clients(is_active);
-      
-      CREATE INDEX IF NOT EXISTS idx_projects_status ON "${schemaName}".projects(status);
-      CREATE INDEX IF NOT EXISTS idx_projects_client_id ON "${schemaName}".projects(client_id);
-      CREATE INDEX IF NOT EXISTS idx_projects_active ON "${schemaName}".projects(is_active);
-      
-      CREATE INDEX IF NOT EXISTS idx_tasks_status ON "${schemaName}".tasks(status);
-      CREATE INDEX IF NOT EXISTS idx_tasks_project_id ON "${schemaName}".tasks(project_id);
-      CREATE INDEX IF NOT EXISTS idx_tasks_active ON "${schemaName}".tasks(is_active);
-      
-      CREATE INDEX IF NOT EXISTS idx_transactions_type ON "${schemaName}".transactions(type);
-      CREATE INDEX IF NOT EXISTS idx_transactions_date ON "${schemaName}".transactions(date);
-      CREATE INDEX IF NOT EXISTS idx_transactions_active ON "${schemaName}".transactions(is_active);
-      
-      CREATE INDEX IF NOT EXISTS idx_invoices_status ON "${schemaName}".invoices(status);
-      CREATE INDEX IF NOT EXISTS idx_invoices_due_date ON "${schemaName}".invoices(due_date);
-      CREATE INDEX IF NOT EXISTS idx_invoices_active ON "${schemaName}".invoices(is_active);
-      
-      CREATE INDEX IF NOT EXISTS idx_publications_status ON "${schemaName}".publications(status);
-      CREATE INDEX IF NOT EXISTS idx_publications_user_id ON "${schemaName}".publications(user_id);
-      CREATE INDEX IF NOT EXISTS idx_publications_active ON "${schemaName}".publications(is_active);
-    `;
-
-    await prisma.$executeRawUnsafe(createTablesSQL);
-    console.log(`Tables created successfully in schema ${schemaName}`);
-
-  } catch (error) {
-    console.error(`Error creating schema ${schemaName}:`, error);
-    throw error;
-  }
-}
 
 // Initialize connection test
 database.testConnection().then(result => {
@@ -643,13 +859,25 @@ database.testConnection().then(result => {
 
 // Tenant Database operations for multi-tenancy
 export class TenantDatabase {
-  constructor(private tenantId: string) {}
+  constructor(private tenantId: string, private schemaName?: string) {}
+
+  async getSchemaName(): Promise<string> {
+    if (this.schemaName) {
+      return this.schemaName;
+    }
+    
+    this.schemaName = await database.getTenantSchema(this.tenantId);
+    return this.schemaName;
+  }
 
   async executeInTenantSchema<T = any>(query: string, params: any[] = []): Promise<T[]> {
     try {
-      const schemaName = `tenant_${this.tenantId}`;
+      const schemaName = await this.getSchemaName();
+      
+      // Ensure schema exists before executing query
+      await database.ensureTenantSchema(this.tenantId, schemaName);
+      
       const finalQuery = query.replace(/\$\{schema\}/g, schemaName);
-
       console.log(`Executing query in schema ${schemaName}:`, finalQuery);
 
       const result = await prisma.$queryRawUnsafe<T[]>(finalQuery, ...params);
@@ -673,49 +901,29 @@ export class TenantDatabase {
 
 // Export tenant database factory
 export const tenantDB = {
-  executeInTenantSchema: <T = any>(tenantId: string, query: string, params: any[] = []): Promise<T[]> => {
-    const db = new TenantDatabase(tenantId);
+  executeInTenantSchema: async <T = any>(tenantId: string, query: string, params: any[] = []): Promise<T[]> => {
+    const db = await tenantDB.getTenantDatabase(tenantId);
     return db.executeInTenantSchema<T>(query, params);
   },
   
   getSchemaName: (tenantId: string): string => {
-    // Normalizar tenant ID removendo hífens para o schema name
+    // Normalize tenant ID removing hyphens for schema name
     const normalizedId = tenantId.replace(/-/g, '');
     return `tenant_${normalizedId}`;
   },
 
-  getTenantDatabase: async (tenantId: string) => {
-    // Verificar se o tenant existe
-    const tenants = await Database.getInstance().getAllTenants();
+  getTenantDatabase: async (tenantId: string): Promise<TenantDatabase> => {
+    // Verify tenant exists
+    const tenants = await database.getAllTenants();
     const tenant = tenants.rows.find((t: any) => t.id === tenantId);
     
     if (!tenant) {
       throw new Error(`Tenant ${tenantId} not found`);
     }
 
-    // Verificar se o schema existe, se não criar
-    const schemaName = tenantDB.getSchemaName(tenantId);
+    // Ensure schema exists
+    const schemaName = await database.ensureTenantSchema(tenantId, tenant.schemaName);
     
-    try {
-      const schemaCheckQuery = `
-        SELECT EXISTS(
-          SELECT 1 FROM information_schema.schemata 
-          WHERE schema_name = $1
-        ) as schema_exists
-      `;
-      
-      const result = await prisma.$queryRawUnsafe(schemaCheckQuery, schemaName);
-      const schemaExists = result?.[0]?.schema_exists;
-      
-      if (!schemaExists) {
-        console.log(`Schema ${schemaName} doesn't exist, creating...`);
-        await createTenantSchemaWithTables(tenantId, schemaName);
-      }
-    } catch (error) {
-      console.error(`Error checking/creating schema for tenant ${tenantId}:`, error);
-      throw error;
-    }
-
-    return new TenantDatabase(tenantId);
+    return new TenantDatabase(tenantId, schemaName);
   }
 };
