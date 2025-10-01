@@ -495,7 +495,7 @@ export function CRM() {
     setAdvancedFilters(null);
   };
 
-  const handleSubmitDeal = (data: any) => {
+  const handleSubmitDeal = async (data: any) => {
     if (editingDeal) {
       setDeals(
         deals.map((deal) =>
