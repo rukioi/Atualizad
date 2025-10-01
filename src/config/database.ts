@@ -319,7 +319,6 @@ export class Database {
       throw error;
     }
   }
-  }
 
   // Refresh tokens operations
   async createRefreshToken(tokenData: any) {
