@@ -93,7 +93,17 @@ async function createTenantSchema(tenantId) {
       );
     `;
 
-    await prisma.$executeRawUnsafe(createTablesSQL);
+    // Split and execute individual table creation statements
+    const tableStatements = createTablesSQL
+      .split(';')
+      .map(stmt => stmt.trim())
+      .filter(stmt => stmt.length > 0 && stmt.toUpperCase().includes('CREATE TABLE'));
+
+    for (const statement of tableStatements) {
+      if (statement.trim()) {
+        await prisma.$executeRawUnsafe(statement);
+      }
+    }
     console.log(`Tables created successfully in schema ${schemaName}`);
 
   } catch (error) {
