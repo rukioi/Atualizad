@@ -372,13 +372,22 @@ export class Database {
 
   async createMissingTables(schemaName: string, missingTables: string[]) {
     try {
-      const allTablesSQL = this.getTenantTablesSQL(schemaName);
+      // Use individual table definitions to avoid multiple commands error
+      const tableDefinitions = this.getIndividualTableSQL(schemaName);
 
-      // Extract individual table creation statements
       for (const tableName of missingTables) {
-        const tableSQL = this.getTableSQL(schemaName, tableName);
-        if (tableSQL) {
-          await prisma.$executeRawUnsafe(tableSQL);
+        const tableDef = tableDefinitions.find(t => t.name === tableName);
+        if (tableDef) {
+          // Split the SQL by semicolon and execute each statement separately
+          const statements = tableDef.sql.split(';')
+            .map(stmt => stmt.trim())
+            .filter(stmt => stmt.length > 0);
+
+          for (const statement of statements) {
+            if (statement.trim()) {
+              await prisma.$executeRawUnsafe(statement);
+            }
+          }
           console.log(`Table ${tableName} created in schema ${schemaName}`);
         }
       }
@@ -748,65 +757,9 @@ export class Database {
   }
 
   private getTableSQL(schemaName: string, tableName: string): string | null {
-    const tableDefinitions: { [key: string]: string } = {
-      clients: `
-        CREATE TABLE IF NOT EXISTS "${schemaName}".clients (
-          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-          name VARCHAR(255) NOT NULL,
-          email VARCHAR(255),
-          phone VARCHAR(50),
-          cpf_cnpj VARCHAR(20),
-          address TEXT,
-          notes TEXT,
-          organization VARCHAR(255),
-          budget DECIMAL(15,2),
-          currency VARCHAR(3) DEFAULT 'BRL',
-          status VARCHAR(50) DEFAULT 'active',
-          tags JSONB DEFAULT '[]',
-          cpf VARCHAR(20),
-          rg VARCHAR(20),
-          professional_title VARCHAR(255),
-          marital_status VARCHAR(50),
-          birth_date DATE,
-          created_by VARCHAR(255),
-          is_active BOOLEAN DEFAULT true,
-          created_at TIMESTAMPTZ DEFAULT NOW(),
-          updated_at TIMESTAMPTZ DEFAULT NOW()
-        );
-        CREATE INDEX IF NOT EXISTS idx_${schemaName}_clients_email ON "${schemaName}".clients(email);
-        CREATE INDEX IF NOT EXISTS idx_${schemaName}_clients_active ON "${schemaName}".clients(is_active);
-      `,
-
-      projects: `
-        CREATE TABLE IF NOT EXISTS "${schemaName}".projects (
-          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-          title VARCHAR(255) NOT NULL,
-          name VARCHAR(255) NOT NULL,
-          description TEXT,
-          client_id UUID,
-          client_name VARCHAR(255),
-          status VARCHAR(50) DEFAULT 'proposal',
-          priority VARCHAR(20) DEFAULT 'medium',
-          progress INTEGER DEFAULT 0,
-          budget DECIMAL(12,2),
-          estimated_value DECIMAL(12,2),
-          start_date DATE,
-          end_date DATE,
-          tags JSONB DEFAULT '[]',
-          notes TEXT,
-          created_by VARCHAR(255),
-          is_active BOOLEAN DEFAULT true,
-          created_at TIMESTAMPTZ DEFAULT NOW(),
-          updated_at TIMESTAMPTZ DEFAULT NOW()
-        );
-        CREATE INDEX IF NOT EXISTS idx_${schemaName}_projects_status ON "${schemaName}".projects(status);
-        CREATE INDEX IF NOT EXISTS idx_${schemaName}_projects_active ON "${schemaName}".projects(is_active);
-      `,
-
-      // Add other table definitions as needed...
-    };
-
-    return tableDefinitions[tableName] || null;
+    const individualTables = this.getIndividualTableSQL(schemaName);
+    const tableDef = individualTables.find(t => t.name === tableName);
+    return tableDef ? tableDef.sql : null;
   }
 
   // Registration keys operations
