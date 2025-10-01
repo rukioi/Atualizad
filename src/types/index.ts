@@ -1,4 +1,42 @@
 import { AccountType } from '@prisma/client';
+import { Request } from 'express';
+import { TenantDatabase } from '../config/database';
+
+// Request/Response types
+
+/**
+ * Contexto de requisição com isolamento tenant
+ * SEMPRE use este tipo em controllers que precisam acessar dados do tenant
+ */
+export interface TenantRequest extends Request {
+  user?: {
+    id: string;
+    userId: string;
+    email: string;
+    name: string;
+    accountType: AccountType;
+    tenantId: string;
+    role?: string;
+  };
+  tenant?: {
+    id: string;
+    name: string;
+    isActive: boolean;
+  };
+  tenantDB?: TenantDatabase; // ✅ CRÍTICO: Usado para isolamento de dados
+}
+
+/**
+ * Contexto completo para services
+ * Padroniza os dados passados entre controllers e services
+ */
+export interface RequestContext {
+  tenantDB: TenantDatabase;
+  tenantId: string;
+  userId: string;
+  accountType: AccountType;
+  role?: string;
+}
 
 // Request/Response types
 export interface ApiResponse<T = any> {
