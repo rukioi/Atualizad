@@ -1,0 +1,31 @@
+2) O que está faltando / itens que recomendo acrescentar (detectados ao comparar o front e o repositório)
+
+Observação: seu front mostrou UI para CRM (pipelines), formulários de cliente, tabelas, tarefas, subtasks, cobranças e faturas. No repo há clients/projects/tasks/invoices/transactions, porém faltam várias tabelas de suporte que o front provavelmente espera ou que aumentam a robustez:
+
+Subtasks (tarefas filhas) — não achei tabela subtasks ou tasks.parent_id. Recomendado: adicionar subtasks ou tasks.parent_id para hierarquia.
+
+Pipelines / Deals / Stages (CRM) — não há entidades pipelines, pipeline_stages, deals (ou opportunities) nem histórico de movimentos entre estágios (pipeline history). O print indica interface CRM; é necessário modelar deals/pipeline_stages.
+
+Comentários e Anexos — tabelas task_comments, task_attachments, invoice_attachments, client_attachments para comentários e arquivos relacionados. O repositório tem supabase config — ótimo para armazenamento de arquivos, mas falta metadados no DB.
+
+Invoice items e Payments — a invoices atual armazena items como JSON (ok), porém recomendo tabela separada invoice_items (normalização) e tabela payments para registrar pagamentos (conciliação entre faturas e transações).
+
+Categories — verifiquei usage parcial; recomendo tabela categories (por tenant) para categorizar transactions.
+
+Tags e Relações N:N — para filtros rápidos (tags em clients/projects/tasks), adicionar tags + tabelas de junção (task_tags, etc.).
+
+Time entries / Timesheets — caso queira controle de horas (essencial em escritórios), adicionar time_entries (por task/user).
+
+Team / Permissions / Roles — existe AccountType enum, mas recomendo tabelas roles, permissions, team_members para controle fino dentro do tenant.
+
+Audit / Activity Log por tenant — já existe audit_logs global, mas registre também activity_log por schema (atividade de tasks, deals, invoices).
+
+Indexes / Constraints / FK explícitas — nos scripts que criam as tabelas do tenant, verifique a criação de FK e índices para colunas muito consultadas (created_at, client_id, project_id, assigned_to).
+
+Uniqueness / número de fatura — invoices.number deve ter constraint por tenant para evitar duplicidade.
+
+Foreign key integrity entre tabelas do mesmo schema — os scripts atuais criam tabelas, mas confirme que ALTER TABLE ... ADD CONSTRAINT FOREIGN KEY está sendo run dentro do script.
+
+Migrations per-tenant vs global — Centralizar migrations do admin/public com Prisma (ok), mas para schemas por tenant você mantêm scripts SQL (já tem). Recomendo manter ambos: Prisma para admin + raw SQL para criar schemas + tabelas tenant (ou portar modelos tenant para Prisma com estratégia multi-schema se preferir).
+
+Relatórios / agregações (views) — criar views/materialized views para relatórios financeiros (fluxo, receitas por período) se necessário.
