@@ -26,7 +26,7 @@ function AdminRoutes() {
       <Route path="dashboard" element={isAuthenticated ? <AdminDashboard /> : <Navigate to="/admin/login" replace />} />
       <Route path="tenants" element={isAuthenticated ? <AdminTenants /> : <Navigate to="/admin/login" replace />} />
       <Route path="keys" element={isAuthenticated ? <AdminRegistrationKeys /> : <Navigate to="/admin/login" replace />} />
-      <Route path="/" element={isAuthenticated ? <Navigate to="/admin/dashboard" replace /> : <Navigate to="/admin/login" replace />} />
+      <Route path="" element={isAuthenticated ? <Navigate to="/admin/dashboard" replace /> : <Navigate to="/admin/login" replace />} />
       <Route path="*" element={isAuthenticated ? <Navigate to="/admin/dashboard" replace /> : <Navigate to="/admin/login" replace />} />
     </Routes>
   );
