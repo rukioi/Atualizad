@@ -53,8 +53,7 @@ import { cn } from '@/lib/utils';
 import { DashboardCharts } from '@/components/Dashboard/Charts';
 import { useNavigate } from 'react-router-dom';
 import { useDashboard } from '@/hooks/useDashboard';
-
-// Removed DashboardLayout import as it will be handled by ProtectedRoute
+import { DashboardLayout } from '@/components/Layout/DashboardLayout';
 
 const getActivityIcon = (type: string) => {
   switch (type) {
@@ -202,7 +201,8 @@ export function Dashboard() {
   };
 
   return (
-    <div className="space-y-6 p-6">
+    <DashboardLayout>
+      <div className="space-y-6 p-6">
       {/* Breadcrumb */}
       <Breadcrumb>
         <BreadcrumbList>
@@ -441,5 +441,6 @@ export function Dashboard() {
         </Card>
       </div>
     </div>
+    </DashboardLayout>
   );
 }
