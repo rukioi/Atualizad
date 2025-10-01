@@ -56,25 +56,32 @@ export interface Client {
 export interface CreateClientData {
   name: string;
   email: string;
+  mobile?: string;
   phone?: string;
   organization?: string;
-  address?: {
-    street?: string;
-    city?: string;
-    state?: string;
-    zipCode?: string;
-    country?: string;
-  };
+  country?: string;
+  state?: string;
+  city?: string;
+  address?: string;
+  zipCode?: string;
   budget?: number;
   currency?: 'BRL' | 'USD' | 'EUR';
+  level?: string;
   status?: 'active' | 'inactive' | 'pending';
   tags?: string[];
   notes?: string;
+  description?: string;
   cpf?: string;
   rg?: string;
+  pis?: string;
+  cei?: string;
   professionalTitle?: string;
   maritalStatus?: string;
   birthDate?: string;
+  inssStatus?: string;
+  amountPaid?: number;
+  referredBy?: string;
+  registeredBy?: string;
 }
 
 export interface UpdateClientData extends Partial<CreateClientData> {}
@@ -109,14 +116,22 @@ export class ClientsService {
         address JSONB DEFAULT '{}',
         budget DECIMAL(15,2),
         currency VARCHAR(3) DEFAULT 'BRL',
+        level VARCHAR,
         status VARCHAR DEFAULT 'active',
         tags JSONB DEFAULT '[]',
         notes TEXT,
+        description TEXT,
         cpf VARCHAR,
         rg VARCHAR,
+        pis VARCHAR,
+        cei VARCHAR,
         professional_title VARCHAR,
         marital_status VARCHAR,
         birth_date DATE,
+        inss_status VARCHAR,
+        amount_paid DECIMAL(15,2),
+        referred_by VARCHAR,
+        registered_by VARCHAR,
         created_by VARCHAR NOT NULL,
         created_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP DEFAULT NOW(),
@@ -271,14 +286,25 @@ export class ClientsService {
       id: clientId,
       name: clientData.name,
       email: clientData.email,
-      phone: clientData.phone || null,
+      phone: clientData.mobile || clientData.phone || null,
       organization: clientData.organization || null,
-      address: JSON.stringify(clientData.address || {}),
+      address: JSON.stringify({
+        street: clientData.address || '',
+        city: clientData.city || '',
+        state: clientData.state || '',
+        zipCode: clientData.zipCode || '',
+        country: clientData.country || 'BR'
+      }),
       budget: clientData.budget || null,
       currency: clientData.currency || 'BRL',
       status: clientData.status || 'active',
       tags: JSON.stringify(clientData.tags || []),
-      notes: clientData.notes || null,
+      notes: clientData.description || clientData.notes || null,
+      cpf: clientData.cpf || null,
+      rg: clientData.rg || null,
+      professional_title: clientData.professionalTitle || null,
+      marital_status: clientData.maritalStatus || null,
+      birth_date: clientData.birthDate || null,
       created_by: createdBy
     };
     
