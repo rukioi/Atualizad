@@ -17,11 +17,17 @@ export default defineConfig(({ mode }) => ({
       allow: ["./client", "./shared", "./admin", "./src", "./"],
       deny: [".env", ".env.*", "*.{crt,pem}", "**/.git/**"],
     },
+    allowedHosts: [
+      "61fd640f-3fbd-47e4-9dff-cb80d6f7aa40-00-6389ayipikf7.janeway.replit.dev",
+    ],
   },
+
   build: {
     outDir: "dist/spa",
   },
+
   plugins: [react(), expressPlugin()],
+
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./client"),
