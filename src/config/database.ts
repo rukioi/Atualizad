@@ -308,19 +308,6 @@ export class Database {
     }
   }
 
-  async deleteRegistrationKey(id: string) {
-    try {
-      await prisma.registrationKey.delete({
-        where: { id }
-      });
-      console.log('Registration key deleted successfully for ID:', id);
-    } catch (error) {
-      console.error('Error deleting registration key:', error);
-      throw error;
-    }
-  }
-  }
-
   // Refresh tokens operations
   async createRefreshToken(tokenData: any) {
     try {

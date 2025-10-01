@@ -47,29 +47,14 @@ interface RegistrationKey {
   accountType: string;
   isUsed: boolean;
   isRevoked: boolean;
-  isActive: boolean;
-  isExpired: boolean;
   usedBy?: string;
   usedAt?: string;
-  userInfo?: {
-    id: string;
-    name: string;
-    email: string;
-    isActive: boolean;
-    usedAt: string;
-  };
-  tenantInfo?: {
-    id: string;
-    name: string;
-    isActive: boolean;
-  };
   createdAt: string;
   expiresAt?: string;
-  status: 'ACTIVE' | 'USED' | 'EXPIRED' | 'REVOKED';
 }
 
 export function AdminRegistrationKeys() {
-  const { getRegistrationKeys, createRegistrationKey, revokeRegistrationKey, deleteRegistrationKey, getTenants, isLoading } = useAdminApi();
+  const { getRegistrationKeys, createRegistrationKey, revokeRegistrationKey, getTenants, isLoading } = useAdminApi();
   const [keys, setKeys] = useState<RegistrationKey[]>([]);
   const [tenants, setTenants] = useState<any[]>([]);
   const [selectedTenantId, setSelectedTenantId] = useState<string>('');
@@ -173,27 +158,6 @@ export function AdminRegistrationKeys() {
     }
   };
 
-  const handleDeleteKey = async (key: RegistrationKey) => {
-    if (key.isUsed) {
-      setError('Cannot delete registration key that has been used');
-      return;
-    }
-
-    if (!confirm(`⚠️ DELETAR REGISTRATION KEY?\n\n🗑️ Esta ação é IRREVERSÍVEL!\n\nKey: ${key.id.substring(0, 8)}...\nStatus: ${key.status}\nTenant: ${key.tenantInfo?.name || 'N/A'}\n\nTem certeza que deseja DELETAR permanentemente?`)) {
-      return;
-    }
-
-    try {
-      setError(null);
-      await deleteRegistrationKey(key.id);
-      setSuccess('Registration key deleted successfully');
-      await loadKeys();
-    } catch (err) {
-      console.error('Failed to delete key:', err);
-      setError(err instanceof Error ? err.message : 'Failed to delete registration key');
-    }
-  };
-
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
     setSuccess('Registration key copied to clipboard');
@@ -201,18 +165,13 @@ export function AdminRegistrationKeys() {
   };
 
   const getStatusBadge = (key: RegistrationKey) => {
-    switch (key.status) {
-      case 'USED':
-        return <Badge variant="secondary" className="flex items-center bg-green-100 text-green-800"><CheckCircle className="h-3 w-3 mr-1" />Used</Badge>;
-      case 'REVOKED':
-        return <Badge variant="destructive" className="flex items-center"><XCircle className="h-3 w-3 mr-1" />Revoked</Badge>;
-      case 'EXPIRED':
-        return <Badge variant="outline" className="flex items-center text-orange-600 border-orange-600"><AlertTriangle className="h-3 w-3 mr-1" />Expired</Badge>;
-      case 'ACTIVE':
-        return <Badge variant="default" className="flex items-center bg-blue-100 text-blue-800"><Key className="h-3 w-3 mr-1" />Active</Badge>;
-      default:
-        return <Badge variant="outline" className="flex items-center"><Key className="h-3 w-3 mr-1" />Unknown</Badge>;
+    if (key.isRevoked) {
+      return <Badge variant="destructive" className="flex items-center"><XCircle className="h-3 w-3 mr-1" />Revoked</Badge>;
     }
+    if (key.isUsed) {
+      return <Badge variant="secondary" className="flex items-center"><CheckCircle className="h-3 w-3 mr-1" />Used</Badge>;
+    }
+    return <Badge variant="default" className="flex items-center"><Key className="h-3 w-3 mr-1" />Active</Badge>;
   };
 
   const getAccountTypeBadge = (accountType: string) => {
@@ -347,10 +306,9 @@ export function AdminRegistrationKeys() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Key</TableHead>
-                    <TableHead>Tenant</TableHead>
                     <TableHead>Account Type</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead>Usuario Vinculado</TableHead>
+                    <TableHead>Used By</TableHead>
                     <TableHead>Created</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
@@ -361,44 +319,29 @@ export function AdminRegistrationKeys() {
                       <TableCell>
                         <div className="flex items-center space-x-2">
                           <code className="text-xs bg-gray-100 px-2 py-1 rounded">
-                            {key.id.substring(0, 8)}...
+                            {key.key.substring(0, 8)}...{key.key.substring(-4)}
                           </code>
                           <Button
                             size="sm"
                             variant="ghost"
-                            onClick={() => copyToClipboard(key.id)}
+                            onClick={() => copyToClipboard(key.key)}
                           >
                             <Copy className="h-3 w-3" />
                           </Button>
                         </div>
                       </TableCell>
-                      <TableCell>
-                        {key.tenantInfo ? (
-                          <div>
-                            <p className="text-sm font-medium">{key.tenantInfo.name}</p>
-                            <p className="text-xs text-gray-500">
-                              {key.tenantInfo.isActive ? '✅ Ativo' : '❌ Inativo'}
-                            </p>
-                          </div>
-                        ) : (
-                          <span className="text-gray-400">Sem tenant</span>
-                        )}
-                      </TableCell>
                       <TableCell>{getAccountTypeBadge(key.accountType)}</TableCell>
                       <TableCell>{getStatusBadge(key)}</TableCell>
                       <TableCell>
-                        {key.userInfo ? (
+                        {key.usedBy ? (
                           <div>
-                            <p className="text-sm font-medium text-green-700">👤 {key.userInfo.name}</p>
-                            <p className="text-xs text-gray-500">{key.userInfo.email}</p>
-                            <p className="text-xs text-gray-400">
-                              Usado em: {new Date(key.userInfo.usedAt).toLocaleDateString()}
+                            <p className="text-sm font-medium">{key.usedBy}</p>
+                            <p className="text-xs text-gray-500">
+                              {key.usedAt ? new Date(key.usedAt).toLocaleDateString() : ''}
                             </p>
                           </div>
                         ) : (
-                          <div className="text-sm text-orange-600 font-medium">
-                            🔄 Key Inativa
-                          </div>
+                          <span className="text-gray-400">Not used</span>
                         )}
                       </TableCell>
                       <TableCell>
@@ -408,30 +351,16 @@ export function AdminRegistrationKeys() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <div className="flex space-x-1">
-                          {!key.isUsed && !key.isRevoked && (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => handleRevokeKey(key.id)}
-                              className="text-orange-600 hover:text-orange-700"
-                              title="Revogar Key"
-                            >
-                              <XCircle className="h-3 w-3" />
-                            </Button>
-                          )}
-                          {key.status === 'ACTIVE' && !key.isUsed && (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => handleDeleteKey(key)}
-                              className="text-red-600 hover:text-red-700"
-                              title="Deletar Key Inativa"
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          )}
-                        </div>
+                        {!key.isUsed && !key.isRevoked && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleRevokeKey(key.id)}
+                            className="text-red-600 hover:text-red-700"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))}
