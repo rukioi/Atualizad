@@ -83,10 +83,10 @@ async function createTenantSchemaWithTables(schemaName) {
     // Create schema
     await prisma.$executeRawUnsafe(`CREATE SCHEMA IF NOT EXISTS "${schemaName}"`);
 
-    // Create all required tables
-    const createTablesSQL = `
-      -- Clients table (CRM)
-      CREATE TABLE IF NOT EXISTS "${schemaName}".clients (
+    // Create tables individually to avoid multiple commands error
+    const tableStatements = [
+      // Clients table
+      `CREATE TABLE IF NOT EXISTS "${schemaName}".clients (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         name VARCHAR(255) NOT NULL,
         email VARCHAR(255),
@@ -108,10 +108,10 @@ async function createTenantSchemaWithTables(schemaName) {
         is_active BOOLEAN DEFAULT true,
         created_at TIMESTAMPTZ DEFAULT NOW(),
         updated_at TIMESTAMPTZ DEFAULT NOW()
-      );
+      )`,
 
-      -- Projects table
-      CREATE TABLE IF NOT EXISTS "${schemaName}".projects (
+      // Projects table
+      `CREATE TABLE IF NOT EXISTS "${schemaName}".projects (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         title VARCHAR(255) NOT NULL,
         name VARCHAR(255) NOT NULL,
@@ -131,10 +131,10 @@ async function createTenantSchemaWithTables(schemaName) {
         is_active BOOLEAN DEFAULT true,
         created_at TIMESTAMPTZ DEFAULT NOW(),
         updated_at TIMESTAMPTZ DEFAULT NOW()
-      );
+      )`,
 
-      -- Tasks table
-      CREATE TABLE IF NOT EXISTS "${schemaName}".tasks (
+      // Tasks table
+      `CREATE TABLE IF NOT EXISTS "${schemaName}".tasks (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         title VARCHAR(255) NOT NULL,
         description TEXT,
@@ -151,10 +151,10 @@ async function createTenantSchemaWithTables(schemaName) {
         is_active BOOLEAN DEFAULT true,
         created_at TIMESTAMPTZ DEFAULT NOW(),
         updated_at TIMESTAMPTZ DEFAULT NOW()
-      );
+      )`,
 
-      -- Transactions table (Cash Flow)
-      CREATE TABLE IF NOT EXISTS "${schemaName}".transactions (
+      // Transactions table
+      `CREATE TABLE IF NOT EXISTS "${schemaName}".transactions (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         description VARCHAR(255) NOT NULL,
         amount DECIMAL(12,2) NOT NULL,
@@ -176,10 +176,10 @@ async function createTenantSchemaWithTables(schemaName) {
         is_active BOOLEAN DEFAULT true,
         created_at TIMESTAMPTZ DEFAULT NOW(),
         updated_at TIMESTAMPTZ DEFAULT NOW()
-      );
+      )`,
 
-      -- Invoices table (Billing)
-      CREATE TABLE IF NOT EXISTS "${schemaName}".invoices (
+      // Invoices table
+      `CREATE TABLE IF NOT EXISTS "${schemaName}".invoices (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         number VARCHAR(50) NOT NULL,
         client_id UUID,
@@ -196,10 +196,10 @@ async function createTenantSchemaWithTables(schemaName) {
         is_active BOOLEAN DEFAULT true,
         created_at TIMESTAMPTZ DEFAULT NOW(),
         updated_at TIMESTAMPTZ DEFAULT NOW()
-      );
+      )`,
 
-      -- Publications table
-      CREATE TABLE IF NOT EXISTS "${schemaName}".publications (
+      // Publications table
+      `CREATE TABLE IF NOT EXISTS "${schemaName}".publications (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         title VARCHAR(255) NOT NULL,
         content TEXT,
@@ -210,10 +210,10 @@ async function createTenantSchemaWithTables(schemaName) {
         is_active BOOLEAN DEFAULT true,
         created_at TIMESTAMPTZ DEFAULT NOW(),
         updated_at TIMESTAMPTZ DEFAULT NOW()
-      );
+      )`,
 
-      -- Categories table (for transactions)
-      CREATE TABLE IF NOT EXISTS "${schemaName}".categories (
+      // Categories table
+      `CREATE TABLE IF NOT EXISTS "${schemaName}".categories (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         name VARCHAR(255) NOT NULL,
         type VARCHAR(20) NOT NULL CHECK (type IN ('income', 'expense')),
@@ -223,27 +223,38 @@ async function createTenantSchemaWithTables(schemaName) {
         created_by VARCHAR(255),
         created_at TIMESTAMPTZ DEFAULT NOW(),
         updated_at TIMESTAMPTZ DEFAULT NOW()
-      );
+      )`
+    ];
 
-      -- Create indexes for performance
-      CREATE INDEX IF NOT EXISTS "idx_${schemaName}_clients_email" ON "${schemaName}".clients(email);
-      CREATE INDEX IF NOT EXISTS "idx_${schemaName}_clients_active" ON "${schemaName}".clients(is_active);
-      CREATE INDEX IF NOT EXISTS "idx_${schemaName}_projects_status" ON "${schemaName}".projects(status);
-      CREATE INDEX IF NOT EXISTS "idx_${schemaName}_projects_active" ON "${schemaName}".projects(is_active);
-      CREATE INDEX IF NOT EXISTS "idx_${schemaName}_tasks_status" ON "${schemaName}".tasks(status);
-      CREATE INDEX IF NOT EXISTS "idx_${schemaName}_tasks_active" ON "${schemaName}".tasks(is_active);
-      CREATE INDEX IF NOT EXISTS "idx_${schemaName}_transactions_type" ON "${schemaName}".transactions(type);
-      CREATE INDEX IF NOT EXISTS "idx_${schemaName}_transactions_date" ON "${schemaName}".transactions(date);
-      CREATE INDEX IF NOT EXISTS "idx_${schemaName}_transactions_active" ON "${schemaName}".transactions(is_active);
-      CREATE INDEX IF NOT EXISTS "idx_${schemaName}_invoices_status" ON "${schemaName}".invoices(status);
-      CREATE INDEX IF NOT EXISTS "idx_${schemaName}_invoices_active" ON "${schemaName}".invoices(is_active);
-      CREATE INDEX IF NOT EXISTS "idx_${schemaName}_publications_status" ON "${schemaName}".publications(status);
-      CREATE INDEX IF NOT EXISTS "idx_${schemaName}_publications_active" ON "${schemaName}".publications(is_active);
-      CREATE INDEX IF NOT EXISTS "idx_${schemaName}_categories_type" ON "${schemaName}".categories(type);
-      CREATE INDEX IF NOT EXISTS "idx_${schemaName}_categories_active" ON "${schemaName}".categories(is_active);
-    `;
+    // Execute table creation statements individually
+    for (const statement of tableStatements) {
+      await prisma.$executeRawUnsafe(statement);
+    }
 
-    await prisma.$executeRawUnsafe(createTablesSQL);
+    // Create indexes individually
+    const indexStatements = [
+      `CREATE INDEX IF NOT EXISTS "idx_${schemaName}_clients_email" ON "${schemaName}".clients(email)`,
+      `CREATE INDEX IF NOT EXISTS "idx_${schemaName}_clients_active" ON "${schemaName}".clients(is_active)`,
+      `CREATE INDEX IF NOT EXISTS "idx_${schemaName}_projects_status" ON "${schemaName}".projects(status)`,
+      `CREATE INDEX IF NOT EXISTS "idx_${schemaName}_projects_active" ON "${schemaName}".projects(is_active)`,
+      `CREATE INDEX IF NOT EXISTS "idx_${schemaName}_tasks_status" ON "${schemaName}".tasks(status)`,
+      `CREATE INDEX IF NOT EXISTS "idx_${schemaName}_tasks_active" ON "${schemaName}".tasks(is_active)`,
+      `CREATE INDEX IF NOT EXISTS "idx_${schemaName}_transactions_type" ON "${schemaName}".transactions(type)`,
+      `CREATE INDEX IF NOT EXISTS "idx_${schemaName}_transactions_date" ON "${schemaName}".transactions(date)`,
+      `CREATE INDEX IF NOT EXISTS "idx_${schemaName}_transactions_active" ON "${schemaName}".transactions(is_active)`,
+      `CREATE INDEX IF NOT EXISTS "idx_${schemaName}_invoices_status" ON "${schemaName}".invoices(status)`,
+      `CREATE INDEX IF NOT EXISTS "idx_${schemaName}_invoices_active" ON "${schemaName}".invoices(is_active)`,
+      `CREATE INDEX IF NOT EXISTS "idx_${schemaName}_publications_status" ON "${schemaName}".publications(status)`,
+      `CREATE INDEX IF NOT EXISTS "idx_${schemaName}_publications_active" ON "${schemaName}".publications(is_active)`,
+      `CREATE INDEX IF NOT EXISTS "idx_${schemaName}_categories_type" ON "${schemaName}".categories(type)`,
+      `CREATE INDEX IF NOT EXISTS "idx_${schemaName}_categories_active" ON "${schemaName}".categories(is_active)`
+    ];
+
+    // Execute index creation statements individually
+    for (const statement of indexStatements) {
+      await prisma.$executeRawUnsafe(statement);
+    }
+
     console.log(`    ✅ All tables created in schema: ${schemaName}`);
 
   } catch (error) {
@@ -298,17 +309,18 @@ async function ensureSampleData(schemaName) {
     if (clientsCount === 0) {
       console.log(`    📊 Adding sample data to ${schemaName}...`);
       
-      // Add sample categories
-      const categoriesQuery = `
-        INSERT INTO "${schemaName}".categories (name, type, color, description, created_by) VALUES
-        ('Consultoria', 'income', '#10B981', 'Serviços de consultoria jurídica', 'system'),
-        ('Honorários', 'income', '#3B82F6', 'Honorários advocatícios', 'system'),
-        ('Escritório', 'expense', '#EF4444', 'Despesas do escritório', 'system'),
-        ('Marketing', 'expense', '#F59E0B', 'Investimentos em marketing', 'system')
-        ON CONFLICT DO NOTHING
-      `;
+      // Add sample categories individually
+      const categoryInserts = [
+        `INSERT INTO "${schemaName}".categories (name, type, color, description, created_by) VALUES ('Consultoria', 'income', '#10B981', 'Serviços de consultoria jurídica', 'system') ON CONFLICT DO NOTHING`,
+        `INSERT INTO "${schemaName}".categories (name, type, color, description, created_by) VALUES ('Honorários', 'income', '#3B82F6', 'Honorários advocatícios', 'system') ON CONFLICT DO NOTHING`,
+        `INSERT INTO "${schemaName}".categories (name, type, color, description, created_by) VALUES ('Escritório', 'expense', '#EF4444', 'Despesas do escritório', 'system') ON CONFLICT DO NOTHING`,
+        `INSERT INTO "${schemaName}".categories (name, type, color, description, created_by) VALUES ('Marketing', 'expense', '#F59E0B', 'Investimentos em marketing', 'system') ON CONFLICT DO NOTHING`
+      ];
       
-      await prisma.$executeRawUnsafe(categoriesQuery);
+      for (const insert of categoryInserts) {
+        await prisma.$executeRawUnsafe(insert);
+      }
+      
       console.log(`    ✅ Sample categories added`);
     }
 
