@@ -358,7 +358,17 @@ export class Database {
       const tableDefinitions = this.getIndividualTableSQL(schemaName);
 
       for (const tableDef of tableDefinitions) {
-        await prisma.$executeRawUnsafe(tableDef.sql);
+        // Split SQL statements by semicolon and execute each separately
+        const statements = tableDef.sql
+          .split(';')
+          .map(stmt => stmt.trim())
+          .filter(stmt => stmt.length > 0);
+
+        for (const statement of statements) {
+          if (statement.trim()) {
+            await prisma.$executeRawUnsafe(statement);
+          }
+        }
         console.log(`Table ${tableDef.name} created successfully in schema ${schemaName}`);
       }
 
@@ -379,7 +389,8 @@ export class Database {
         const tableDef = tableDefinitions.find(t => t.name === tableName);
         if (tableDef) {
           // Split the SQL by semicolon and execute each statement separately
-          const statements = tableDef.sql.split(';')
+          const statements = tableDef.sql
+            .split(';')
             .map(stmt => stmt.trim())
             .filter(stmt => stmt.length > 0);
 
