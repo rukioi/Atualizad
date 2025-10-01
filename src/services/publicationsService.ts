@@ -1,13 +1,19 @@
-
 /**
- * PUBLICATIONS SERVICE - GESTÃO DE PUBLICAÇÕES
- * ===========================================
+ * PUBLICATIONS SERVICE - Gestão de Publicações Jurídicas
+ * =======================================================
  * 
- * Serviço responsável por operações de banco de dados relacionadas às publicações jurídicas.
- * NOTA: Este módulo tem isolamento POR USUÁRIO (diferente dos outros módulos)
+ * ✅ ISOLAMENTO TENANT: Usa TenantDatabase e helpers de isolamento
+ * ✅ ISOLAMENTO POR USUÁRIO: Publicações são isoladas por usuário (diferente de outros módulos)
+ * ✅ SEM DADOS MOCK: Operações reais no PostgreSQL
  */
 
-import { tenantDB } from './tenantDatabase';
+import { TenantDatabase } from '../config/database';
+import {
+  queryTenantSchema,
+  insertInTenantSchema,
+  updateInTenantSchema,
+  softDeleteInTenantSchema
+} from '../utils/tenantHelpers';
 
 export interface Publication {
   id: string;
@@ -52,7 +58,7 @@ export class PublicationsService {
   /**
    * Cria as tabelas necessárias se não existirem
    */
-  async initializeTables(tenantId: string): Promise<void> {
+  private async ensureTables(tenantDB: TenantDatabase): Promise<void> {
     const createTableQuery = `
       CREATE TABLE IF NOT EXISTS \${schema}.${this.tableName} (
         id VARCHAR PRIMARY KEY,
@@ -71,10 +77,9 @@ export class PublicationsService {
       )
     `;
     
-    await tenantDB.executeInTenantSchema(tenantId, createTableQuery);
+    await queryTenantSchema(tenantDB, createTableQuery);
     
-    // Criar índices
-    const createIndexes = [
+    const indexes = [
       `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_user_id ON \${schema}.${this.tableName}(user_id)`,
       `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_oab_number ON \${schema}.${this.tableName}(oab_number)`,
       `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_status ON \${schema}.${this.tableName}(status)`,
@@ -83,26 +88,19 @@ export class PublicationsService {
       `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_active ON \${schema}.${this.tableName}(is_active)`
     ];
     
-    for (const indexQuery of createIndexes) {
-      await tenantDB.executeInTenantSchema(tenantId, indexQuery);
+    for (const indexQuery of indexes) {
+      await queryTenantSchema(tenantDB, indexQuery);
     }
   }
 
   /**
    * Busca publicações do usuário (isolamento por usuário)
    */
-  async getPublications(tenantId: string, userId: string, filters: PublicationFilters = {}): Promise<{
+  async getPublications(tenantDB: TenantDatabase, userId: string, filters: PublicationFilters = {}): Promise<{
     publications: Publication[];
-    pagination: {
-      page: number;
-      limit: number;
-      total: number;
-      totalPages: number;
-      hasNext: boolean;
-      hasPrev: boolean;
-    };
+    pagination: any;
   }> {
-    await this.initializeTables(tenantId);
+    await this.ensureTables(tenantDB);
     
     const page = filters.page || 1;
     const limit = filters.limit || 50;
@@ -112,7 +110,6 @@ export class PublicationsService {
     let queryParams: any[] = [userId];
     let paramIndex = 2;
     
-    // Filtros específicos
     if (filters.status) {
       whereConditions.push(`status = $${paramIndex}`);
       queryParams.push(filters.status);
@@ -146,24 +143,17 @@ export class PublicationsService {
     const whereClause = `WHERE ${whereConditions.join(' AND ')}`;
     
     const publicationsQuery = `
-      SELECT 
-        id, user_id, oab_number, process_number, publication_date, content,
-        source, external_id, status, created_at, updated_at, is_active
-      FROM \${schema}.${this.tableName}
+      SELECT * FROM \${schema}.${this.tableName}
       ${whereClause}
       ORDER BY publication_date DESC, created_at DESC
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
     `;
     
-    const countQuery = `
-      SELECT COUNT(*) as total
-      FROM \${schema}.${this.tableName}
-      ${whereClause}
-    `;
+    const countQuery = `SELECT COUNT(*) as total FROM \${schema}.${this.tableName} ${whereClause}`;
     
     const [publications, countResult] = await Promise.all([
-      tenantDB.executeInTenantSchema<Publication>(tenantId, publicationsQuery, [...queryParams, limit, offset]),
-      tenantDB.executeInTenantSchema<{total: string}>(tenantId, countQuery, queryParams)
+      queryTenantSchema<Publication>(tenantDB, publicationsQuery, [...queryParams, limit, offset]),
+      queryTenantSchema<{total: string}>(tenantDB, countQuery, queryParams)
     ]);
     
     const total = parseInt(countResult[0]?.total || '0');
@@ -171,76 +161,53 @@ export class PublicationsService {
     
     return {
       publications,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages,
-        hasNext: page < totalPages,
-        hasPrev: page > 1
-      }
+      pagination: { page, limit, total, totalPages, hasNext: page < totalPages, hasPrev: page > 1 }
     };
   }
 
   /**
    * Busca publicação por ID (com validação de usuário)
    */
-  async getPublicationById(tenantId: string, userId: string, publicationId: string): Promise<Publication | null> {
-    await this.initializeTables(tenantId);
+  async getPublicationById(tenantDB: TenantDatabase, userId: string, publicationId: string): Promise<Publication | null> {
+    await this.ensureTables(tenantDB);
     
     const query = `
-      SELECT 
-        id, user_id, oab_number, process_number, publication_date, content,
-        source, external_id, status, created_at, updated_at, is_active
-      FROM \${schema}.${this.tableName}
+      SELECT * FROM \${schema}.${this.tableName}
       WHERE id = $1 AND user_id = $2 AND is_active = TRUE
     `;
     
-    const result = await tenantDB.executeInTenantSchema<Publication>(tenantId, query, [publicationId, userId]);
+    const result = await queryTenantSchema<Publication>(tenantDB, query, [publicationId, userId]);
     return result[0] || null;
   }
 
   /**
    * Cria nova publicação
    */
-  async createPublication(tenantId: string, userId: string, publicationData: CreatePublicationData): Promise<Publication> {
-    await this.initializeTables(tenantId);
+  async createPublication(tenantDB: TenantDatabase, userId: string, publicationData: CreatePublicationData): Promise<Publication> {
+    await this.ensureTables(tenantDB);
     
     const publicationId = `publication_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
     
-    const query = `
-      INSERT INTO \${schema}.${this.tableName} (
-        id, user_id, oab_number, process_number, publication_date, content,
-        source, external_id, status
-      ) VALUES (
-        $1, $2, $3, $4, $5, $6, $7, $8, $9
-      )
-      RETURNING 
-        id, user_id, oab_number, process_number, publication_date, content,
-        source, external_id, status, created_at, updated_at, is_active
-    `;
+    const data = {
+      id: publicationId,
+      user_id: userId,
+      oab_number: publicationData.oabNumber,
+      process_number: publicationData.processNumber || null,
+      publication_date: publicationData.publicationDate,
+      content: publicationData.content,
+      source: publicationData.source,
+      external_id: publicationData.externalId || null,
+      status: publicationData.status || 'novo'
+    };
     
-    const params = [
-      publicationId,
-      userId,
-      publicationData.oabNumber,
-      publicationData.processNumber || null,
-      publicationData.publicationDate,
-      publicationData.content,
-      publicationData.source,
-      publicationData.externalId || null,
-      publicationData.status || 'novo'
-    ];
-    
-    const result = await tenantDB.executeInTenantSchema<Publication>(tenantId, query, params);
-    return result[0];
+    return await insertInTenantSchema<Publication>(tenantDB, this.tableName, data);
   }
 
   /**
    * Atualiza publicação (só do próprio usuário)
    */
-  async updatePublication(tenantId: string, userId: string, publicationId: string, updateData: UpdatePublicationData): Promise<Publication | null> {
-    await this.initializeTables(tenantId);
+  async updatePublication(tenantDB: TenantDatabase, userId: string, publicationId: string, updateData: UpdatePublicationData): Promise<Publication | null> {
+    await this.ensureTables(tenantDB);
     
     const query = `
       UPDATE \${schema}.${this.tableName}
@@ -248,20 +215,18 @@ export class PublicationsService {
         status = COALESCE($3, status),
         updated_at = NOW()
       WHERE id = $1 AND user_id = $2 AND is_active = TRUE
-      RETURNING 
-        id, user_id, oab_number, process_number, publication_date, content,
-        source, external_id, status, created_at, updated_at, is_active
+      RETURNING *
     `;
     
-    const result = await tenantDB.executeInTenantSchema<Publication>(tenantId, query, [publicationId, userId, updateData.status]);
+    const result = await queryTenantSchema<Publication>(tenantDB, query, [publicationId, userId, updateData.status]);
     return result[0] || null;
   }
 
   /**
-   * Exclui publicação (soft delete - só do próprio usuário)
+   * Remove publicação (soft delete - só do próprio usuário)
    */
-  async deletePublication(tenantId: string, userId: string, publicationId: string): Promise<boolean> {
-    await this.initializeTables(tenantId);
+  async deletePublication(tenantDB: TenantDatabase, userId: string, publicationId: string): Promise<boolean> {
+    await this.ensureTables(tenantDB);
     
     const query = `
       UPDATE \${schema}.${this.tableName}
@@ -269,21 +234,21 @@ export class PublicationsService {
       WHERE id = $1 AND user_id = $2 AND is_active = TRUE
     `;
     
-    const result = await tenantDB.executeInTenantSchema(tenantId, query, [publicationId, userId]);
+    const result = await queryTenantSchema(tenantDB, query, [publicationId, userId]);
     return result.length > 0;
   }
 
   /**
    * Obtém estatísticas das publicações do usuário
    */
-  async getPublicationsStats(tenantId: string, userId: string): Promise<{
+  async getPublicationsStats(tenantDB: TenantDatabase, userId: string): Promise<{
     total: number;
     novo: number;
     lido: number;
     arquivado: number;
     thisMonth: number;
   }> {
-    await this.initializeTables(tenantId);
+    await this.ensureTables(tenantDB);
     
     const query = `
       SELECT 
@@ -296,7 +261,7 @@ export class PublicationsService {
       WHERE user_id = $1 AND is_active = TRUE
     `;
     
-    const result = await tenantDB.executeInTenantSchema<any>(tenantId, query, [userId]);
+    const result = await queryTenantSchema<any>(tenantDB, query, [userId]);
     const stats = result[0];
     
     return {

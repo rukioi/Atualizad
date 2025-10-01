@@ -1,4 +1,18 @@
-import { tenantDB } from './tenantDatabase';
+/**
+ * TASKS SERVICE - Gestão de Tarefas
+ * ==================================
+ * 
+ * ✅ ISOLAMENTO TENANT: Usa TenantDatabase e helpers de isolamento
+ * ✅ SEM DADOS MOCK: Operações reais no PostgreSQL
+ */
+
+import { TenantDatabase } from '../config/database';
+import {
+  queryTenantSchema,
+  insertInTenantSchema,
+  updateInTenantSchema,
+  softDeleteInTenantSchema
+} from '../utils/tenantHelpers';
 
 export interface Task {
   id: string;
@@ -25,13 +39,46 @@ export interface Task {
   is_active: boolean;
 }
 
-export class TasksService {
+export interface CreateTaskData {
+  title: string;
+  description?: string;
+  projectId?: string;
+  projectTitle?: string;
+  clientId?: string;
+  clientName?: string;
+  assignedTo: string;
+  status?: 'not_started' | 'in_progress' | 'completed' | 'on_hold' | 'cancelled';
+  priority?: 'low' | 'medium' | 'high' | 'urgent';
+  startDate?: string;
+  endDate?: string;
+  estimatedHours?: number;
+  actualHours?: number;
+  progress?: number;
+  tags?: string[];
+  notes?: string;
+  subtasks?: any[];
+}
+
+export interface UpdateTaskData extends Partial<CreateTaskData> {}
+
+export interface TaskFilters {
+  page?: number;
+  limit?: number;
+  status?: string;
+  priority?: string;
+  search?: string;
+  assignedTo?: string;
+  projectId?: string;
+}
+
+class TasksService {
   private tableName = 'tasks';
 
   /**
    * Cria as tabelas necessárias se não existirem
+   * IMPORTANTE: Tabela criada automaticamente no schema do tenant
    */
-  async initializeTables(tenantId: string): Promise<void> {
+  private async ensureTables(tenantDB: TenantDatabase): Promise<void> {
     const createTableQuery = `
       CREATE TABLE IF NOT EXISTS \${schema}.${this.tableName} (
         id VARCHAR PRIMARY KEY,
@@ -44,8 +91,8 @@ export class TasksService {
         assigned_to VARCHAR NOT NULL,
         status VARCHAR DEFAULT 'not_started' CHECK (status IN ('not_started', 'in_progress', 'completed', 'on_hold', 'cancelled')),
         priority VARCHAR DEFAULT 'medium' CHECK (priority IN ('low', 'medium', 'high', 'urgent')),
-        start_date TIMESTAMP,
-        end_date TIMESTAMP,
+        start_date DATE,
+        end_date DATE,
         estimated_hours DECIMAL(5,2),
         actual_hours DECIMAL(5,2),
         progress INTEGER DEFAULT 0 CHECK (progress >= 0 AND progress <= 100),
@@ -59,255 +106,211 @@ export class TasksService {
       )
     `;
     
-    await tenantDB.executeInTenantSchema(tenantId, createTableQuery);
+    await queryTenantSchema(tenantDB, createTableQuery);
     
-    // Criar índices para performance
-    const createIndexes = [
+    // Criar índices para performance otimizada
+    const indexes = [
       `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_assigned_to ON \${schema}.${this.tableName}(assigned_to)`,
       `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_status ON \${schema}.${this.tableName}(status)`,
       `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_priority ON \${schema}.${this.tableName}(priority)`,
       `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_project_id ON \${schema}.${this.tableName}(project_id)`,
-      `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_client_id ON \${schema}.${this.tableName}(client_id)`,
-      `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_created_at ON \${schema}.${this.tableName}(created_at)`,
       `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_active ON \${schema}.${this.tableName}(is_active)`
     ];
     
-    for (const indexQuery of createIndexes) {
-      await tenantDB.executeInTenantSchema(tenantId, indexQuery);
+    for (const indexQuery of indexes) {
+      await queryTenantSchema(tenantDB, indexQuery);
     }
   }
 
-  // Listar tarefas do tenant
-  async getTasks(tenantId: string, limit: number = 50, offset: number = 0): Promise<{ tasks: Task[]; total: number }> {
-    try {
-      // Garantir que a tabela existe
-      await this.initializeTables(tenantId);
-      // Query para buscar tarefas
-      const tasksQuery = `
-        SELECT * FROM \${schema}.tasks 
-        WHERE is_active = true 
-        ORDER BY created_at DESC 
-        LIMIT $1 OFFSET $2
-      `;
-      
-      // Query para contar total
-      const countQuery = `
-        SELECT COUNT(*) as count FROM \${schema}.tasks 
-        WHERE is_active = true
-      `;
+  /**
+   * Busca tarefas com filtros e paginação
+   */
+  async getTasks(tenantDB: TenantDatabase, filters: TaskFilters = {}): Promise<{
+    tasks: Task[];
+    pagination: any;
+  }> {
+    await this.ensureTables(tenantDB);
 
-      const [tasks, countResult] = await Promise.all([
-        tenantDB.executeInTenantSchema<Task>(tenantId, tasksQuery, [limit, offset]),
-        tenantDB.executeInTenantSchema<{ count: string }>(tenantId, countQuery)
-      ]);
+    const page = filters.page || 1;
+    const limit = filters.limit || 50;
+    const offset = (page - 1) * limit;
 
-      const total = parseInt(countResult[0]?.count || '0');
+    let whereConditions = ['is_active = TRUE'];
+    let queryParams: any[] = [];
+    let paramIndex = 1;
 
-      return {
-        tasks: tasks || [],
-        total
-      };
-    } catch (error) {
-      console.error('Error getting tasks:', error);
-      return { tasks: [], total: 0 };
+    if (filters.status) {
+      whereConditions.push(`status = $${paramIndex}`);
+      queryParams.push(filters.status);
+      paramIndex++;
     }
+
+    if (filters.priority) {
+      whereConditions.push(`priority = $${paramIndex}`);
+      queryParams.push(filters.priority);
+      paramIndex++;
+    }
+
+    if (filters.assignedTo) {
+      whereConditions.push(`assigned_to = $${paramIndex}`);
+      queryParams.push(filters.assignedTo);
+      paramIndex++;
+    }
+
+    if (filters.projectId) {
+      whereConditions.push(`project_id = $${paramIndex}`);
+      queryParams.push(filters.projectId);
+      paramIndex++;
+    }
+
+    if (filters.search) {
+      whereConditions.push(`(title ILIKE $${paramIndex} OR description ILIKE $${paramIndex})`);
+      queryParams.push(`%${filters.search}%`);
+      paramIndex++;
+    }
+
+    const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
+
+    const tasksQuery = `
+      SELECT * FROM \${schema}.${this.tableName}
+      ${whereClause}
+      ORDER BY created_at DESC
+      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+    `;
+
+    const countQuery = `SELECT COUNT(*) as total FROM \${schema}.${this.tableName} ${whereClause}`;
+
+    const [tasks, countResult] = await Promise.all([
+      queryTenantSchema<Task>(tenantDB, tasksQuery, [...queryParams, limit, offset]),
+      queryTenantSchema<{total: string}>(tenantDB, countQuery, queryParams)
+    ]);
+
+    const total = parseInt(countResult[0]?.total || '0');
+    const totalPages = Math.ceil(total / limit);
+
+    return {
+      tasks,
+      pagination: { page, limit, total, totalPages, hasNext: page < totalPages, hasPrev: page > 1 }
+    };
   }
 
-  // Buscar tarefa por ID
-  async getTaskById(tenantId: string, taskId: string): Promise<Task | null> {
-    try {
-      const query = `
-        SELECT * FROM \${schema}.tasks 
-        WHERE id = $1 AND is_active = true
-      `;
-      
-      const result = await tenantDB.executeInTenantSchema<Task>(tenantId, query, [taskId]);
-      return result[0] || null;
-    } catch (error) {
-      console.error('Error getting task by ID:', error);
-      return null;
-    }
+  /**
+   * Busca tarefa por ID
+   */
+  async getTaskById(tenantDB: TenantDatabase, taskId: string): Promise<Task | null> {
+    await this.ensureTables(tenantDB);
+
+    const query = `SELECT * FROM \${schema}.${this.tableName} WHERE id = $1 AND is_active = TRUE`;
+    const result = await queryTenantSchema<Task>(tenantDB, query, [taskId]);
+    return result[0] || null;
   }
 
-  // Criar nova tarefa
-  async createTask(tenantId: string, taskData: Partial<Task>): Promise<Task> {
-    try {
-      // Garantir que a tabela existe
-      await this.initializeTables(tenantId);
-      const id = `task_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-      const now = new Date().toISOString();
-      
-      const query = `
-        INSERT INTO \${schema}.tasks (
-          id, title, description, project_id, project_title, client_id, client_name,
-          assigned_to, status, priority, start_date, end_date, estimated_hours,
-          actual_hours, progress, tags, notes, subtasks, created_by, is_active
-        ) VALUES (
-          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16::jsonb, $17, $18::jsonb, $19, $20
-        ) RETURNING *
-      `;
+  /**
+   * Cria nova tarefa
+   */
+  async createTask(tenantDB: TenantDatabase, taskData: CreateTaskData, createdBy: string): Promise<Task> {
+    await this.ensureTables(tenantDB);
 
-      // Normalizar campos para snake_case (compatível com o banco)
-      const assignedTo = taskData.assignedTo || taskData.assigned_to;
-      const projectId = taskData.projectId || taskData.project_id;
-      const projectTitle = taskData.projectTitle || taskData.project_title;
-      const clientId = taskData.clientId || taskData.client_id;
-      const clientName = taskData.clientName || taskData.client_name;
-      const startDate = taskData.startDate || taskData.start_date;
-      const endDate = taskData.endDate || taskData.end_date;
-      const estimatedHours = taskData.estimatedHours || taskData.estimated_hours;
-      const actualHours = taskData.actualHours || taskData.actual_hours;
+    const taskId = `task_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
 
-      const params = [
-        id,
-        taskData.title,
-        taskData.description || null,
-        projectId || null,
-        projectTitle || null,
-        clientId || null,
-        clientName || null,
-        assignedTo,
-        taskData.status || 'not_started',
-        taskData.priority || 'medium',
-        startDate || null,
-        endDate || null,
-        estimatedHours || null,
-        actualHours || null,
-        taskData.progress || 0,
-        JSON.stringify(taskData.tags || []),
-        taskData.notes || null,
-        JSON.stringify(taskData.subtasks || []),
-        taskData.created_by,
-        true
-      ];
+    const data = {
+      id: taskId,
+      title: taskData.title,
+      description: taskData.description || null,
+      project_id: taskData.projectId || null,
+      project_title: taskData.projectTitle || null,
+      client_id: taskData.clientId || null,
+      client_name: taskData.clientName || null,
+      assigned_to: taskData.assignedTo,
+      status: taskData.status || 'not_started',
+      priority: taskData.priority || 'medium',
+      start_date: taskData.startDate || null,
+      end_date: taskData.endDate || null,
+      estimated_hours: taskData.estimatedHours || null,
+      actual_hours: taskData.actualHours || null,
+      progress: taskData.progress || 0,
+      tags: JSON.stringify(taskData.tags || []),
+      notes: taskData.notes || null,
+      subtasks: JSON.stringify(taskData.subtasks || []),
+      created_by: createdBy
+    };
 
-      const result = await tenantDB.executeInTenantSchema<Task>(tenantId, query, params);
-      return result[0];
-    } catch (error) {
-      console.error('Error creating task:', error);
-      throw error;
-    }
+    return await insertInTenantSchema<Task>(tenantDB, this.tableName, data);
   }
 
-  // Atualizar tarefa
-  async updateTask(tenantId: string, taskId: string, updateData: Partial<Task>): Promise<Task | null> {
-    try {
-      // Normalizar campos de camelCase para snake_case
-      const assignedTo = updateData.assignedTo || updateData.assigned_to;
-      const projectId = updateData.projectId || updateData.project_id;
-      const projectTitle = updateData.projectTitle || updateData.project_title;
-      const clientId = updateData.clientId || updateData.client_id;
-      const clientName = updateData.clientName || updateData.client_name;
-      const startDate = updateData.startDate || updateData.start_date;
-      const endDate = updateData.endDate || updateData.end_date;
-      const estimatedHours = updateData.estimatedHours || updateData.estimated_hours;
-      const actualHours = updateData.actualHours || updateData.actual_hours;
-      
-      const query = `
-        UPDATE \${schema}.tasks 
-        SET 
-          title = COALESCE($2, title),
-          description = COALESCE($3, description),
-          assigned_to = COALESCE($4, assigned_to),
-          status = COALESCE($5, status),
-          priority = COALESCE($6, priority),
-          project_id = COALESCE($7, project_id),
-          project_title = COALESCE($8, project_title),
-          client_id = COALESCE($9, client_id),
-          client_name = COALESCE($10, client_name),
-          start_date = COALESCE($11::timestamp, start_date),
-          end_date = COALESCE($12::timestamp, end_date),
-          estimated_hours = COALESCE($13, estimated_hours),
-          actual_hours = COALESCE($14, actual_hours),
-          progress = COALESCE($15, progress),
-          tags = COALESCE($16::jsonb, tags),
-          notes = COALESCE($17, notes),
-          subtasks = COALESCE($18::jsonb, subtasks),
-          updated_at = NOW()
-        WHERE id = $1 AND is_active = true
-        RETURNING *
-      `;
+  /**
+   * Atualiza tarefa existente
+   */
+  async updateTask(tenantDB: TenantDatabase, taskId: string, updateData: UpdateTaskData): Promise<Task | null> {
+    await this.ensureTables(tenantDB);
 
-      const params = [
-        taskId,
-        updateData.title,
-        updateData.description,
-        assignedTo,
-        updateData.status,
-        updateData.priority,
-        projectId,
-        projectTitle,
-        clientId,
-        clientName,
-        startDate,
-        endDate,
-        estimatedHours,
-        actualHours,
-        updateData.progress,
-        updateData.tags ? JSON.stringify(updateData.tags) : null,
-        updateData.notes,
-        updateData.subtasks ? JSON.stringify(updateData.subtasks) : null
-      ];
+    const data: Record<string, any> = {};
 
-      const result = await tenantDB.executeInTenantSchema<Task>(tenantId, query, params);
-      return result[0] || null;
-    } catch (error) {
-      console.error('Error updating task:', error);
-      throw error;
+    if (updateData.title !== undefined) data.title = updateData.title;
+    if (updateData.description !== undefined) data.description = updateData.description;
+    if (updateData.projectId !== undefined) data.project_id = updateData.projectId;
+    if (updateData.projectTitle !== undefined) data.project_title = updateData.projectTitle;
+    if (updateData.clientId !== undefined) data.client_id = updateData.clientId;
+    if (updateData.clientName !== undefined) data.client_name = updateData.clientName;
+    if (updateData.assignedTo !== undefined) data.assigned_to = updateData.assignedTo;
+    if (updateData.status !== undefined) data.status = updateData.status;
+    if (updateData.priority !== undefined) data.priority = updateData.priority;
+    if (updateData.startDate !== undefined) data.start_date = updateData.startDate;
+    if (updateData.endDate !== undefined) data.end_date = updateData.endDate;
+    if (updateData.estimatedHours !== undefined) data.estimated_hours = updateData.estimatedHours;
+    if (updateData.actualHours !== undefined) data.actual_hours = updateData.actualHours;
+    if (updateData.progress !== undefined) data.progress = updateData.progress;
+    if (updateData.tags !== undefined) data.tags = JSON.stringify(updateData.tags);
+    if (updateData.notes !== undefined) data.notes = updateData.notes;
+    if (updateData.subtasks !== undefined) data.subtasks = JSON.stringify(updateData.subtasks);
+
+    if (Object.keys(data).length === 0) {
+      throw new Error('No fields to update');
     }
+
+    return await updateInTenantSchema<Task>(tenantDB, this.tableName, taskId, data);
   }
 
-  // Deletar tarefa (soft delete)
-  async deleteTask(tenantId: string, taskId: string): Promise<boolean> {
-    try {
-      const query = `
-        UPDATE \${schema}.tasks 
-        SET is_active = false, updated_at = NOW()
-        WHERE id = $1 AND is_active = true
-        RETURNING 1
-      `;
-
-      const result = await tenantDB.executeInTenantSchema(tenantId, query, [taskId]);
-      return result.length > 0;
-    } catch (error) {
-      console.error('Error deleting task:', error);
-      return false;
-    }
+  /**
+   * Remove tarefa (soft delete)
+   */
+  async deleteTask(tenantDB: TenantDatabase, taskId: string): Promise<boolean> {
+    await this.ensureTables(tenantDB);
+    const task = await softDeleteInTenantSchema<Task>(tenantDB, this.tableName, taskId);
+    return !!task;
   }
 
+  /**
+   * Obtém estatísticas das tarefas
+   */
+  async getTaskStats(tenantDB: TenantDatabase): Promise<{
+    total: string;
+    completed: string;
+    in_progress: string;
+    not_started: string;
+    urgent: string;
+  }> {
+    await this.ensureTables(tenantDB);
 
-  // Estatísticas de tarefas
-  async getTaskStats(tenantId: string): Promise<any> {
-    try {
-      const query = `
-        SELECT 
-          COUNT(*) as total,
-          COUNT(CASE WHEN status = 'completed' THEN 1 END) as completed,
-          COUNT(CASE WHEN status = 'in_progress' THEN 1 END) as in_progress,
-          COUNT(CASE WHEN status = 'not_started' THEN 1 END) as not_started,
-          COUNT(CASE WHEN priority = 'urgent' THEN 1 END) as urgent
-        FROM \${schema}.tasks 
-        WHERE is_active = true
-      `;
+    const query = `
+      SELECT 
+        COUNT(*) as total,
+        COUNT(CASE WHEN status = 'completed' THEN 1 END) as completed,
+        COUNT(CASE WHEN status = 'in_progress' THEN 1 END) as in_progress,
+        COUNT(CASE WHEN status = 'not_started' THEN 1 END) as not_started,
+        COUNT(CASE WHEN priority = 'urgent' THEN 1 END) as urgent
+      FROM \${schema}.${this.tableName}
+      WHERE is_active = TRUE
+    `;
 
-      const result = await tenantDB.executeInTenantSchema(tenantId, query);
-      return result[0] || {
-        total: 0,
-        completed: 0,
-        in_progress: 0,
-        not_started: 0,
-        urgent: 0
-      };
-    } catch (error) {
-      console.error('Error getting task stats:', error);
-      return {
-        total: 0,
-        completed: 0,
-        in_progress: 0,
-        not_started: 0,
-        urgent: 0
-      };
-    }
+    const result = await queryTenantSchema<any>(tenantDB, query);
+    return result[0] || {
+      total: '0',
+      completed: '0',
+      in_progress: '0',
+      not_started: '0',
+      urgent: '0'
+    };
   }
 }
 

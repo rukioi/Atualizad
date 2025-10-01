@@ -1,6 +1,15 @@
+/**
+ * INVOICES CONTROLLER - Gestão de Faturas
+ * ========================================
+ * 
+ * ✅ ISOLAMENTO TENANT: Usa req.tenantDB para garantir isolamento por schema
+ * ✅ SEM DADOS MOCK: Operações reais no banco de dados do tenant
+ * ✅ CONTROLE DE ACESSO: Apenas contas COMPOSTA e GERENCIAL (não SIMPLES)
+ */
+
 import { Response } from 'express';
 import { z } from 'zod';
-import { AuthenticatedRequest } from '../middleware/auth';
+import { TenantRequest } from '../types';
 import { invoicesService } from '../services/invoicesService';
 
 // Validation schemas
@@ -31,9 +40,9 @@ const createInvoiceSchema = z.object({
 const updateInvoiceSchema = createInvoiceSchema.partial();
 
 export class InvoicesController {
-  async getInvoices(req: AuthenticatedRequest, res: Response) {
+  async getInvoices(req: TenantRequest, res: Response) {
     try {
-      if (!req.user || !req.tenantId) {
+      if (!req.user || !req.tenantDB) {
         return res.status(401).json({ error: 'Authentication required' });
       }
 
@@ -45,9 +54,6 @@ export class InvoicesController {
         });
       }
 
-      console.log('Fetching invoices for tenant:', req.tenantId);
-
-      // Extrair filtros da query
       const filters = {
         page: parseInt(req.query.page as string) || 1,
         limit: parseInt(req.query.limit as string) || 50,
@@ -60,9 +66,7 @@ export class InvoicesController {
         dateTo: req.query.dateTo as string
       };
 
-      const result = await invoicesService.getInvoices(req.tenantId, filters);
-      
-      console.log('Invoices fetched successfully:', { count: result.invoices.length, total: result.pagination.total });
+      const result = await invoicesService.getInvoices(req.tenantDB, filters);
       
       res.json(result);
     } catch (error) {
@@ -74,9 +78,9 @@ export class InvoicesController {
     }
   }
 
-  async getInvoice(req: AuthenticatedRequest, res: Response) {
+  async getInvoice(req: TenantRequest, res: Response) {
     try {
-      if (!req.user || !req.tenantId) {
+      if (!req.user || !req.tenantDB) {
         return res.status(401).json({ error: 'Authentication required' });
       }
 
@@ -88,10 +92,7 @@ export class InvoicesController {
       }
 
       const { id } = req.params;
-
-      console.log('Fetching invoice by ID:', id, 'for tenant:', req.tenantId);
-
-      const invoice = await invoicesService.getInvoiceById(req.tenantId, id);
+      const invoice = await invoicesService.getInvoiceById(req.tenantDB, id);
 
       if (!invoice) {
         return res.status(404).json({
@@ -99,8 +100,6 @@ export class InvoicesController {
           message: 'The specified invoice could not be found',
         });
       }
-
-      console.log('Invoice fetched successfully:', { id: invoice.id, number: invoice.number });
 
       res.json({ invoice });
     } catch (error) {
@@ -112,9 +111,9 @@ export class InvoicesController {
     }
   }
 
-  async createInvoice(req: AuthenticatedRequest, res: Response) {
+  async createInvoice(req: TenantRequest, res: Response) {
     try {
-      if (!req.user || !req.tenantId) {
+      if (!req.user || !req.tenantDB) {
         return res.status(401).json({ error: 'Authentication required' });
       }
 
@@ -126,12 +125,7 @@ export class InvoicesController {
       }
 
       const validatedData = createInvoiceSchema.parse(req.body);
-
-      console.log('Creating invoice for tenant:', req.tenantId, 'by user:', req.user.id);
-
-      const invoice = await invoicesService.createInvoice(req.tenantId, validatedData, req.user.id);
-
-      console.log('Invoice created successfully:', { id: invoice.id, number: invoice.number });
+      const invoice = await invoicesService.createInvoice(req.tenantDB, validatedData, req.user.id);
 
       res.status(201).json({
         message: 'Invoice created successfully',
@@ -146,9 +140,9 @@ export class InvoicesController {
     }
   }
 
-  async updateInvoice(req: AuthenticatedRequest, res: Response) {
+  async updateInvoice(req: TenantRequest, res: Response) {
     try {
-      if (!req.user || !req.tenantId) {
+      if (!req.user || !req.tenantDB) {
         return res.status(401).json({ error: 'Authentication required' });
       }
 
@@ -161,10 +155,7 @@ export class InvoicesController {
 
       const { id } = req.params;
       const validatedData = updateInvoiceSchema.parse(req.body);
-
-      console.log('Updating invoice:', id, 'for tenant:', req.tenantId);
-
-      const invoice = await invoicesService.updateInvoice(req.tenantId, id, validatedData);
+      const invoice = await invoicesService.updateInvoice(req.tenantDB, id, validatedData);
 
       if (!invoice) {
         return res.status(404).json({
@@ -172,8 +163,6 @@ export class InvoicesController {
           message: 'The specified invoice could not be found or updated',
         });
       }
-
-      console.log('Invoice updated successfully:', { id: invoice.id, number: invoice.number });
 
       res.json({
         message: 'Invoice updated successfully',
@@ -188,9 +177,9 @@ export class InvoicesController {
     }
   }
 
-  async deleteInvoice(req: AuthenticatedRequest, res: Response) {
+  async deleteInvoice(req: TenantRequest, res: Response) {
     try {
-      if (!req.user || !req.tenantId) {
+      if (!req.user || !req.tenantDB) {
         return res.status(401).json({ error: 'Authentication required' });
       }
 
@@ -202,10 +191,7 @@ export class InvoicesController {
       }
 
       const { id } = req.params;
-
-      console.log('Deleting invoice:', id, 'for tenant:', req.tenantId);
-
-      const deleted = await invoicesService.deleteInvoice(req.tenantId, id);
+      const deleted = await invoicesService.deleteInvoice(req.tenantDB, id);
 
       if (!deleted) {
         return res.status(404).json({
@@ -213,8 +199,6 @@ export class InvoicesController {
           message: 'The specified invoice could not be found or deleted',
         });
       }
-
-      console.log('Invoice deleted successfully:', id);
 
       res.json({
         message: 'Invoice deleted successfully',
@@ -228,9 +212,9 @@ export class InvoicesController {
     }
   }
 
-  async getInvoiceStats(req: AuthenticatedRequest, res: Response) {
+  async getInvoiceStats(req: TenantRequest, res: Response) {
     try {
-      if (!req.user || !req.tenantId) {
+      if (!req.user || !req.tenantDB) {
         return res.status(401).json({ error: 'Authentication required' });
       }
 
@@ -244,13 +228,7 @@ export class InvoicesController {
         });
       }
 
-      console.log('Fetching invoice stats for tenant:', req.tenantId);
-
-      const stats = await invoicesService.getInvoicesStats(req.tenantId);
-
-      console.log('Invoice stats fetched successfully:', stats);
-
-      // Map service stats to expected frontend format
+      const stats = await invoicesService.getInvoicesStats(req.tenantDB);
       const formattedStats = {
         totalInvoices: stats.total,
         totalAmount: stats.totalAmount,

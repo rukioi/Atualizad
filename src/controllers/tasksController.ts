@@ -1,6 +1,14 @@
+/**
+ * TASKS CONTROLLER - Gestão de Tarefas
+ * ===================================
+ * 
+ * ✅ ISOLAMENTO TENANT: Usa req.tenantDB para garantir isolamento por schema
+ * ✅ SEM DADOS MOCK: Operações reais no banco de dados do tenant
+ */
+
 import { Response } from 'express';
 import { z } from 'zod';
-import { AuthenticatedRequest } from '../middleware/auth';
+import { TenantRequest } from '../types';
 import { tasksService } from '../services/tasksService';
 
 // Validation schemas
@@ -33,32 +41,27 @@ const createTaskSchema = z.object({
 const updateTaskSchema = createTaskSchema.partial();
 
 export class TasksController {
-  async getTasks(req: AuthenticatedRequest, res: Response) {
+  async getTasks(req: TenantRequest, res: Response) {
     try {
-      if (!req.user || !req.tenantId) {
+      if (!req.user || !req.tenantDB) {
         return res.status(401).json({ error: 'Authentication required' });
       }
 
-      const page = parseInt(req.query.page as string) || 1;
-      const limit = parseInt(req.query.limit as string) || 50;
-      const offset = (page - 1) * limit;
+      const filters = {
+        page: parseInt(req.query.page as string) || 1,
+        limit: parseInt(req.query.limit as string) || 50,
+        status: req.query.status as string,
+        priority: req.query.priority as string,
+        search: req.query.search as string,
+        assignedTo: req.query.assignedTo as string,
+        projectId: req.query.projectId as string,
+      };
 
-      const { tasks, total } = await tasksService.getTasks(req.tenantId, limit, offset);
-      const totalPages = Math.ceil(total / limit);
+      const result = await tasksService.getTasks(req.tenantDB, filters);
 
-      res.json({
-        tasks,
-        pagination: {
-          page,
-          limit,
-          total,
-          totalPages,
-          hasNext: page < totalPages,
-          hasPrev: page > 1,
-        },
-      });
+      res.json(result);
     } catch (error) {
-      console.error('Get tasks error:', error);
+      console.error('[TasksController] Error:', error);
       res.status(500).json({
         error: 'Failed to fetch tasks',
         details: error instanceof Error ? error.message : 'Unknown error',
@@ -66,15 +69,14 @@ export class TasksController {
     }
   }
 
-  async getTask(req: AuthenticatedRequest, res: Response) {
+  async getTask(req: TenantRequest, res: Response) {
     try {
-      if (!req.user || !req.tenantId) {
+      if (!req.user || !req.tenantDB) {
         return res.status(401).json({ error: 'Authentication required' });
       }
 
       const { id } = req.params;
-
-      const task = await tasksService.getTaskById(req.tenantId, id);
+      const task = await tasksService.getTaskById(req.tenantDB, id);
 
       if (!task) {
         return res.status(404).json({ error: 'Task not found' });
@@ -82,7 +84,7 @@ export class TasksController {
 
       res.json({ task });
     } catch (error) {
-      console.error('Get task error:', error);
+      console.error('[TasksController] Error:', error);
       res.status(500).json({
         error: 'Failed to fetch task',
         details: error instanceof Error ? error.message : 'Unknown error',
@@ -90,27 +92,21 @@ export class TasksController {
     }
   }
 
-  async createTask(req: AuthenticatedRequest, res: Response) {
+  async createTask(req: TenantRequest, res: Response) {
     try {
-      if (!req.user || !req.tenantId) {
+      if (!req.user || !req.tenantDB) {
         return res.status(401).json({ error: 'Authentication required' });
       }
 
       const validatedData = createTaskSchema.parse(req.body);
-
-      const taskData = {
-        ...validatedData,
-        created_by: req.user.id,
-      };
-
-      const task = await tasksService.createTask(req.tenantId, taskData);
+      const task = await tasksService.createTask(req.tenantDB, validatedData, req.user.id);
 
       res.status(201).json({
         message: 'Task created successfully',
         task,
       });
     } catch (error) {
-      console.error('Create task error:', error);
+      console.error('[TasksController] Error:', error);
       res.status(400).json({
         error: 'Failed to create task',
         details: error instanceof Error ? error.message : 'Unknown error',
@@ -118,16 +114,15 @@ export class TasksController {
     }
   }
 
-  async updateTask(req: AuthenticatedRequest, res: Response) {
+  async updateTask(req: TenantRequest, res: Response) {
     try {
-      if (!req.user || !req.tenantId) {
+      if (!req.user || !req.tenantDB) {
         return res.status(401).json({ error: 'Authentication required' });
       }
 
       const { id } = req.params;
       const validatedData = updateTaskSchema.parse(req.body);
-
-      const task = await tasksService.updateTask(req.tenantId, id, validatedData);
+      const task = await tasksService.updateTask(req.tenantDB, id, validatedData);
 
       if (!task) {
         return res.status(404).json({ error: 'Task not found' });
@@ -138,7 +133,7 @@ export class TasksController {
         task,
       });
     } catch (error) {
-      console.error('Update task error:', error);
+      console.error('[TasksController] Error:', error);
       res.status(400).json({
         error: 'Failed to update task',
         details: error instanceof Error ? error.message : 'Unknown error',
@@ -146,15 +141,14 @@ export class TasksController {
     }
   }
 
-  async deleteTask(req: AuthenticatedRequest, res: Response) {
+  async deleteTask(req: TenantRequest, res: Response) {
     try {
-      if (!req.user || !req.tenantId) {
+      if (!req.user || !req.tenantDB) {
         return res.status(401).json({ error: 'Authentication required' });
       }
 
       const { id } = req.params;
-
-      const success = await tasksService.deleteTask(req.tenantId, id);
+      const success = await tasksService.deleteTask(req.tenantDB, id);
 
       if (!success) {
         return res.status(404).json({ error: 'Task not found' });
@@ -164,7 +158,7 @@ export class TasksController {
         message: 'Task deleted successfully',
       });
     } catch (error) {
-      console.error('Delete task error:', error);
+      console.error('[TasksController] Error:', error);
       res.status(500).json({
         error: 'Failed to delete task',
         details: error instanceof Error ? error.message : 'Unknown error',
@@ -172,13 +166,13 @@ export class TasksController {
     }
   }
 
-  async getTaskStats(req: AuthenticatedRequest, res: Response) {
+  async getTaskStats(req: TenantRequest, res: Response) {
     try {
-      if (!req.user || !req.tenantId) {
+      if (!req.user || !req.tenantDB) {
         return res.status(401).json({ error: 'Authentication required' });
       }
 
-      const stats = await tasksService.getTaskStats(req.tenantId);
+      const stats = await tasksService.getTaskStats(req.tenantDB);
 
       res.json({
         total: parseInt(stats.total) || 0,
@@ -188,7 +182,7 @@ export class TasksController {
         urgent: parseInt(stats.urgent) || 0,
       });
     } catch (error) {
-      console.error('Get task stats error:', error);
+      console.error('[TasksController] Error:', error);
       res.status(500).json({
         error: 'Failed to fetch task statistics',
         details: error instanceof Error ? error.message : 'Unknown error',

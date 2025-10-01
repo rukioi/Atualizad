@@ -1,14 +1,19 @@
 /**
- * INVOICES SERVICE - GESTÃO DE FATURAS
- * ===================================
+ * INVOICES SERVICE - Gestão de Faturas
+ * =====================================
  * 
- * Serviço responsável por operações de banco de dados relacionadas às faturas.
- * Substitui os dados mock por operações reais com PostgreSQL usando isolamento por tenant.
- * 
- * NOTA: Invoices são restritas a contas COMPOSTA e GERENCIAL (não SIMPLES)
+ * ✅ ISOLAMENTO TENANT: Usa TenantDatabase e helpers de isolamento
+ * ✅ SEM DADOS MOCK: Operações reais no PostgreSQL
+ * ✅ CONTROLE DE ACESSO: Restrito a contas COMPOSTA e GERENCIAL (não SIMPLES)
  */
 
-import { tenantDB } from './tenantDatabase';
+import { TenantDatabase } from '../config/database';
+import {
+  queryTenantSchema,
+  insertInTenantSchema,
+  updateInTenantSchema,
+  softDeleteInTenantSchema
+} from '../utils/tenantHelpers';
 
 export interface InvoiceItem {
   id: string;
@@ -89,7 +94,7 @@ export class InvoicesService {
   /**
    * Cria as tabelas necessárias se não existirem
    */
-  async initializeTables(tenantId: string): Promise<void> {
+  private async ensureTables(tenantDB: TenantDatabase): Promise<void> {
     const createTableQuery = `
       CREATE TABLE IF NOT EXISTS \${schema}.${this.tableName} (
         id VARCHAR PRIMARY KEY,
@@ -121,39 +126,30 @@ export class InvoicesService {
       )
     `;
     
-    await tenantDB.executeInTenantSchema(tenantId, createTableQuery);
+    await queryTenantSchema(tenantDB, createTableQuery);
     
-    // Criar índices para performance
-    const createIndexes = [
+    const indexes = [
       `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_number ON \${schema}.${this.tableName}(number)`,
       `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_client_name ON \${schema}.${this.tableName}(client_name)`,
       `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_status ON \${schema}.${this.tableName}(status)`,
       `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_payment_status ON \${schema}.${this.tableName}(payment_status)`,
       `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_due_date ON \${schema}.${this.tableName}(due_date)`,
-      `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_active ON \${schema}.${this.tableName}(is_active)`,
-      `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_created_by ON \${schema}.${this.tableName}(created_by)`
+      `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_active ON \${schema}.${this.tableName}(is_active)`
     ];
     
-    for (const indexQuery of createIndexes) {
-      await tenantDB.executeInTenantSchema(tenantId, indexQuery);
+    for (const indexQuery of indexes) {
+      await queryTenantSchema(tenantDB, indexQuery);
     }
   }
 
   /**
    * Busca faturas com filtros e paginação
    */
-  async getInvoices(tenantId: string, filters: InvoiceFilters = {}): Promise<{
+  async getInvoices(tenantDB: TenantDatabase, filters: InvoiceFilters = {}): Promise<{
     invoices: Invoice[];
-    pagination: {
-      page: number;
-      limit: number;
-      total: number;
-      totalPages: number;
-      hasNext: boolean;
-      hasPrev: boolean;
-    };
+    pagination: any;
   }> {
-    await this.initializeTables(tenantId);
+    await this.ensureTables(tenantDB);
     
     const page = filters.page || 1;
     const limit = filters.limit || 50;
@@ -163,42 +159,36 @@ export class InvoicesService {
     let queryParams: any[] = [];
     let paramIndex = 1;
     
-    // Filtro por status
     if (filters.status) {
       whereConditions.push(`status = $${paramIndex}`);
       queryParams.push(filters.status);
       paramIndex++;
     }
     
-    // Filtro por payment status
     if (filters.paymentStatus) {
       whereConditions.push(`payment_status = $${paramIndex}`);
       queryParams.push(filters.paymentStatus);
       paramIndex++;
     }
     
-    // Filtro por busca (número, título ou nome do cliente)
     if (filters.search) {
       whereConditions.push(`(number ILIKE $${paramIndex} OR title ILIKE $${paramIndex} OR client_name ILIKE $${paramIndex})`);
       queryParams.push(`%${filters.search}%`);
       paramIndex++;
     }
     
-    // Filtro por cliente
     if (filters.clientId) {
       whereConditions.push(`client_id = $${paramIndex}`);
       queryParams.push(filters.clientId);
       paramIndex++;
     }
     
-    // Filtro por tags
     if (filters.tags && filters.tags.length > 0) {
       whereConditions.push(`tags ?| $${paramIndex}`);
       queryParams.push(filters.tags);
       paramIndex++;
     }
     
-    // Filtro por data (due_date)
     if (filters.dateFrom) {
       whereConditions.push(`due_date >= $${paramIndex}`);
       queryParams.push(filters.dateFrom);
@@ -211,33 +201,20 @@ export class InvoicesService {
       paramIndex++;
     }
     
-    const whereClause = whereConditions.length > 0 
-      ? `WHERE ${whereConditions.join(' AND ')}`
-      : '';
+    const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
     
-    // Query para buscar faturas
     const invoicesQuery = `
-      SELECT 
-        id, number, title, description, client_id, client_name, client_email, client_phone,
-        amount, currency, status, due_date, items, tags, notes, payment_status,
-        payment_method, payment_date, email_sent, email_sent_at, reminders_sent,
-        last_reminder_at, created_by, created_at, updated_at, is_active
-      FROM \${schema}.${this.tableName}
+      SELECT * FROM \${schema}.${this.tableName}
       ${whereClause}
       ORDER BY created_at DESC
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
     `;
     
-    // Query para contar total
-    const countQuery = `
-      SELECT COUNT(*) as total
-      FROM \${schema}.${this.tableName}
-      ${whereClause}
-    `;
+    const countQuery = `SELECT COUNT(*) as total FROM \${schema}.${this.tableName} ${whereClause}`;
     
     const [invoices, countResult] = await Promise.all([
-      tenantDB.executeInTenantSchema<Invoice>(tenantId, invoicesQuery, [...queryParams, limit, offset]),
-      tenantDB.executeInTenantSchema<{total: string}>(tenantId, countQuery, queryParams)
+      queryTenantSchema<Invoice>(tenantDB, invoicesQuery, [...queryParams, limit, offset]),
+      queryTenantSchema<{total: string}>(tenantDB, countQuery, queryParams)
     ]);
     
     const total = parseInt(countResult[0]?.total || '0');
@@ -245,172 +222,97 @@ export class InvoicesService {
     
     return {
       invoices,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages,
-        hasNext: page < totalPages,
-        hasPrev: page > 1
-      }
+      pagination: { page, limit, total, totalPages, hasNext: page < totalPages, hasPrev: page > 1 }
     };
   }
 
   /**
-   * Busca uma fatura por ID
+   * Busca fatura por ID
    */
-  async getInvoiceById(tenantId: string, invoiceId: string): Promise<Invoice | null> {
-    await this.initializeTables(tenantId);
+  async getInvoiceById(tenantDB: TenantDatabase, invoiceId: string): Promise<Invoice | null> {
+    await this.ensureTables(tenantDB);
     
-    const query = `
-      SELECT 
-        id, number, title, description, client_id, client_name, client_email, client_phone,
-        amount, currency, status, due_date, items, tags, notes, payment_status,
-        payment_method, payment_date, email_sent, email_sent_at, reminders_sent,
-        last_reminder_at, created_by, created_at, updated_at, is_active
-      FROM \${schema}.${this.tableName}
-      WHERE id = $1 AND is_active = TRUE
-    `;
-    
-    const result = await tenantDB.executeInTenantSchema<Invoice>(tenantId, query, [invoiceId]);
+    const query = `SELECT * FROM \${schema}.${this.tableName} WHERE id = $1 AND is_active = TRUE`;
+    const result = await queryTenantSchema<Invoice>(tenantDB, query, [invoiceId]);
     return result[0] || null;
   }
 
   /**
-   * Cria uma nova fatura
+   * Cria nova fatura
    */
-  async createInvoice(tenantId: string, invoiceData: CreateInvoiceData, createdBy: string): Promise<Invoice> {
-    await this.initializeTables(tenantId);
+  async createInvoice(tenantDB: TenantDatabase, invoiceData: CreateInvoiceData, createdBy: string): Promise<Invoice> {
+    await this.ensureTables(tenantDB);
     
-    // Gerar ID único seguindo o mesmo padrão dos outros serviços
     const invoiceId = `invoice_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
     
-    const query = `
-      INSERT INTO \${schema}.${this.tableName} (
-        id, number, title, description, client_id, client_name, client_email, client_phone,
-        amount, currency, status, due_date, items, tags, notes, created_by
-      ) VALUES (
-        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13::jsonb, $14::jsonb, $15, $16
-      )
-      RETURNING 
-        id, number, title, description, client_id, client_name, client_email, client_phone,
-        amount, currency, status, due_date, items, tags, notes, payment_status,
-        payment_method, payment_date, email_sent, email_sent_at, reminders_sent,
-        last_reminder_at, created_by, created_at, updated_at, is_active
-    `;
+    const data = {
+      id: invoiceId,
+      number: invoiceData.number,
+      title: invoiceData.title,
+      description: invoiceData.description || null,
+      client_id: invoiceData.clientId || null,
+      client_name: invoiceData.clientName,
+      client_email: invoiceData.clientEmail || null,
+      client_phone: invoiceData.clientPhone || null,
+      amount: invoiceData.amount,
+      currency: invoiceData.currency || 'BRL',
+      status: invoiceData.status || 'draft',
+      due_date: invoiceData.dueDate,
+      items: JSON.stringify(invoiceData.items || []),
+      tags: JSON.stringify(invoiceData.tags || []),
+      notes: invoiceData.notes || null,
+      created_by: createdBy
+    };
     
-    const params = [
-      invoiceId,
-      invoiceData.number,
-      invoiceData.title,
-      invoiceData.description || null,
-      invoiceData.clientId || null,
-      invoiceData.clientName,
-      invoiceData.clientEmail || null,
-      invoiceData.clientPhone || null,
-      invoiceData.amount,
-      invoiceData.currency || 'BRL',
-      invoiceData.status || 'draft',
-      invoiceData.dueDate,
-      JSON.stringify(invoiceData.items || []),
-      JSON.stringify(invoiceData.tags || []),
-      invoiceData.notes || null,
-      createdBy
-    ];
-    
-    const result = await tenantDB.executeInTenantSchema<Invoice>(tenantId, query, params);
-    return result[0];
+    return await insertInTenantSchema<Invoice>(tenantDB, this.tableName, data);
   }
 
   /**
-   * Atualiza uma fatura existente
+   * Atualiza fatura existente
    */
-  async updateInvoice(tenantId: string, invoiceId: string, updateData: UpdateInvoiceData): Promise<Invoice | null> {
-    await this.initializeTables(tenantId);
+  async updateInvoice(tenantDB: TenantDatabase, invoiceId: string, updateData: UpdateInvoiceData): Promise<Invoice | null> {
+    await this.ensureTables(tenantDB);
     
-    const updateFields: string[] = [];
-    const params: any[] = [];
-    let paramIndex = 1;
+    const data: Record<string, any> = {};
     
-    // Mapeamento dos campos para atualização
-    const fieldMappings = {
-      number: 'number',
-      title: 'title',
-      description: 'description',
-      clientId: 'client_id',
-      clientName: 'client_name',
-      clientEmail: 'client_email',
-      clientPhone: 'client_phone',
-      amount: 'amount',
-      currency: 'currency',
-      status: 'status',
-      dueDate: 'due_date',
-      items: 'items',
-      tags: 'tags',
-      notes: 'notes',
-      paymentStatus: 'payment_status',
-      paymentMethod: 'payment_method',
-      paymentDate: 'payment_date'
-    };
+    if (updateData.number !== undefined) data.number = updateData.number;
+    if (updateData.title !== undefined) data.title = updateData.title;
+    if (updateData.description !== undefined) data.description = updateData.description;
+    if (updateData.clientId !== undefined) data.client_id = updateData.clientId;
+    if (updateData.clientName !== undefined) data.client_name = updateData.clientName;
+    if (updateData.clientEmail !== undefined) data.client_email = updateData.clientEmail;
+    if (updateData.clientPhone !== undefined) data.client_phone = updateData.clientPhone;
+    if (updateData.amount !== undefined) data.amount = updateData.amount;
+    if (updateData.currency !== undefined) data.currency = updateData.currency;
+    if (updateData.status !== undefined) data.status = updateData.status;
+    if (updateData.dueDate !== undefined) data.due_date = updateData.dueDate;
+    if (updateData.items !== undefined) data.items = JSON.stringify(updateData.items);
+    if (updateData.tags !== undefined) data.tags = JSON.stringify(updateData.tags);
+    if (updateData.notes !== undefined) data.notes = updateData.notes;
+    if (updateData.paymentStatus !== undefined) data.payment_status = updateData.paymentStatus;
+    if (updateData.paymentMethod !== undefined) data.payment_method = updateData.paymentMethod;
+    if (updateData.paymentDate !== undefined) data.payment_date = updateData.paymentDate;
     
-    for (const [key, dbField] of Object.entries(fieldMappings)) {
-      if (updateData.hasOwnProperty(key)) {
-        const value = (updateData as any)[key];
-        if (key === 'items' || key === 'tags') {
-          updateFields.push(`${dbField} = $${paramIndex}::jsonb`);
-          params.push(JSON.stringify(value));
-        } else {
-          updateFields.push(`${dbField} = $${paramIndex}`);
-          params.push(value);
-        }
-        paramIndex++;
-      }
-    }
-    
-    if (updateFields.length === 0) {
+    if (Object.keys(data).length === 0) {
       throw new Error('No fields to update');
     }
     
-    // Adicionar updated_at
-    updateFields.push(`updated_at = NOW()`);
-    
-    const query = `
-      UPDATE \${schema}.${this.tableName}
-      SET ${updateFields.join(', ')}
-      WHERE id = $${paramIndex} AND is_active = TRUE
-      RETURNING 
-        id, number, title, description, client_id, client_name, client_email, client_phone,
-        amount, currency, status, due_date, items, tags, notes, payment_status,
-        payment_method, payment_date, email_sent, email_sent_at, reminders_sent,
-        last_reminder_at, created_by, created_at, updated_at, is_active
-    `;
-    
-    params.push(invoiceId);
-    
-    const result = await tenantDB.executeInTenantSchema<Invoice>(tenantId, query, params);
-    return result[0] || null;
+    return await updateInTenantSchema<Invoice>(tenantDB, this.tableName, invoiceId, data);
   }
 
   /**
-   * Exclui uma fatura (soft delete)
+   * Remove fatura (soft delete)
    */
-  async deleteInvoice(tenantId: string, invoiceId: string): Promise<boolean> {
-    await this.initializeTables(tenantId);
-    
-    const query = `
-      UPDATE \${schema}.${this.tableName}
-      SET is_active = FALSE, updated_at = NOW()
-      WHERE id = $1 AND is_active = TRUE
-    `;
-    
-    const result = await tenantDB.executeInTenantSchema(tenantId, query, [invoiceId]);
-    return result.length > 0;
+  async deleteInvoice(tenantDB: TenantDatabase, invoiceId: string): Promise<boolean> {
+    await this.ensureTables(tenantDB);
+    const invoice = await softDeleteInTenantSchema<Invoice>(tenantDB, this.tableName, invoiceId);
+    return !!invoice;
   }
 
   /**
    * Obtém estatísticas das faturas
    */
-  async getInvoicesStats(tenantId: string): Promise<{
+  async getInvoicesStats(tenantDB: TenantDatabase): Promise<{
     total: number;
     draft: number;
     pending: number;
@@ -420,7 +322,7 @@ export class InvoicesService {
     paidAmount: number;
     thisMonth: number;
   }> {
-    await this.initializeTables(tenantId);
+    await this.ensureTables(tenantDB);
     
     const query = `
       SELECT 
@@ -436,7 +338,7 @@ export class InvoicesService {
       WHERE is_active = TRUE
     `;
     
-    const result = await tenantDB.executeInTenantSchema<any>(tenantId, query);
+    const result = await queryTenantSchema<any>(tenantDB, query);
     const stats = result[0];
     
     return {
@@ -452,10 +354,10 @@ export class InvoicesService {
   }
 
   /**
-   * Marca uma fatura como enviada por email
+   * Marca fatura como enviada por email
    */
-  async markInvoiceAsSent(tenantId: string, invoiceId: string): Promise<boolean> {
-    await this.initializeTables(tenantId);
+  async markInvoiceAsSent(tenantDB: TenantDatabase, invoiceId: string): Promise<boolean> {
+    await this.ensureTables(tenantDB);
     
     const query = `
       UPDATE \${schema}.${this.tableName}
@@ -467,15 +369,15 @@ export class InvoicesService {
       WHERE id = $1 AND is_active = TRUE
     `;
     
-    const result = await tenantDB.executeInTenantSchema(tenantId, query, [invoiceId]);
+    const result = await queryTenantSchema(tenantDB, query, [invoiceId]);
     return result.length > 0;
   }
 
   /**
-   * Incrementa contador de lembretes enviados
+   * Incrementa contador de lembretes
    */
-  async incrementReminders(tenantId: string, invoiceId: string): Promise<boolean> {
-    await this.initializeTables(tenantId);
+  async incrementReminders(tenantDB: TenantDatabase, invoiceId: string): Promise<boolean> {
+    await this.ensureTables(tenantDB);
     
     const query = `
       UPDATE \${schema}.${this.tableName}
@@ -486,7 +388,7 @@ export class InvoicesService {
       WHERE id = $1 AND is_active = TRUE
     `;
     
-    const result = await tenantDB.executeInTenantSchema(tenantId, query, [invoiceId]);
+    const result = await queryTenantSchema(tenantDB, query, [invoiceId]);
     return result.length > 0;
   }
 }

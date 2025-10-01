@@ -1,12 +1,27 @@
 /**
- * CLIENTS SERVICE - GESTÃO DE CLIENTES
+ * CLIENTS SERVICE - Gestão de Clientes
  * ===================================
  * 
  * Serviço responsável por operações de banco de dados relacionadas aos clientes.
- * Substitui os dados mock por operações reais com PostgreSQL usando isolamento por tenant.
+ * 
+ * ✅ ISOLAMENTO TENANT: Usa TenantDatabase e helpers para garantir isolamento por schema
+ * ✅ SEM DADOS MOCK: Todas as operações são feitas diretamente no PostgreSQL
+ * 
+ * @see src/utils/tenantHelpers.ts - Helpers de isolamento (queryTenantSchema, insertInTenantSchema, etc.)
+ * @see src/config/database.ts - TenantDatabase para executar queries no schema correto
  */
 
-import { tenantDB } from './tenantDatabase';
+import { TenantDatabase } from '../config/database';
+import {
+  queryTenantSchema,
+  insertInTenantSchema,
+  updateInTenantSchema,
+  softDeleteInTenantSchema
+} from '../utils/tenantHelpers';
+
+// ============================================================================
+// INTERFACES
+// ============================================================================
 
 export interface Client {
   id: string;
@@ -72,13 +87,18 @@ export interface ClientFilters {
   tags?: string[];
 }
 
+// ============================================================================
+// SERVICE CLASS
+// ============================================================================
+
 export class ClientsService {
   private tableName = 'clients';
 
   /**
    * Cria as tabelas necessárias se não existirem
+   * IMPORTANTE: Tabela criada automaticamente no schema do tenant via ${schema} placeholder
    */
-  async initializeTables(tenantId: string): Promise<void> {
+  private async ensureTables(tenantDB: TenantDatabase): Promise<void> {
     const createTableQuery = `
       CREATE TABLE IF NOT EXISTS \${schema}.${this.tableName} (
         id VARCHAR PRIMARY KEY DEFAULT 'client_' || EXTRACT(EPOCH FROM NOW())::BIGINT || '_' || SUBSTR(md5(random()::text), 1, 8),
@@ -104,10 +124,10 @@ export class ClientsService {
       )
     `;
     
-    await tenantDB.executeInTenantSchema(tenantId, createTableQuery);
+    await queryTenantSchema(tenantDB, createTableQuery);
     
-    // Criar índices para performance
-    const createIndexes = [
+    // Criar índices para performance otimizada
+    const indexes = [
       `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_name ON \${schema}.${this.tableName}(name)`,
       `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_email ON \${schema}.${this.tableName}(email)`,
       `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_status ON \${schema}.${this.tableName}(status)`,
@@ -115,15 +135,18 @@ export class ClientsService {
       `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_created_by ON \${schema}.${this.tableName}(created_by)`
     ];
     
-    for (const indexQuery of createIndexes) {
-      await tenantDB.executeInTenantSchema(tenantId, indexQuery);
+    for (const indexQuery of indexes) {
+      await queryTenantSchema(tenantDB, indexQuery);
     }
   }
 
   /**
    * Busca clientes com filtros e paginação
+   * 
+   * @param tenantDB - TenantDatabase injetado via req.tenantDB
+   * @param filters - Filtros de busca e paginação
    */
-  async getClients(tenantId: string, filters: ClientFilters = {}): Promise<{
+  async getClients(tenantDB: TenantDatabase, filters: ClientFilters = {}): Promise<{
     clients: Client[];
     pagination: {
       page: number;
@@ -134,7 +157,7 @@ export class ClientsService {
       hasPrev: boolean;
     };
   }> {
-    await this.initializeTables(tenantId);
+    await this.ensureTables(tenantDB);
     
     const page = filters.page || 1;
     const limit = filters.limit || 50;
@@ -158,7 +181,7 @@ export class ClientsService {
       paramIndex++;
     }
     
-    // Filtro por tags
+    // Filtro por tags (PostgreSQL JSONB array contains)
     if (filters.tags && filters.tags.length > 0) {
       whereConditions.push(`tags ?| $${paramIndex}`);
       queryParams.push(filters.tags);
@@ -169,7 +192,7 @@ export class ClientsService {
       ? `WHERE ${whereConditions.join(' AND ')}`
       : '';
     
-    // Query para buscar clientes
+    // ✅ ISOLAMENTO: Query executada no schema correto via ${schema} placeholder
     const clientsQuery = `
       SELECT 
         id, name, email, phone, organization, address, budget, currency,
@@ -180,16 +203,16 @@ export class ClientsService {
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
     `;
     
-    // Query para contar total
     const countQuery = `
       SELECT COUNT(*) as total
       FROM \${schema}.${this.tableName}
       ${whereClause}
     `;
     
+    // Executar queries em paralelo para otimização
     const [clients, countResult] = await Promise.all([
-      tenantDB.executeInTenantSchema<Client>(tenantId, clientsQuery, [...queryParams, limit, offset]),
-      tenantDB.executeInTenantSchema<{total: string}>(tenantId, countQuery, queryParams)
+      queryTenantSchema<Client>(tenantDB, clientsQuery, [...queryParams, limit, offset]),
+      queryTenantSchema<{total: string}>(tenantDB, countQuery, queryParams)
     ]);
     
     const total = parseInt(countResult[0]?.total || '0');
@@ -210,10 +233,14 @@ export class ClientsService {
 
   /**
    * Busca um cliente por ID
+   * 
+   * @param tenantDB - TenantDatabase injetado via req.tenantDB
+   * @param clientId - ID do cliente
    */
-  async getClientById(tenantId: string, clientId: string): Promise<Client | null> {
-    await this.initializeTables(tenantId);
+  async getClientById(tenantDB: TenantDatabase, clientId: string): Promise<Client | null> {
+    await this.ensureTables(tenantDB);
     
+    // ✅ ISOLAMENTO: Query no schema correto
     const query = `
       SELECT 
         id, name, email, phone, organization, address, budget, currency,
@@ -222,143 +249,110 @@ export class ClientsService {
       WHERE id = $1 AND is_active = TRUE
     `;
     
-    const result = await tenantDB.executeInTenantSchema<Client>(tenantId, query, [clientId]);
+    const result = await queryTenantSchema<Client>(tenantDB, query, [clientId]);
     return result[0] || null;
   }
 
   /**
    * Cria um novo cliente
+   * 
+   * @param tenantDB - TenantDatabase injetado via req.tenantDB
+   * @param clientData - Dados do cliente
+   * @param createdBy - ID do usuário que criou
    */
-  async createClient(tenantId: string, clientData: CreateClientData, createdBy: string): Promise<Client> {
-    await this.initializeTables(tenantId);
+  async createClient(tenantDB: TenantDatabase, clientData: CreateClientData, createdBy: string): Promise<Client> {
+    await this.ensureTables(tenantDB);
     
-    // Gerar ID único seguindo o mesmo padrão do tasksService
+    // Gerar ID único
     const clientId = `client_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
     
-    const query = `
-      INSERT INTO \${schema}.${this.tableName} (
-        id, name, email, phone, organization, address, budget, currency,
-        status, tags, notes, created_by
-      ) VALUES (
-        $1, $2, $3, $4, $5, $6::jsonb, $7, $8, $9, $10::jsonb, $11, $12
-      )
-      RETURNING 
-        id, name, email, phone, organization, address, budget, currency,
-        status, tags, notes, created_by, created_at, updated_at, is_active
-    `;
+    // ✅ ISOLAMENTO: Inserção no schema correto usando helper
+    const data = {
+      id: clientId,
+      name: clientData.name,
+      email: clientData.email,
+      phone: clientData.phone || null,
+      organization: clientData.organization || null,
+      address: JSON.stringify(clientData.address || {}),
+      budget: clientData.budget || null,
+      currency: clientData.currency || 'BRL',
+      status: clientData.status || 'active',
+      tags: JSON.stringify(clientData.tags || []),
+      notes: clientData.notes || null,
+      created_by: createdBy
+    };
     
-    const params = [
-      clientId,
-      clientData.name,
-      clientData.email,
-      clientData.phone || null,
-      clientData.organization || null,
-      JSON.stringify(clientData.address || {}),
-      clientData.budget || null,
-      clientData.currency || 'BRL',
-      clientData.status || 'active',
-      JSON.stringify(clientData.tags || []),
-      clientData.notes || null,
-      createdBy
-    ];
-    
-    const result = await tenantDB.executeInTenantSchema<Client>(tenantId, query, params);
-    return result[0];
+    const client = await insertInTenantSchema<Client>(tenantDB, this.tableName, data);
+    return client;
   }
 
   /**
    * Atualiza um cliente existente
+   * 
+   * @param tenantDB - TenantDatabase injetado via req.tenantDB
+   * @param clientId - ID do cliente
+   * @param updateData - Dados para atualizar
    */
-  async updateClient(tenantId: string, clientId: string, updateData: UpdateClientData): Promise<Client | null> {
-    await this.initializeTables(tenantId);
+  async updateClient(tenantDB: TenantDatabase, clientId: string, updateData: UpdateClientData): Promise<Client | null> {
+    await this.ensureTables(tenantDB);
     
-    const updateFields: string[] = [];
-    const params: any[] = [];
-    let paramIndex = 1;
+    // Preparar dados de atualização (mapear campos camelCase para snake_case)
+    const data: Record<string, any> = {};
     
-    // Mapeamento dos campos para atualização
-    const fieldMappings = {
-      name: 'name',
-      email: 'email', 
-      phone: 'phone',
-      organization: 'organization',
-      address: 'address',
-      budget: 'budget',
-      currency: 'currency',
-      status: 'status',
-      tags: 'tags',
-      notes: 'notes',
-      cpf: 'cpf',
-      rg: 'rg',
-      professionalTitle: 'professional_title',
-      maritalStatus: 'marital_status',
-      birthDate: 'birth_date'
-    };
+    if (updateData.name !== undefined) data.name = updateData.name;
+    if (updateData.email !== undefined) data.email = updateData.email;
+    if (updateData.phone !== undefined) data.phone = updateData.phone;
+    if (updateData.organization !== undefined) data.organization = updateData.organization;
+    if (updateData.address !== undefined) data.address = JSON.stringify(updateData.address);
+    if (updateData.budget !== undefined) data.budget = updateData.budget;
+    if (updateData.currency !== undefined) data.currency = updateData.currency;
+    if (updateData.status !== undefined) data.status = updateData.status;
+    if (updateData.tags !== undefined) data.tags = JSON.stringify(updateData.tags);
+    if (updateData.notes !== undefined) data.notes = updateData.notes;
+    if (updateData.cpf !== undefined) data.cpf = updateData.cpf;
+    if (updateData.rg !== undefined) data.rg = updateData.rg;
+    if (updateData.professionalTitle !== undefined) data.professional_title = updateData.professionalTitle;
+    if (updateData.maritalStatus !== undefined) data.marital_status = updateData.maritalStatus;
+    if (updateData.birthDate !== undefined) data.birth_date = updateData.birthDate;
     
-    for (const [key, dbField] of Object.entries(fieldMappings)) {
-      if (updateData.hasOwnProperty(key)) {
-        const value = (updateData as any)[key];
-        if (key === 'address' || key === 'tags') {
-          updateFields.push(`${dbField} = $${paramIndex}::jsonb`);
-          params.push(JSON.stringify(value));
-        } else {
-          updateFields.push(`${dbField} = $${paramIndex}`);
-          params.push(value);
-        }
-        paramIndex++;
-      }
-    }
-    
-    if (updateFields.length === 0) {
+    if (Object.keys(data).length === 0) {
       throw new Error('No fields to update');
     }
     
-    // Adicionar updated_at
-    updateFields.push(`updated_at = NOW()`);
-    
-    const query = `
-      UPDATE \${schema}.${this.tableName}
-      SET ${updateFields.join(', ')}
-      WHERE id = $${paramIndex} AND is_active = TRUE
-      RETURNING 
-        id, name, email, phone, organization, address, budget, currency,
-        status, tags, notes, created_by, created_at, updated_at, is_active
-    `;
-    
-    params.push(clientId);
-    
-    const result = await tenantDB.executeInTenantSchema<Client>(tenantId, query, params);
-    return result[0] || null;
+    // ✅ ISOLAMENTO: Atualização no schema correto usando helper
+    const client = await updateInTenantSchema<Client>(tenantDB, this.tableName, clientId, data);
+    return client;
   }
 
   /**
-   * Exclui um cliente (soft delete)
+   * Remove um cliente (soft delete)
+   * 
+   * @param tenantDB - TenantDatabase injetado via req.tenantDB
+   * @param clientId - ID do cliente
    */
-  async deleteClient(tenantId: string, clientId: string): Promise<boolean> {
-    await this.initializeTables(tenantId);
+  async deleteClient(tenantDB: TenantDatabase, clientId: string): Promise<boolean> {
+    await this.ensureTables(tenantDB);
     
-    const query = `
-      UPDATE \${schema}.${this.tableName}
-      SET is_active = FALSE, updated_at = NOW()
-      WHERE id = $1 AND is_active = TRUE
-    `;
-    
-    const result = await tenantDB.executeInTenantSchema(tenantId, query, [clientId]);
-    return result.length > 0;
+    // ✅ ISOLAMENTO: Soft delete no schema correto usando helper
+    const client = await softDeleteInTenantSchema<Client>(tenantDB, this.tableName, clientId);
+    return !!client;
   }
 
   /**
    * Obtém estatísticas dos clientes
+   * 
+   * @param tenantDB - TenantDatabase injetado via req.tenantDB
    */
-  async getClientsStats(tenantId: string): Promise<{
+  async getClientsStats(tenantDB: TenantDatabase): Promise<{
     total: number;
     active: number;
     inactive: number;
     pending: number;
     thisMonth: number;
   }> {
-    await this.initializeTables(tenantId);
+    await this.ensureTables(tenantDB);
     
+    // ✅ ISOLAMENTO: Query de estatísticas no schema correto
     const query = `
       SELECT 
         COUNT(*) as total,
@@ -370,7 +364,7 @@ export class ClientsService {
       WHERE is_active = TRUE
     `;
     
-    const result = await tenantDB.executeInTenantSchema<any>(tenantId, query);
+    const result = await queryTenantSchema<any>(tenantDB, query);
     const stats = result[0];
     
     return {

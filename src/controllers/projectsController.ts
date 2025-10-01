@@ -1,9 +1,16 @@
+/**
+ * PROJECTS CONTROLLER - Gestão de Projetos
+ * ========================================
+ * 
+ * ✅ ISOLAMENTO TENANT: Usa req.tenantDB para garantir isolamento por schema
+ * ✅ SEM DADOS MOCK: Operações reais no banco de dados do tenant
+ */
+
 import { Response } from 'express';
 import { z } from 'zod';
-import { AuthenticatedRequest } from '../middleware/auth';
+import { TenantRequest } from '../types';
 import { projectsService } from '../services/projectsService';
 
-// Validation schemas
 const createProjectSchema = z.object({
   title: z.string().min(1, 'Title is required'),
   description: z.string().optional(),
@@ -31,15 +38,12 @@ const createProjectSchema = z.object({
 const updateProjectSchema = createProjectSchema.partial();
 
 export class ProjectsController {
-  async getProjects(req: AuthenticatedRequest, res: Response) {
+  async getProjects(req: TenantRequest, res: Response) {
     try {
-      if (!req.user || !req.tenantId) {
+      if (!req.user || !req.tenantDB) {
         return res.status(401).json({ error: 'Authentication required' });
       }
 
-      console.log('Fetching projects for tenant:', req.tenantId);
-
-      // Extrair filtros da query
       const filters = {
         page: parseInt(req.query.page as string) || 1,
         limit: parseInt(req.query.limit as string) || 50,
@@ -50,139 +54,88 @@ export class ProjectsController {
         assignedTo: req.query.assignedTo ? (req.query.assignedTo as string).split(',') : undefined
       };
 
-      const result = await projectsService.getProjects(req.tenantId, filters);
-      
-      console.log('Projects fetched successfully:', { count: result.projects.length, total: result.pagination.total });
-      
+      const result = await projectsService.getProjects(req.tenantDB, filters);
       res.json(result);
     } catch (error) {
-      console.error('Get projects error:', error);
-      res.status(500).json({
-        error: 'Failed to fetch projects',
-        details: error instanceof Error ? error.message : 'Unknown error',
-      });
+      console.error('[ProjectsController] Error:', error);
+      res.status(500).json({ error: 'Failed to fetch projects' });
     }
   }
 
-  async getProject(req: AuthenticatedRequest, res: Response) {
+  async getProject(req: TenantRequest, res: Response) {
     try {
-      if (!req.user || !req.tenantId) {
+      if (!req.user || !req.tenantDB) {
         return res.status(401).json({ error: 'Authentication required' });
       }
 
       const { id } = req.params;
-      
-      console.log('Fetching project:', id, 'for tenant:', req.tenantId);
-
-      const project = await projectsService.getProjectById(req.tenantId, id);
+      const project = await projectsService.getProjectById(req.tenantDB, id);
       
       if (!project) {
         return res.status(404).json({ error: 'Project not found' });
       }
-      
-      console.log('Project fetched successfully:', project.id);
 
-      res.json({
-        project,
-        related: {
-          tasks: [],
-        },
-      });
+      res.json({ project, related: { tasks: [] } }); // TODO: Buscar tasks relacionadas
     } catch (error) {
-      console.error('Get project error:', error);
-      res.status(500).json({
-        error: 'Failed to fetch project',
-        details: error instanceof Error ? error.message : 'Unknown error',
-      });
+      console.error('[ProjectsController] Error:', error);
+      res.status(500).json({ error: 'Failed to fetch project' });
     }
   }
 
-  async createProject(req: AuthenticatedRequest, res: Response) {
+  async createProject(req: TenantRequest, res: Response) {
     try {
-      if (!req.user || !req.tenantId) {
+      if (!req.user || !req.tenantDB) {
         return res.status(401).json({ error: 'Authentication required' });
       }
 
-      console.log('Creating project for tenant:', req.tenantId, 'by user:', req.user.id);
-
       const validatedData = createProjectSchema.parse(req.body);
+      const project = await projectsService.createProject(req.tenantDB, validatedData, req.user.id);
 
-      const project = await projectsService.createProject(req.tenantId, validatedData, req.user.id);
-      
-      console.log('Project created successfully:', project.id);
-
-      res.status(201).json({
-        message: 'Project created successfully',
-        project,
-      });
+      res.status(201).json({ message: 'Project created successfully', project });
     } catch (error) {
-      console.error('Create project error:', error);
-      res.status(400).json({
-        error: 'Failed to create project',
-        details: error instanceof Error ? error.message : 'Unknown error',
-      });
+      console.error('[ProjectsController] Error:', error);
+      res.status(400).json({ error: 'Failed to create project' });
     }
   }
 
-  async updateProject(req: AuthenticatedRequest, res: Response) {
+  async updateProject(req: TenantRequest, res: Response) {
     try {
-      if (!req.user || !req.tenantId) {
+      if (!req.user || !req.tenantDB) {
         return res.status(401).json({ error: 'Authentication required' });
       }
 
       const { id } = req.params;
       const validatedData = updateProjectSchema.parse(req.body);
-      
-      console.log('Updating project:', id, 'for tenant:', req.tenantId);
+      const project = await projectsService.updateProject(req.tenantDB, id, validatedData);
 
-      const project = await projectsService.updateProject(req.tenantId, id, validatedData);
-      
       if (!project) {
         return res.status(404).json({ error: 'Project not found' });
       }
-      
-      console.log('Project updated successfully:', project.id);
 
-      res.json({
-        message: 'Project updated successfully',
-        project,
-      });
+      res.json({ message: 'Project updated successfully', project });
     } catch (error) {
-      console.error('Update project error:', error);
-      res.status(400).json({
-        error: 'Failed to update project',
-        details: error instanceof Error ? error.message : 'Unknown error',
-      });
+      console.error('[ProjectsController] Error:', error);
+      res.status(400).json({ error: 'Failed to update project' });
     }
   }
 
-  async deleteProject(req: AuthenticatedRequest, res: Response) {
+  async deleteProject(req: TenantRequest, res: Response) {
     try {
-      if (!req.user || !req.tenantId) {
+      if (!req.user || !req.tenantDB) {
         return res.status(401).json({ error: 'Authentication required' });
       }
 
       const { id } = req.params;
-      
-      console.log('Deleting project:', id, 'for tenant:', req.tenantId);
+      const success = await projectsService.deleteProject(req.tenantDB, id);
 
-      const success = await projectsService.deleteProject(req.tenantId, id);
-      
       if (!success) {
         return res.status(404).json({ error: 'Project not found' });
       }
-      
-      console.log('Project deleted successfully:', id);
 
-      res.json({
-        message: 'Project deleted successfully',
-      });
+      res.json({ message: 'Project deleted successfully' });
     } catch (error) {
-      console.error('Delete project error:', error);
-      res.status(500).json({
-        error: 'Failed to delete project',
-        details: error instanceof Error ? error.message : 'Unknown error',
-      });
+      console.error('[ProjectsController] Error:', error);
+      res.status(500).json({ error: 'Failed to delete project' });
     }
   }
 }

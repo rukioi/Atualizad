@@ -1,11 +1,20 @@
+/**
+ * NOTIFICATIONS CONTROLLER - Gestão de Notificações
+ * =================================================
+ * 
+ * ✅ ISOLAMENTO TENANT: Usa req.tenantDB para garantir isolamento por schema
+ * ✅ ISOLAMENTO POR USUÁRIO: Notificações são isoladas por usuário
+ * ✅ SEM DADOS MOCK: Operações reais no banco de dados do tenant
+ */
+
 import { Response } from 'express';
 import { z } from 'zod';
-import { AuthenticatedRequest } from '../middleware/auth';
+import { TenantRequest } from '../types';
+import { notificationsService } from '../services/notificationsService';
 
 // Validation schemas
+// NOTE: userId is NOT accepted from body for security - always uses req.user.id
 const createNotificationSchema = z.object({
-  userId: z.string().uuid('Invalid user ID'),
-  actorId: z.string().uuid().optional(),
   type: z.enum(['task', 'invoice', 'system', 'client', 'project']),
   title: z.string().min(1, 'Title is required').max(255, 'Title too long'),
   message: z.string().min(1, 'Message is required'),
@@ -19,56 +28,21 @@ const markAsReadSchema = z.object({
 });
 
 export class NotificationsController {
-  async getNotifications(req: AuthenticatedRequest, res: Response) {
+  async getNotifications(req: TenantRequest, res: Response) {
     try {
-      if (!req.user || !req.tenantId) {
+      if (!req.user || !req.tenantDB) {
         return res.status(401).json({ error: 'Authentication required' });
       }
 
-      // TODO: Implementar busca real de notificações do banco de dados
-      // Por enquanto, retornar array vazio até implementar a funcionalidade completa
-      const notifications: any[] = [];
-      
-      // Quando implementar, buscar notificações do tenant schema:
-      // const { tenantDB } = await import('../config/database');
-      // const result = await tenantDB.executeInTenantSchema(req.tenantId!, `
-      //   SELECT * FROM \${schema}.notifications 
-      //   WHERE user_id = $1 AND is_active = true 
-      //   ORDER BY created_at DESC 
-      //   LIMIT 50
-      // `, [req.user.id]);
+      const filters = {
+        page: parseInt(req.query.page as string) || 1,
+        limit: parseInt(req.query.limit as string) || 20,
+        unreadOnly: req.query.unreadOnly === 'true',
+        type: req.query.type as string
+      };
 
-      const page = parseInt(req.query.page as string) || 1;
-      const limit = parseInt(req.query.limit as string) || 20;
-      const unreadOnly = req.query.unreadOnly === 'true';
-      const type = req.query.type as string;
-
-      let filteredNotifications = notifications;
-
-      if (unreadOnly) {
-        filteredNotifications = filteredNotifications.filter((n: any) => !n.read);
-      }
-
-      if (type) {
-        filteredNotifications = filteredNotifications.filter((n: any) => n.type === type);
-      }
-
-      const total = filteredNotifications.length;
-      const totalPages = Math.ceil(total / limit);
-      const offset = (page - 1) * limit;
-      const paginatedNotifications = filteredNotifications.slice(offset, offset + limit);
-
-      res.json({
-        notifications: paginatedNotifications,
-        pagination: {
-          page,
-          limit,
-          total,
-          totalPages,
-          hasNext: page < totalPages,
-          hasPrev: page > 1,
-        },
-      });
+      const result = await notificationsService.getNotifications(req.tenantDB, req.user.id, filters);
+      res.json(result);
     } catch (error) {
       console.error('Get notifications error:', error);
       res.status(500).json({
@@ -78,15 +52,13 @@ export class NotificationsController {
     }
   }
 
-  async getUnreadCount(req: AuthenticatedRequest, res: Response) {
+  async getUnreadCount(req: TenantRequest, res: Response) {
     try {
-      if (!req.user || !req.tenantId) {
+      if (!req.user || !req.tenantDB) {
         return res.status(401).json({ error: 'Authentication required' });
       }
 
-      // Retornar 0 até implementar sistema real de notificações
-      const unreadCount = 0;
-
+      const unreadCount = await notificationsService.getUnreadCount(req.tenantDB, req.user.id);
       res.json({ unreadCount });
     } catch (error) {
       console.error('Get unread count error:', error);
@@ -97,27 +69,27 @@ export class NotificationsController {
     }
   }
 
-  async createNotification(req: AuthenticatedRequest, res: Response) {
+  async createNotification(req: TenantRequest, res: Response) {
     try {
-      if (!req.user || !req.tenantId) {
+      if (!req.user || !req.tenantDB) {
         return res.status(401).json({ error: 'Authentication required' });
       }
 
       const validatedData = createNotificationSchema.parse(req.body);
-
-      const mockNotification = {
-        id: 'notif-' + Date.now(),
+      
+      // ✅ SECURITY: Always use req.user.id for userId - never accept from body
+      // This prevents privilege escalation attacks
+      const notificationData = {
         ...validatedData,
-        actorId: validatedData.actorId || req.user.id,
-        read: false,
-        isActive: true,
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        userId: req.user.id,  // Always the authenticated user
+        actorId: req.user.id  // Always the authenticated user
       };
+
+      const notification = await notificationsService.createNotification(req.tenantDB, notificationData);
 
       res.status(201).json({
         message: 'Notification created successfully',
-        notification: mockNotification,
+        notification,
       });
     } catch (error) {
       console.error('Create notification error:', error);
@@ -128,9 +100,9 @@ export class NotificationsController {
     }
   }
 
-  async markAsRead(req: AuthenticatedRequest, res: Response) {
+  async markAsRead(req: TenantRequest, res: Response) {
     try {
-      if (!req.user || !req.tenantId) {
+      if (!req.user || !req.tenantDB) {
         return res.status(401).json({ error: 'Authentication required' });
       }
 
@@ -138,10 +110,13 @@ export class NotificationsController {
       const validatedData = markAsReadSchema.parse(req.body);
 
       if (validatedData.markAll) {
+        await notificationsService.markAllAsRead(req.tenantDB, req.user.id);
         res.json({ message: 'All notifications marked as read' });
       } else if (id) {
+        await notificationsService.markAsRead(req.tenantDB, req.user.id, id);
         res.json({ message: 'Notification marked as read' });
       } else if (validatedData.notificationIds) {
+        await notificationsService.markMultipleAsRead(req.tenantDB, req.user.id, validatedData.notificationIds);
         res.json({ message: 'Notifications marked as read' });
       } else {
         res.status(400).json({ error: 'No notification ID or markAll flag provided' });
@@ -155,13 +130,18 @@ export class NotificationsController {
     }
   }
 
-  async deleteNotification(req: AuthenticatedRequest, res: Response) {
+  async deleteNotification(req: TenantRequest, res: Response) {
     try {
-      if (!req.user || !req.tenantId) {
+      if (!req.user || !req.tenantDB) {
         return res.status(401).json({ error: 'Authentication required' });
       }
 
       const { id } = req.params;
+      const deleted = await notificationsService.deleteNotification(req.tenantDB, req.user.id, id);
+
+      if (!deleted) {
+        return res.status(404).json({ error: 'Notification not found' });
+      }
 
       res.json({ message: 'Notification deleted successfully' });
     } catch (error) {

@@ -1,18 +1,27 @@
+/**
+ * DASHBOARD CONTROLLER - Métricas e Estatísticas
+ * ==============================================
+ * 
+ * ✅ ISOLAMENTO TENANT: Usa req.tenantDB para garantir isolamento por schema
+ * ✅ SEM DADOS MOCK: Agrega métricas reais de todos os módulos
+ * ✅ CONTROLE DE ACESSO: Respeita restrições por tipo de conta
+ */
+
 import { Response } from 'express';
-import { AuthenticatedRequest } from '../middleware/auth';
+import { TenantRequest } from '../types';
 import { dashboardService } from '../services/dashboardService';
 import { clientsService } from '../services/clientsService';
 import { projectsService } from '../services/projectsService';
 import { transactionsService } from '../services/transactionsService';
 
 export class DashboardController {
-  async getStats(req: AuthenticatedRequest, res: Response) {
+  async getStats(req: TenantRequest, res: Response) {
     try {
-      if (!req.user || !req.tenantId) {
+      if (!req.user || !req.tenantDB) {
         return res.status(401).json({ error: 'Authentication required' });
       }
 
-      const metrics = await dashboardService.getDashboardMetrics(req.tenantId, req.user.id, req.user.accountType);
+      const metrics = await dashboardService.getDashboardMetrics(req.tenantDB, req.user.id, req.user.accountType);
       res.json(metrics);
     } catch (error) {
       console.error('Dashboard stats error:', error);
@@ -23,16 +32,16 @@ export class DashboardController {
     }
   }
 
-  async getDashboard(req: AuthenticatedRequest, res: Response) {
+  async getDashboard(req: TenantRequest, res: Response) {
     try {
-      if (!req.user || !req.tenantId) {
+      if (!req.user || !req.tenantDB) {
         return res.status(401).json({ error: 'Authentication required' });
       }
 
       const [metrics, recentActivity, chartData] = await Promise.all([
-        dashboardService.getDashboardMetrics(req.tenantId, req.user.id, req.user.accountType),
-        dashboardService.getRecentActivity(req.tenantId, req.user.id, 10),
-        dashboardService.getChartData(req.tenantId, req.user.accountType)
+        dashboardService.getDashboardMetrics(req.tenantDB, req.user.id, req.user.accountType),
+        dashboardService.getRecentActivity(req.tenantDB, req.user.id, 10),
+        dashboardService.getChartData(req.tenantDB, req.user.accountType)
       ]);
 
       const dashboardData = {
@@ -51,16 +60,16 @@ export class DashboardController {
     }
   }
 
-  async getMetrics(req: AuthenticatedRequest, res: Response) {
+  async getMetrics(req: TenantRequest, res: Response) {
     try {
-      if (!req.user || !req.tenantId) {
+      if (!req.user || !req.tenantDB) {
         return res.status(401).json({ error: 'Authentication required' });
       }
 
       const metrics = await dashboardService.getDashboardMetrics(
-        req.tenantId,
+        req.tenantDB,
         req.user.id,
-        req.user.accountType || 'basic'
+        req.user.accountType || 'SIMPLES'
       );
 
       res.json({
@@ -77,13 +86,12 @@ export class DashboardController {
     }
   }
 
-  async getFinancialData(req: AuthenticatedRequest, res: Response) {
+  async getFinancialData(req: TenantRequest, res: Response) {
     try {
-      if (!req.user || !req.tenantId) {
+      if (!req.user || !req.tenantDB) {
         return res.status(401).json({ error: 'Authentication required' });
       }
 
-      // Only COMPOSTA and GERENCIAL can access financial data
       if (req.user.accountType === 'SIMPLES') {
         return res.json({
           revenue: 0,
@@ -95,21 +103,20 @@ export class DashboardController {
         });
       }
 
-      // Get real financial data from transactions
       const currentMonth = new Date();
       currentMonth.setDate(1);
       currentMonth.setHours(0, 0, 0, 0);
 
-      const transactions = await transactionsService.getTransactions(req.tenantId, req.user.id, {
+      const transactions = await transactionsService.getTransactions(req.tenantDB, {
         startDate: currentMonth.toISOString(),
         endDate: new Date().toISOString()
       });
 
-      const revenue = transactions.data
+      const revenue = transactions.transactions
         .filter(t => t.type === 'income' && t.status === 'completed')
         .reduce((sum, t) => sum + t.amount, 0);
 
-      const expenses = transactions.data
+      const expenses = transactions.transactions
         .filter(t => t.type === 'expense' && t.status === 'completed')
         .reduce((sum, t) => sum + t.amount, 0);
 
@@ -117,8 +124,8 @@ export class DashboardController {
         revenue,
         expenses,
         balance: revenue - expenses,
-        growthPercentage: 0, // Calculate based on previous month
-        recentTransactions: transactions.data.slice(0, 5)
+        growthPercentage: 0,
+        recentTransactions: transactions.transactions.slice(0, 5)
       };
 
       res.json(financialData);
@@ -131,29 +138,29 @@ export class DashboardController {
     }
   }
 
-  async getClientMetrics(req: AuthenticatedRequest, res: Response) {
+  async getClientMetrics(req: TenantRequest, res: Response) {
     try {
-      if (!req.user || !req.tenantId) {
+      if (!req.user || !req.tenantDB) {
         return res.status(401).json({ error: 'Authentication required' });
       }
 
-      const clients = await clientsService.getClients(req.tenantId, req.user.id, {});
+      const clients = await clientsService.getClients(req.tenantDB, {});
 
       const currentMonth = new Date();
       currentMonth.setDate(1);
 
-      const newThisMonth = clients.data.filter(c =>
-        new Date(c.createdAt) >= currentMonth
+      const newThisMonth = clients.clients.filter(c =>
+        new Date(c.created_at) >= currentMonth
       ).length;
 
       const metrics = {
-        totalClients: clients.total,
+        totalClients: clients.pagination.total,
         newThisMonth,
-        growthPercentage: clients.total > 0 ? (newThisMonth / clients.total) * 100 : 0,
+        growthPercentage: clients.pagination.total > 0 ? (newThisMonth / clients.pagination.total) * 100 : 0,
         byStatus: [
-          { status: 'active', count: clients.data.filter(c => c.status === 'active').length },
-          { status: 'inactive', count: clients.data.filter(c => c.status === 'inactive').length },
-          { status: 'pending', count: clients.data.filter(c => c.status === 'pending').length },
+          { status: 'active', count: clients.clients.filter(c => c.status === 'active').length },
+          { status: 'inactive', count: clients.clients.filter(c => c.status === 'inactive').length },
+          { status: 'pending', count: clients.clients.filter(c => c.status === 'pending').length },
         ],
       };
 
@@ -167,31 +174,31 @@ export class DashboardController {
     }
   }
 
-  async getProjectMetrics(req: AuthenticatedRequest, res: Response) {
+  async getProjectMetrics(req: TenantRequest, res: Response) {
     try {
-      if (!req.user || !req.tenantId) {
+      if (!req.user || !req.tenantDB) {
         return res.status(401).json({ error: 'Authentication required' });
       }
 
-      const projects = await projectsService.getProjects(req.tenantId, req.user.id, {});
+      const projects = await projectsService.getProjects(req.tenantDB, {});
 
-      const activeProjects = projects.data.filter(p =>
-        p.stage !== 'won' && p.stage !== 'lost'
+      const activeProjects = projects.projects.filter(p =>
+        p.status !== 'won' && p.status !== 'lost'
       ).length;
 
-      const overdueProjects = projects.data.filter(p =>
+      const overdueProjects = projects.projects.filter(p =>
         p.deadline && new Date(p.deadline) < new Date()
       ).length;
 
-      const totalRevenue = projects.data
-        .filter(p => p.stage === 'won')
-        .reduce((sum, p) => sum + (p.value || 0), 0);
+      const totalRevenue = projects.projects
+        .filter(p => p.status === 'won')
+        .reduce((sum, p) => sum + (p.budget || 0), 0);
 
       const metrics = {
-        totalProjects: projects.total,
+        totalProjects: projects.pagination.total,
         activeProjects,
         overdueProjects,
-        averageProgress: projects.data.reduce((sum, p) => sum + (p.progress || 0), 0) / projects.total || 0,
+        averageProgress: projects.projects.reduce((sum, p) => sum + (p.progress || 0), 0) / projects.pagination.total || 0,
         totalRevenue,
       };
 

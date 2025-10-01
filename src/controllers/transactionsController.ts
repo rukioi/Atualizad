@@ -1,6 +1,15 @@
+/**
+ * TRANSACTIONS CONTROLLER - Gestão de Fluxo de Caixa
+ * ===================================================
+ * 
+ * ✅ ISOLAMENTO TENANT: Usa req.tenantDB para garantir isolamento por schema
+ * ✅ SEM DADOS MOCK: Operações reais no banco de dados do tenant
+ * ✅ CONTROLE DE ACESSO: Apenas contas COMPOSTA e GERENCIAL (não SIMPLES)
+ */
+
 import { Response } from 'express';
 import { z } from 'zod';
-import { AuthenticatedRequest } from '../middleware/auth';
+import { TenantRequest } from '../types';
 import { transactionsService } from '../services/transactionsService';
 
 // Validation schemas
@@ -26,9 +35,9 @@ const createTransactionSchema = z.object({
 const updateTransactionSchema = createTransactionSchema.partial();
 
 export class TransactionsController {
-  async getTransactions(req: AuthenticatedRequest, res: Response) {
+  async getTransactions(req: TenantRequest, res: Response) {
     try {
-      if (!req.user || !req.tenantId) {
+      if (!req.user || !req.tenantDB) {
         return res.status(401).json({ error: 'Authentication required' });
       }
 
@@ -73,8 +82,7 @@ export class TransactionsController {
         isRecurring: isRecurring ? isRecurring === 'true' : undefined
       };
 
-      // Get transactions from database
-      const result = await transactionsService.getTransactions(req.tenantId, filters);
+      const result = await transactionsService.getTransactions(req.tenantDB, filters);
 
       res.json(result);
     } catch (error) {
@@ -86,9 +94,9 @@ export class TransactionsController {
     }
   }
 
-  async getTransaction(req: AuthenticatedRequest, res: Response) {
+  async getTransaction(req: TenantRequest, res: Response) {
     try {
-      if (!req.user || !req.tenantId) {
+      if (!req.user || !req.tenantDB) {
         return res.status(401).json({ error: 'Authentication required' });
       }
 
@@ -100,9 +108,7 @@ export class TransactionsController {
       }
 
       const { id } = req.params;
-
-      // Get transaction from database
-      const transaction = await transactionsService.getTransactionById(req.tenantId, id);
+      const transaction = await transactionsService.getTransactionById(req.tenantDB, id);
 
       if (!transaction) {
         return res.status(404).json({
@@ -121,9 +127,9 @@ export class TransactionsController {
     }
   }
 
-  async createTransaction(req: AuthenticatedRequest, res: Response) {
+  async createTransaction(req: TenantRequest, res: Response) {
     try {
-      if (!req.user || !req.tenantId) {
+      if (!req.user || !req.tenantDB) {
         return res.status(401).json({ error: 'Authentication required' });
       }
 
@@ -135,13 +141,7 @@ export class TransactionsController {
       }
 
       const validatedData = createTransactionSchema.parse(req.body);
-
-      // Create transaction in database
-      const transaction = await transactionsService.createTransaction(
-        req.tenantId,
-        validatedData,
-        req.user.id
-      );
+      const transaction = await transactionsService.createTransaction(req.tenantDB, validatedData, req.user.id);
 
       res.status(201).json({
         message: 'Transaction created successfully',
@@ -156,9 +156,9 @@ export class TransactionsController {
     }
   }
 
-  async updateTransaction(req: AuthenticatedRequest, res: Response) {
+  async updateTransaction(req: TenantRequest, res: Response) {
     try {
-      if (!req.user || !req.tenantId) {
+      if (!req.user || !req.tenantDB) {
         return res.status(401).json({ error: 'Authentication required' });
       }
 
@@ -171,13 +171,7 @@ export class TransactionsController {
 
       const { id } = req.params;
       const validatedData = updateTransactionSchema.parse(req.body);
-
-      // Update transaction in database
-      const transaction = await transactionsService.updateTransaction(
-        req.tenantId,
-        id,
-        validatedData
-      );
+      const transaction = await transactionsService.updateTransaction(req.tenantDB, id, validatedData);
 
       if (!transaction) {
         return res.status(404).json({
@@ -199,9 +193,9 @@ export class TransactionsController {
     }
   }
 
-  async deleteTransaction(req: AuthenticatedRequest, res: Response) {
+  async deleteTransaction(req: TenantRequest, res: Response) {
     try {
-      if (!req.user || !req.tenantId) {
+      if (!req.user || !req.tenantDB) {
         return res.status(401).json({ error: 'Authentication required' });
       }
 
@@ -213,9 +207,7 @@ export class TransactionsController {
       }
 
       const { id } = req.params;
-
-      // Delete transaction from database
-      const success = await transactionsService.deleteTransaction(req.tenantId, id);
+      const success = await transactionsService.deleteTransaction(req.tenantDB, id);
 
       if (!success) {
         return res.status(404).json({

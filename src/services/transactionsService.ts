@@ -1,14 +1,19 @@
 /**
- * TRANSACTIONS SERVICE - GESTÃO DE FLUXO DE CAIXA
- * ===============================================
+ * TRANSACTIONS SERVICE - Gestão de Fluxo de Caixa
+ * ================================================
  * 
- * Serviço responsável por operações de banco de dados relacionadas às transações financeiras.
- * Substitui os dados mock por operações reais com PostgreSQL usando isolamento por tenant.
- * 
- * NOTA: Transactions são restritas a contas COMPOSTA e GERENCIAL (não SIMPLES)
+ * ✅ ISOLAMENTO TENANT: Usa TenantDatabase e helpers de isolamento
+ * ✅ SEM DADOS MOCK: Operações reais no PostgreSQL
+ * ✅ CONTROLE DE ACESSO: Restrito a contas COMPOSTA e GERENCIAL (não SIMPLES)
  */
 
-import { tenantDB } from './tenantDatabase';
+import { TenantDatabase } from '../config/database';
+import {
+  queryTenantSchema,
+  insertInTenantSchema,
+  updateInTenantSchema,
+  softDeleteInTenantSchema
+} from '../utils/tenantHelpers';
 
 export interface Transaction {
   id: string;
@@ -77,7 +82,7 @@ export class TransactionsService {
   /**
    * Cria as tabelas necessárias se não existirem
    */
-  async initializeTables(tenantId: string): Promise<void> {
+  private async ensureTables(tenantDB: TenantDatabase): Promise<void> {
     const createTableQuery = `
       CREATE TABLE IF NOT EXISTS \${schema}.${this.tableName} (
         id VARCHAR PRIMARY KEY,
@@ -104,10 +109,9 @@ export class TransactionsService {
       )
     `;
     
-    await tenantDB.executeInTenantSchema(tenantId, createTableQuery);
+    await queryTenantSchema(tenantDB, createTableQuery);
     
-    // Criar índices para performance
-    const createIndexes = [
+    const indexes = [
       `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_type ON \${schema}.${this.tableName}(type)`,
       `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_category_id ON \${schema}.${this.tableName}(category_id)`,
       `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_status ON \${schema}.${this.tableName}(status)`,
@@ -115,30 +119,22 @@ export class TransactionsService {
       `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_project_id ON \${schema}.${this.tableName}(project_id)`,
       `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_client_id ON \${schema}.${this.tableName}(client_id)`,
       `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_recurring ON \${schema}.${this.tableName}(is_recurring)`,
-      `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_active ON \${schema}.${this.tableName}(is_active)`,
-      `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_created_by ON \${schema}.${this.tableName}(created_by)`
+      `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_active ON \${schema}.${this.tableName}(is_active)`
     ];
     
-    for (const indexQuery of createIndexes) {
-      await tenantDB.executeInTenantSchema(tenantId, indexQuery);
+    for (const indexQuery of indexes) {
+      await queryTenantSchema(tenantDB, indexQuery);
     }
   }
 
   /**
    * Busca transações com filtros e paginação
    */
-  async getTransactions(tenantId: string, filters: TransactionFilters = {}): Promise<{
+  async getTransactions(tenantDB: TenantDatabase, filters: TransactionFilters = {}): Promise<{
     transactions: Transaction[];
-    pagination: {
-      page: number;
-      limit: number;
-      total: number;
-      totalPages: number;
-      hasNext: boolean;
-      hasPrev: boolean;
-    };
+    pagination: any;
   }> {
-    await this.initializeTables(tenantId);
+    await this.ensureTables(tenantDB);
     
     const page = filters.page || 1;
     const limit = filters.limit || 50;
@@ -148,56 +144,48 @@ export class TransactionsService {
     let queryParams: any[] = [];
     let paramIndex = 1;
     
-    // Filtro por tipo (income/expense)
     if (filters.type) {
       whereConditions.push(`type = $${paramIndex}`);
       queryParams.push(filters.type);
       paramIndex++;
     }
     
-    // Filtro por status
     if (filters.status) {
       whereConditions.push(`status = $${paramIndex}`);
       queryParams.push(filters.status);
       paramIndex++;
     }
     
-    // Filtro por categoria
     if (filters.categoryId) {
       whereConditions.push(`category_id = $${paramIndex}`);
       queryParams.push(filters.categoryId);
       paramIndex++;
     }
     
-    // Filtro por busca (descrição ou categoria)
     if (filters.search) {
       whereConditions.push(`(description ILIKE $${paramIndex} OR category ILIKE $${paramIndex})`);
       queryParams.push(`%${filters.search}%`);
       paramIndex++;
     }
     
-    // Filtro por projeto
     if (filters.projectId) {
       whereConditions.push(`project_id = $${paramIndex}`);
       queryParams.push(filters.projectId);
       paramIndex++;
     }
     
-    // Filtro por cliente
     if (filters.clientId) {
       whereConditions.push(`client_id = $${paramIndex}`);
       queryParams.push(filters.clientId);
       paramIndex++;
     }
     
-    // Filtro por tags
     if (filters.tags && filters.tags.length > 0) {
       whereConditions.push(`tags ?| $${paramIndex}`);
       queryParams.push(filters.tags);
       paramIndex++;
     }
     
-    // Filtro por data (intervalo)
     if (filters.dateFrom) {
       whereConditions.push(`date >= $${paramIndex}`);
       queryParams.push(filters.dateFrom);
@@ -210,46 +198,32 @@ export class TransactionsService {
       paramIndex++;
     }
     
-    // Filtro por método de pagamento
     if (filters.paymentMethod) {
       whereConditions.push(`payment_method = $${paramIndex}`);
       queryParams.push(filters.paymentMethod);
       paramIndex++;
     }
     
-    // Filtro por transações recorrentes
     if (filters.isRecurring !== undefined) {
       whereConditions.push(`is_recurring = $${paramIndex}`);
       queryParams.push(filters.isRecurring);
       paramIndex++;
     }
     
-    const whereClause = whereConditions.length > 0 
-      ? `WHERE ${whereConditions.join(' AND ')}`
-      : '';
+    const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
     
-    // Query para buscar transações
     const transactionsQuery = `
-      SELECT 
-        id, type, amount, category_id, category, description, date, payment_method,
-        status, project_id, project_title, client_id, client_name, tags, notes,
-        is_recurring, recurring_frequency, created_by, created_at, updated_at, is_active
-      FROM \${schema}.${this.tableName}
+      SELECT * FROM \${schema}.${this.tableName}
       ${whereClause}
       ORDER BY date DESC, created_at DESC
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
     `;
     
-    // Query para contar total
-    const countQuery = `
-      SELECT COUNT(*) as total
-      FROM \${schema}.${this.tableName}
-      ${whereClause}
-    `;
+    const countQuery = `SELECT COUNT(*) as total FROM \${schema}.${this.tableName} ${whereClause}`;
     
     const [transactions, countResult] = await Promise.all([
-      tenantDB.executeInTenantSchema<Transaction>(tenantId, transactionsQuery, [...queryParams, limit, offset]),
-      tenantDB.executeInTenantSchema<{total: string}>(tenantId, countQuery, queryParams)
+      queryTenantSchema<Transaction>(tenantDB, transactionsQuery, [...queryParams, limit, offset]),
+      queryTenantSchema<{total: string}>(tenantDB, countQuery, queryParams)
     ]);
     
     const total = parseInt(countResult[0]?.total || '0');
@@ -257,171 +231,98 @@ export class TransactionsService {
     
     return {
       transactions,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages,
-        hasNext: page < totalPages,
-        hasPrev: page > 1
-      }
+      pagination: { page, limit, total, totalPages, hasNext: page < totalPages, hasPrev: page > 1 }
     };
   }
 
   /**
-   * Busca uma transação por ID
+   * Busca transação por ID
    */
-  async getTransactionById(tenantId: string, transactionId: string): Promise<Transaction | null> {
-    await this.initializeTables(tenantId);
+  async getTransactionById(tenantDB: TenantDatabase, transactionId: string): Promise<Transaction | null> {
+    await this.ensureTables(tenantDB);
     
-    const query = `
-      SELECT 
-        id, type, amount, category_id, category, description, date, payment_method,
-        status, project_id, project_title, client_id, client_name, tags, notes,
-        is_recurring, recurring_frequency, created_by, created_at, updated_at, is_active
-      FROM \${schema}.${this.tableName}
-      WHERE id = $1 AND is_active = TRUE
-    `;
-    
-    const result = await tenantDB.executeInTenantSchema<Transaction>(tenantId, query, [transactionId]);
+    const query = `SELECT * FROM \${schema}.${this.tableName} WHERE id = $1 AND is_active = TRUE`;
+    const result = await queryTenantSchema<Transaction>(tenantDB, query, [transactionId]);
     return result[0] || null;
   }
 
   /**
-   * Cria uma nova transação
+   * Cria nova transação
    */
-  async createTransaction(tenantId: string, transactionData: CreateTransactionData, createdBy: string): Promise<Transaction> {
-    await this.initializeTables(tenantId);
+  async createTransaction(tenantDB: TenantDatabase, transactionData: CreateTransactionData, createdBy: string): Promise<Transaction> {
+    await this.ensureTables(tenantDB);
     
-    // Gerar ID único seguindo o mesmo padrão dos outros serviços
     const transactionId = `transaction_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
     
-    const query = `
-      INSERT INTO \${schema}.${this.tableName} (
-        id, type, amount, category_id, category, description, date, payment_method,
-        status, project_id, project_title, client_id, client_name, tags, notes,
-        is_recurring, recurring_frequency, created_by
-      ) VALUES (
-        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14::jsonb, $15, $16, $17, $18
-      )
-      RETURNING 
-        id, type, amount, category_id, category, description, date, payment_method,
-        status, project_id, project_title, client_id, client_name, tags, notes,
-        is_recurring, recurring_frequency, created_by, created_at, updated_at, is_active
-    `;
+    const data = {
+      id: transactionId,
+      type: transactionData.type,
+      amount: transactionData.amount,
+      category_id: transactionData.categoryId,
+      category: transactionData.category,
+      description: transactionData.description,
+      date: transactionData.date,
+      payment_method: transactionData.paymentMethod || null,
+      status: transactionData.status || 'confirmed',
+      project_id: transactionData.projectId || null,
+      project_title: transactionData.projectTitle || null,
+      client_id: transactionData.clientId || null,
+      client_name: transactionData.clientName || null,
+      tags: JSON.stringify(transactionData.tags || []),
+      notes: transactionData.notes || null,
+      is_recurring: transactionData.isRecurring || false,
+      recurring_frequency: transactionData.recurringFrequency || null,
+      created_by: createdBy
+    };
     
-    const params = [
-      transactionId,
-      transactionData.type,
-      transactionData.amount,
-      transactionData.categoryId,
-      transactionData.category,
-      transactionData.description,
-      transactionData.date,
-      transactionData.paymentMethod || null,
-      transactionData.status || 'confirmed',
-      transactionData.projectId || null,
-      transactionData.projectTitle || null,
-      transactionData.clientId || null,
-      transactionData.clientName || null,
-      JSON.stringify(transactionData.tags || []),
-      transactionData.notes || null,
-      transactionData.isRecurring || false,
-      transactionData.recurringFrequency || null,
-      createdBy
-    ];
-    
-    const result = await tenantDB.executeInTenantSchema<Transaction>(tenantId, query, params);
-    return result[0];
+    return await insertInTenantSchema<Transaction>(tenantDB, this.tableName, data);
   }
 
   /**
-   * Atualiza uma transação existente
+   * Atualiza transação existente
    */
-  async updateTransaction(tenantId: string, transactionId: string, updateData: UpdateTransactionData): Promise<Transaction | null> {
-    await this.initializeTables(tenantId);
+  async updateTransaction(tenantDB: TenantDatabase, transactionId: string, updateData: UpdateTransactionData): Promise<Transaction | null> {
+    await this.ensureTables(tenantDB);
     
-    const updateFields: string[] = [];
-    const params: any[] = [];
-    let paramIndex = 1;
+    const data: Record<string, any> = {};
     
-    // Mapeamento dos campos para atualização
-    const fieldMappings = {
-      type: 'type',
-      amount: 'amount',
-      categoryId: 'category_id',
-      category: 'category',
-      description: 'description',
-      date: 'date',
-      paymentMethod: 'payment_method',
-      status: 'status',
-      projectId: 'project_id',
-      projectTitle: 'project_title',
-      clientId: 'client_id',
-      clientName: 'client_name',
-      tags: 'tags',
-      notes: 'notes',
-      isRecurring: 'is_recurring',
-      recurringFrequency: 'recurring_frequency'
-    };
+    if (updateData.type !== undefined) data.type = updateData.type;
+    if (updateData.amount !== undefined) data.amount = updateData.amount;
+    if (updateData.categoryId !== undefined) data.category_id = updateData.categoryId;
+    if (updateData.category !== undefined) data.category = updateData.category;
+    if (updateData.description !== undefined) data.description = updateData.description;
+    if (updateData.date !== undefined) data.date = updateData.date;
+    if (updateData.paymentMethod !== undefined) data.payment_method = updateData.paymentMethod;
+    if (updateData.status !== undefined) data.status = updateData.status;
+    if (updateData.projectId !== undefined) data.project_id = updateData.projectId;
+    if (updateData.projectTitle !== undefined) data.project_title = updateData.projectTitle;
+    if (updateData.clientId !== undefined) data.client_id = updateData.clientId;
+    if (updateData.clientName !== undefined) data.client_name = updateData.clientName;
+    if (updateData.tags !== undefined) data.tags = JSON.stringify(updateData.tags);
+    if (updateData.notes !== undefined) data.notes = updateData.notes;
+    if (updateData.isRecurring !== undefined) data.is_recurring = updateData.isRecurring;
+    if (updateData.recurringFrequency !== undefined) data.recurring_frequency = updateData.recurringFrequency;
     
-    for (const [key, dbField] of Object.entries(fieldMappings)) {
-      if (updateData.hasOwnProperty(key)) {
-        const value = (updateData as any)[key];
-        if (key === 'tags') {
-          updateFields.push(`${dbField} = $${paramIndex}::jsonb`);
-          params.push(JSON.stringify(value));
-        } else {
-          updateFields.push(`${dbField} = $${paramIndex}`);
-          params.push(value);
-        }
-        paramIndex++;
-      }
-    }
-    
-    if (updateFields.length === 0) {
+    if (Object.keys(data).length === 0) {
       throw new Error('No fields to update');
     }
     
-    // Adicionar updated_at
-    updateFields.push(`updated_at = NOW()`);
-    
-    const query = `
-      UPDATE \${schema}.${this.tableName}
-      SET ${updateFields.join(', ')}
-      WHERE id = $${paramIndex} AND is_active = TRUE
-      RETURNING 
-        id, type, amount, category_id, category, description, date, payment_method,
-        status, project_id, project_title, client_id, client_name, tags, notes,
-        is_recurring, recurring_frequency, created_by, created_at, updated_at, is_active
-    `;
-    
-    params.push(transactionId);
-    
-    const result = await tenantDB.executeInTenantSchema<Transaction>(tenantId, query, params);
-    return result[0] || null;
+    return await updateInTenantSchema<Transaction>(tenantDB, this.tableName, transactionId, data);
   }
 
   /**
-   * Exclui uma transação (soft delete)
+   * Remove transação (soft delete)
    */
-  async deleteTransaction(tenantId: string, transactionId: string): Promise<boolean> {
-    await this.initializeTables(tenantId);
-    
-    const query = `
-      UPDATE \${schema}.${this.tableName}
-      SET is_active = FALSE, updated_at = NOW()
-      WHERE id = $1 AND is_active = TRUE
-    `;
-    
-    const result = await tenantDB.executeInTenantSchema(tenantId, query, [transactionId]);
-    return result.length > 0;
+  async deleteTransaction(tenantDB: TenantDatabase, transactionId: string): Promise<boolean> {
+    await this.ensureTables(tenantDB);
+    const transaction = await softDeleteInTenantSchema<Transaction>(tenantDB, this.tableName, transactionId);
+    return !!transaction;
   }
 
   /**
    * Obtém estatísticas financeiras
    */
-  async getTransactionsStats(tenantId: string, dateFrom?: string, dateTo?: string): Promise<{
+  async getTransactionsStats(tenantDB: TenantDatabase, dateFrom?: string, dateTo?: string): Promise<{
     totalIncome: number;
     totalExpense: number;
     netAmount: number;
@@ -432,7 +333,7 @@ export class TransactionsService {
     thisMonthExpense: number;
     recurringTransactions: number;
   }> {
-    await this.initializeTables(tenantId);
+    await this.ensureTables(tenantDB);
     
     let whereClause = 'WHERE is_active = TRUE';
     const params: any[] = [];
@@ -464,7 +365,7 @@ export class TransactionsService {
       ${whereClause}
     `;
     
-    const result = await tenantDB.executeInTenantSchema<any>(tenantId, query, params);
+    const result = await queryTenantSchema<any>(tenantDB, query, params);
     const stats = result[0];
     
     const totalIncome = parseFloat(stats.total_income || '0');
@@ -486,13 +387,13 @@ export class TransactionsService {
   /**
    * Busca transações por categoria (para relatórios)
    */
-  async getTransactionsByCategory(tenantId: string, type?: 'income' | 'expense', dateFrom?: string, dateTo?: string): Promise<{
+  async getTransactionsByCategory(tenantDB: TenantDatabase, type?: 'income' | 'expense', dateFrom?: string, dateTo?: string): Promise<{
     categoryId: string;
     category: string;
     amount: number;
     count: number;
   }[]> {
-    await this.initializeTables(tenantId);
+    await this.ensureTables(tenantDB);
     
     let whereConditions = ['is_active = TRUE'];
     const params: any[] = [];
@@ -530,7 +431,7 @@ export class TransactionsService {
       ORDER BY amount DESC
     `;
     
-    const result = await tenantDB.executeInTenantSchema<any>(tenantId, query, params);
+    const result = await queryTenantSchema<any>(tenantDB, query, params);
     
     return result.map(row => ({
       categoryId: row.category_id,
@@ -541,23 +442,18 @@ export class TransactionsService {
   }
 
   /**
-   * Busca transações recorrentes que precisam ser processadas
+   * Busca transações recorrentes
    */
-  async getRecurringTransactionsDue(tenantId: string): Promise<Transaction[]> {
-    await this.initializeTables(tenantId);
+  async getRecurringTransactionsDue(tenantDB: TenantDatabase): Promise<Transaction[]> {
+    await this.ensureTables(tenantDB);
     
     const query = `
-      SELECT 
-        id, type, amount, category_id, category, description, date, payment_method,
-        status, project_id, project_title, client_id, client_name, tags, notes,
-        is_recurring, recurring_frequency, created_by, created_at, updated_at, is_active
-      FROM \${schema}.${this.tableName}
+      SELECT * FROM \${schema}.${this.tableName}
       WHERE is_active = TRUE AND is_recurring = TRUE
       ORDER BY date ASC
     `;
     
-    const result = await tenantDB.executeInTenantSchema<Transaction>(tenantId, query);
-    return result;
+    return await queryTenantSchema<Transaction>(tenantDB, query);
   }
 }
 
