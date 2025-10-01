@@ -53,4 +53,4 @@ externalPort = 3001
 [deployment]
 deploymentTarget = "autoscale"
 build = ["npm", "run", "build:full"]
-run = ["node", "dist/server.js"]
+run = ["node", "dist/server/production.mjs"]
