@@ -3,36 +3,40 @@ export interface Client {
   name: string;
   organization?: string;
   email: string;
-  mobile: string;
+  phone: string;
   country: string;
   state: string;
-  address: string;
+  address?: string;
   city: string;
-  zipCode: string;
-  budget: number;
+  zipCode?: string;
+  budget?: number;
   currency: 'BRL' | 'USD' | 'EUR';
   level?: string;
   tags: string[];
   description?: string;
   image?: string;
   
-  // Legal fields
+  // Legal fields specific to Brazil
+  cpf?: string;
+  rg?: string;
   pis?: string;
   cei?: string;
   professionalTitle?: string;
-  maritalStatus?: string;
+  maritalStatus?: 'single' | 'married' | 'divorced' | 'widowed' | 'separated';
   birthDate?: string;
-  cpf?: string;
-  rg?: string;
-  inssStatus?: string;
+  inssStatus?: 'active' | 'inactive' | 'retired' | 'pensioner';
+  
+  // Financial fields
   amountPaid?: number;
   referredBy?: string;
-  registeredBy?: string; // Nome do colaborador que cadastrou o cliente
+  registeredBy?: string;
 
-  // Metadata
+  // Audit fields
+  status: 'active' | 'inactive' | 'pending';
+  createdBy: string;
+  isActive: boolean;
   createdAt: string;
   updatedAt: string;
-  status: 'active' | 'inactive' | 'pending';
 }
 
 export interface Deal {

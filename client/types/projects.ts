@@ -1,26 +1,30 @@
 export interface Project {
   id: string;
   title: string;
-  description: string;
+  description?: string;
   clientName: string;
   clientId?: string;
   organization?: string;
   contacts: ProjectContact[];
-  address: string;
-  budget: number;
+  address?: string;
+  budget?: number;
   currency: 'BRL' | 'USD' | 'EUR';
   status: ProjectStatus;
-  startDate: string;
-  dueDate: string;
+  startDate?: string;
+  dueDate?: string;
+  completedAt?: string;
   tags: string[];
   assignedTo: string[];
   priority: 'low' | 'medium' | 'high' | 'urgent';
   progress: number; // 0-100
-  createdBy?: string; // Nome do colaborador que criou o projeto
-  createdAt: string;
-  updatedAt: string;
   notes?: string;
   attachments: ProjectAttachment[];
+  
+  // Audit fields
+  createdBy: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export type ProjectStatus =

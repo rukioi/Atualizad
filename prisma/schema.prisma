@@ -15,43 +15,49 @@ datasource db {
 // ============================================================================
 
 model Tenant {
-  id          String   @id @default(uuid())
-  name        String
-  schemaName  String   @unique @map("schema_name")
-  planType    String   @default("basic") @map("plan_type")
-  isActive    Boolean  @default(true) @map("is_active")
-  maxUsers    Int      @default(5) @map("max_users")
-  maxStorage  BigInt   @default(1073741824) @map("max_storage") // 1GB
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  id             String    @id @default(uuid())
+  name           String
+  schemaName     String    @unique @map("schema_name")
+  planType       String    @default("basic") @map("plan_type")
+  isActive       Boolean   @default(true) @map("is_active")
+  maxUsers       Int       @default(5) @map("max_users")
+  maxStorage     BigInt    @default(1073741824) @map("max_storage") // 1GB
+  planExpiresAt  DateTime? @map("plan_expires_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
 
   // Relations
-  users           User[]
+  users            User[]
   registrationKeys RegistrationKey[]
-  systemLogs      SystemLog[]
-  apiConfigs      TenantApiConfig[]
+  systemLogs       SystemLog[]
+  apiConfigs       TenantApiConfig[]
 
+  @@index([isActive], map: "idx_tenants_active")
+  @@index([planType], map: "idx_tenants_plan")
   @@map("tenants")
 }
 
 model User {
-  id          String      @id @default(uuid())
-  email       String      @unique
-  password    String
-  name        String
-  accountType AccountType @map("account_type")
-  tenantId    String      @map("tenant_id")
-  isActive    Boolean     @default(true) @map("is_active")
-  mustChangePassword Boolean @default(false) @map("must_change_password")
-  lastLogin   DateTime?   @map("last_login")
-  createdAt   DateTime    @default(now()) @map("created_at")
-  updatedAt   DateTime    @updatedAt @map("updated_at")
+  id                 String      @id @default(uuid())
+  email              String      @unique
+  password           String
+  name               String
+  accountType        AccountType @map("account_type")
+  tenantId           String      @map("tenant_id")
+  isActive           Boolean     @default(true) @map("is_active")
+  mustChangePassword Boolean     @default(false) @map("must_change_password")
+  lastLogin          DateTime?   @map("last_login")
+  createdAt          DateTime    @default(now()) @map("created_at")
+  updatedAt          DateTime    @updatedAt @map("updated_at")
 
   // Relations
   tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   refreshTokens RefreshToken[]
   auditLogs     AuditLog[]
 
+  @@index([tenantId], map: "idx_users_tenant")
+  @@index([email], map: "idx_users_email")
+  @@index([isActive], map: "idx_users_active")
   @@map("users")
 }
 
@@ -93,7 +99,7 @@ model RefreshToken {
 model SystemLog {
   id        String   @id @default(uuid())
   tenantId  String?  @map("tenant_id")
-  level     String   // info, warn, error, critical
+  level     String
   message   String
   metadata  Json?
   createdAt DateTime @default(now()) @map("created_at")
@@ -110,7 +116,7 @@ model AuditLog {
   tenantId  String   @map("tenant_id")
   tableName String   @map("table_name")
   recordId  String?  @map("record_id")
-  operation String   // CREATE, UPDATE, DELETE
+  operation String
   oldData   Json?    @map("old_data")
   newData   Json?    @map("new_data")
   ipAddress String?  @map("ip_address")
@@ -134,15 +140,15 @@ enum AccountType {
 // ============================================================================
 
 model AdminUser {
-  id          String   @id @default(uuid())
-  email       String   @unique
-  password    String
-  name        String
-  role        String   @default("admin") // admin, superadmin
-  isActive    Boolean  @default(true) @map("is_active")
-  lastLogin   DateTime? @map("last_login")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  id        String    @id @default(uuid())
+  email     String    @unique
+  password  String
+  name      String
+  role      String    @default("admin")
+  isActive  Boolean   @default(true) @map("is_active")
+  lastLogin DateTime? @map("last_login")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
 
   // Relations
   refreshTokens AdminRefreshToken[]
@@ -151,12 +157,12 @@ model AdminUser {
 }
 
 model AdminRefreshToken {
-  id        String    @id @default(uuid())
-  tokenHash String    @map("token_hash")
-  adminId   String    @map("admin_id")
-  expiresAt DateTime  @map("expires_at")
-  isActive  Boolean   @default(true) @map("is_active")
-  createdAt DateTime  @default(now()) @map("created_at")
+  id        String   @id @default(uuid())
+  tokenHash String   @map("token_hash")
+  adminId   String   @map("admin_id")
+  expiresAt DateTime @map("expires_at")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
 
   // Relations
   admin AdminUser @relation(fields: [adminId], references: [id], onDelete: Cascade)
@@ -184,8 +190,378 @@ model TenantApiConfig {
 
   @@map("tenant_api_configs")
 }
+
 // ============================================================================
-// TENANT SCHEMA MODELS - Serão criados dinamicamente por tenant
+// TENANT SCHEMA MODELS - Entidades por Tenant (Isolamento por Schema)
 // ============================================================================
-// Nota: Estes modelos servem como referência para a criação dos schemas
-// Os schemas reais serão criados via SQL functions
+// Nota: Estes modelos representam a estrutura que será criada dinamicamente
+// em cada schema de tenant (tenant_xxx). Não possuem FKs cross-schema.
+// ============================================================================
+
+// 👥 CLIENT - Gestão de Clientes
+model Client {
+  id                String    @id @default(cuid())
+  name              String
+  organization      String?
+  email             String
+  phone             String
+  country           String    @default("BR")
+  state             String
+  address           String?   @db.Text
+  city              String
+  zipCode           String?   @map("zip_code")
+  budget            Decimal?  @db.Decimal(15, 2)
+  currency          String    @default("BRL")
+  level             String?
+  tags              Json      @default("[]")
+  description       String?   @db.Text
+  
+  // Campos legais específicos do Brasil
+  cpf               String?
+  rg                String?
+  pis               String?
+  cei               String?
+  professionalTitle String?   @map("professional_title")
+  maritalStatus     String?   @map("marital_status")
+  birthDate         DateTime? @map("birth_date") @db.Date
+  inssStatus        String?   @map("inss_status")
+  
+  // Campos financeiros
+  amountPaid        Decimal   @default(0) @map("amount_paid") @db.Decimal(15, 2)
+  referredBy        String?   @map("referred_by")
+  registeredBy      String?   @map("registered_by")
+  
+  // Auditoria
+  status            String    @default("active")
+  createdBy         String    @map("created_by")
+  isActive          Boolean   @default(true) @map("is_active")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  projects      Project[]
+  tasks         Task[]
+  invoices      Invoice[]
+  transactions  Transaction[]
+
+  @@index([name], map: "idx_clients_name")
+  @@index([email], map: "idx_clients_email")
+  @@index([status], map: "idx_clients_status")
+  @@index([cpf], map: "idx_clients_cpf")
+  @@index([isActive], map: "idx_clients_active")
+  @@index([phone], map: "idx_clients_phone")
+  @@index([createdBy], map: "idx_clients_created_by")
+  @@map("clients")
+}
+
+// 📁 PROJECT - Gestão de Projetos/Casos
+model Project {
+  id           String    @id @default(cuid())
+  title        String
+  description  String?   @db.Text
+  clientId     String?   @map("client_id")
+  clientName   String    @map("client_name")
+  organization String?
+  address      String?   @db.Text
+  budget       Decimal?  @db.Decimal(15, 2)
+  currency     String    @default("BRL")
+  status       String    @default("contacted")
+  priority     String    @default("medium")
+  progress     Int       @default(0)
+  startDate    DateTime? @map("start_date") @db.Date
+  dueDate      DateTime? @map("due_date") @db.Date
+  completedAt  DateTime? @map("completed_at")
+  tags         Json      @default("[]")
+  assignedTo   Json      @default("[]") @map("assigned_to")
+  notes        String?   @db.Text
+  contacts     Json      @default("[]")
+  
+  // Auditoria
+  createdBy    String    @map("created_by")
+  isActive     Boolean   @default(true) @map("is_active")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  client       Client?       @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  tasks        Task[]
+  invoices     Invoice[]
+  transactions Transaction[]
+
+  @@index([title], map: "idx_projects_title")
+  @@index([status], map: "idx_projects_status")
+  @@index([clientId], map: "idx_projects_client_id")
+  @@index([priority], map: "idx_projects_priority")
+  @@index([createdBy], map: "idx_projects_created_by")
+  @@index([isActive], map: "idx_projects_active")
+  @@map("projects")
+}
+
+// ✅ TASK - Gestão de Tarefas
+model Task {
+  id             String    @id @default(cuid())
+  title          String
+  description    String?   @db.Text
+  projectId      String?   @map("project_id")
+  projectTitle   String?   @map("project_title")
+  clientId       String?   @map("client_id")
+  clientName     String?   @map("client_name")
+  assignedTo     String    @map("assigned_to")
+  status         String    @default("not_started")
+  priority       String    @default("medium")
+  progress       Int       @default(0)
+  startDate      DateTime? @map("start_date") @db.Date
+  endDate        DateTime? @map("end_date") @db.Date
+  completedAt    DateTime? @map("completed_at")
+  estimatedHours Decimal?  @map("estimated_hours") @db.Decimal(5, 2)
+  actualHours    Decimal?  @map("actual_hours") @db.Decimal(5, 2)
+  tags           Json      @default("[]")
+  notes          String?   @db.Text
+  subtasks       Json      @default("[]")
+  
+  // Auditoria
+  createdBy      String    @map("created_by")
+  isActive       Boolean   @default(true) @map("is_active")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  client  Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
+
+  @@index([status], map: "idx_tasks_status")
+  @@index([assignedTo], map: "idx_tasks_assigned_to")
+  @@index([projectId], map: "idx_tasks_project_id")
+  @@index([clientId], map: "idx_tasks_client_id")
+  @@index([priority], map: "idx_tasks_priority")
+  @@index([isActive], map: "idx_tasks_active")
+  @@map("tasks")
+}
+
+// 💰 TRANSACTION - Fluxo de Caixa
+model Transaction {
+  id                 String    @id @default(cuid())
+  type               String
+  amount             Decimal   @db.Decimal(15, 2)
+  categoryId         String    @map("category_id")
+  category           String
+  description        String
+  date               DateTime  @db.Date
+  paymentMethod      String?   @map("payment_method")
+  status             String    @default("confirmed")
+  projectId          String?   @map("project_id")
+  projectTitle       String?   @map("project_title")
+  clientId           String?   @map("client_id")
+  clientName         String?   @map("client_name")
+  tags               Json      @default("[]")
+  notes              String?   @db.Text
+  isRecurring        Boolean   @default(false) @map("is_recurring")
+  recurringFrequency String?   @map("recurring_frequency")
+  
+  // Auditoria
+  createdBy          String    @map("created_by")
+  lastModifiedBy     String?   @map("last_modified_by")
+  isActive           Boolean   @default(true) @map("is_active")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  client  Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
+
+  @@index([type], map: "idx_transactions_type")
+  @@index([date], map: "idx_transactions_date")
+  @@index([categoryId], map: "idx_transactions_category_id")
+  @@index([status], map: "idx_transactions_status")
+  @@index([projectId], map: "idx_transactions_project_id")
+  @@index([clientId], map: "idx_transactions_client_id")
+  @@index([isActive], map: "idx_transactions_active")
+  @@map("transactions")
+}
+
+// 🧾 INVOICE - Gestão de Recebíveis
+model Invoice {
+  id                     String    @id @default(cuid())
+  number                 String    @unique
+  title                  String
+  description            String?   @db.Text
+  clientId               String?   @map("client_id")
+  clientName             String    @map("client_name")
+  clientEmail            String?   @map("client_email")
+  clientPhone            String?   @map("client_phone")
+  projectId              String?   @map("project_id")
+  projectName            String?   @map("project_name")
+  amount                 Decimal   @db.Decimal(15, 2)
+  currency               String    @default("BRL")
+  dueDate                DateTime  @map("due_date") @db.Date
+  status                 String    @default("nova")
+  items                  Json      @default("[]")
+  notes                  String?   @db.Text
+  
+  // Campos de pagamento
+  paymentStatus          String    @default("pending") @map("payment_status")
+  paymentMethod          String?   @map("payment_method")
+  paymentDate            DateTime? @map("payment_date") @db.Date
+  
+  // Campos de notificação/cobrança
+  emailSent              Boolean   @default(false) @map("email_sent")
+  emailSentAt            DateTime? @map("email_sent_at")
+  remindersSent          Int       @default(0) @map("reminders_sent")
+  lastReminderAt         DateTime? @map("last_reminder_at")
+  
+  // Integração Stripe
+  stripeInvoiceId        String?   @map("stripe_invoice_id")
+  stripePaymentIntentId  String?   @map("stripe_payment_intent_id")
+  linkPagamento          String?   @map("link_pagamento") @db.Text
+  
+  // Recorrência
+  recorrente             Boolean   @default(false)
+  intervaloDias          Int       @default(30) @map("intervalo_dias")
+  proximaFaturaData      DateTime? @map("proxima_fatura_data") @db.Date
+  
+  // Campos específicos do módulo recebíveis
+  servicoPrestado        String?   @map("servico_prestado")
+  urgencia               String    @default("media")
+  tentativasCobranca     Int       @default(0) @map("tentativas_cobranca")
+  
+  // Auditoria
+  createdBy              String    @map("created_by")
+  isActive               Boolean   @default(true) @map("is_active")
+  createdAt              DateTime  @default(now()) @map("created_at")
+  updatedAt              DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  client  Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
+
+  @@index([number], map: "idx_invoices_number")
+  @@index([status], map: "idx_invoices_status")
+  @@index([dueDate], map: "idx_invoices_due_date")
+  @@index([clientId], map: "idx_invoices_client_id")
+  @@index([projectId], map: "idx_invoices_project_id")
+  @@index([paymentStatus], map: "idx_invoices_payment_status")
+  @@index([isActive], map: "idx_invoices_active")
+  @@map("invoices")
+}
+
+// 📋 PUBLICATION - Publicações Jurídicas
+model Publication {
+  id                  String    @id @default(cuid())
+  userId              String    @map("user_id")
+  oabNumber           String    @map("oab_number")
+  processNumber       String?   @map("process_number")
+  publicationDate     DateTime  @map("publication_date") @db.Date
+  content             String    @db.Text
+  source              String
+  externalId          String?   @map("external_id")
+  status              String    @default("nova")
+  urgencia            String    @default("media")
+  responsavel         String?
+  varaComarca         String?   @map("vara_comarca")
+  nomePesquisado      String?   @map("nome_pesquisado")
+  diario              String?
+  observacoes         String?   @db.Text
+  atribuidaParaId     String?   @map("atribuida_para_id")
+  atribuidaParaNome   String?   @map("atribuida_para_nome")
+  dataAtribuicao      DateTime? @map("data_atribuicao")
+  tarefasVinculadas   Json      @default("[]") @map("tarefas_vinculadas")
+  metadata            Json      @default("{}")
+  isActive            Boolean   @default(true) @map("is_active")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  @@unique([userId, externalId])
+  @@index([userId], map: "idx_publications_user_id")
+  @@index([status], map: "idx_publications_status")
+  @@index([publicationDate], map: "idx_publications_date")
+  @@index([oabNumber], map: "idx_publications_oab")
+  @@index([processNumber], map: "idx_publications_process")
+  @@index([responsavel], map: "idx_publications_responsavel")
+  @@index([urgencia], map: "idx_publications_urgencia")
+  @@index([isActive], map: "idx_publications_active")
+  @@map("publications")
+}
+
+// 🏷️ CATEGORY - Categorias de Transações
+model Category {
+  id          String    @id @default(cuid())
+  name        String
+  type        String
+  color       String    @default("#000000")
+  icon        String?
+  description String?   @db.Text
+  parentId    String?   @map("parent_id")
+  isActive    Boolean   @default(true) @map("is_active")
+  createdBy   String?   @map("created_by")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  // Relations (self-referential for hierarchy)
+  parent   Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children Category[] @relation("CategoryHierarchy")
+
+  @@index([type], map: "idx_categories_type")
+  @@index([parentId], map: "idx_categories_parent")
+  @@index([isActive], map: "idx_categories_active")
+  @@map("categories")
+}
+
+// 🔔 NOTIFICATION - Sistema de Notificações
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String    @map("user_id")
+  actorId   String?   @map("actor_id")
+  type      String    @default("system")
+  title     String
+  message   String    @db.Text
+  payload   Json      @default("{}")
+  link      String?
+  read      Boolean   @default(false)
+  priority  String    @default("normal")
+  expiresAt DateTime? @map("expires_at")
+  isActive  Boolean   @default(true) @map("is_active")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  @@index([userId], map: "idx_notifications_user_id")
+  @@index([read], map: "idx_notifications_read")
+  @@index([type], map: "idx_notifications_type")
+  @@index([createdAt(sort: Desc)], map: "idx_notifications_created_at")
+  @@index([isActive], map: "idx_notifications_active")
+  @@map("notifications")
+}
+
+// 📊 DASHBOARD_METRIC - Métricas do Dashboard
+model DashboardMetric {
+  id           String    @id @default(cuid())
+  metricName   String    @map("metric_name")
+  metricValue  Decimal?  @map("metric_value") @db.Decimal(15, 2)
+  metricType   String?   @map("metric_type")
+  periodStart  DateTime? @map("period_start") @db.Date
+  periodEnd    DateTime? @map("period_end") @db.Date
+  metadata     Json      @default("{}")
+  calculatedAt DateTime  @default(now()) @map("calculated_at")
+
+  @@index([metricName], map: "idx_dashboard_metrics_name")
+  @@index([periodStart, periodEnd], map: "idx_dashboard_metrics_period")
+  @@map("dashboard_metrics")
+}
+
+// 📎 ATTACHMENT - Anexos/Arquivos
+model Attachment {
+  id         String   @id @default(cuid())
+  entityType String   @map("entity_type")
+  entityId   String   @map("entity_id")
+  fileName   String   @map("file_name")
+  filePath   String   @map("file_path")
+  fileSize   BigInt?  @map("file_size")
+  fileType   String?  @map("file_type")
+  uploadedBy String?  @map("uploaded_by")
+  isActive   Boolean  @default(true) @map("is_active")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([entityType, entityId], map: "idx_attachments_entity")
+  @@index([uploadedBy], map: "idx_attachments_uploaded_by")
+  @@index([isActive], map: "idx_attachments_active")
+  @@map("attachments")
+}

@@ -17,11 +17,14 @@ export interface Transaction {
   recurringId?: string;
   isRecurring: boolean;
   recurringFrequency?: 'monthly' | 'quarterly' | 'yearly';
+  notes?: string;
+  
+  // Audit fields
+  createdBy: string;
+  lastModifiedBy?: string;
+  isActive: boolean;
   createdAt: string;
   updatedAt: string;
-  createdBy: string;
-  lastModifiedBy: string;
-  notes?: string;
 }
 
 export type TransactionStatus = 

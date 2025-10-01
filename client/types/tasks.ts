@@ -2,8 +2,8 @@ export interface Task {
   id: string;
   title: string;
   description?: string;
-  startDate: string;
-  endDate: string;
+  startDate?: string;
+  endDate?: string;
   status: TaskStatus;
   priority: TaskPriority;
   assignedTo: string;
@@ -15,12 +15,16 @@ export interface Task {
   estimatedHours?: number;
   actualHours?: number;
   progress: number; // 0-100
-  createdAt: string;
-  updatedAt: string;
   completedAt?: string;
   notes?: string;
   attachments: TaskAttachment[];
   subtasks: Subtask[];
+  
+  // Audit fields
+  createdBy: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export type TaskStatus = 
