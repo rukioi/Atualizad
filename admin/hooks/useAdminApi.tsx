@@ -232,6 +232,17 @@ export function useAdminApi() {
     }
   }, []);
 
+  const deleteRegistrationKey = useCallback(async (keyId: string): Promise<void> => {
+    setIsLoading(true);
+    try {
+      await apiCall(`/keys/${keyId}`, {
+        method: 'DELETE',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
   // Helper function to get the token, assuming it's stored similarly to admin_access_token
   // This should be defined or imported if it's not globally available
   const getToken = (): string | null => {
@@ -250,5 +261,6 @@ export function useAdminApi() {
     getRegistrationKeys,
     createRegistrationKey,
     revokeRegistrationKey,
+    deleteRegistrationKey,
   };
 }

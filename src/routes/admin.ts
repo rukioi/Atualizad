@@ -11,6 +11,7 @@ router.use(authenticateAdminToken);
 router.post('/keys', adminController.createRegistrationKey);
 router.get('/keys', adminController.getRegistrationKeys);
 router.patch('/keys/:id/revoke', adminController.revokeRegistrationKey);
+router.delete('/keys/:id', adminController.deleteRegistrationKey);
 
 // Tenant Management
 router.get('/tenants', adminController.getTenants);
