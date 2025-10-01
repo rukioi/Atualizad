@@ -170,6 +170,7 @@ export class AdminController {
               where: { tenantId: tenant.id, isActive: true }
             });
             userCount = users.length;
+            console.log(`Tenant ${tenant.id} (${tenant.name}) has ${userCount} users`);
           } catch (userCountError) {
             console.warn(`Error counting users for tenant ${tenant.id}:`, userCountError);
           }

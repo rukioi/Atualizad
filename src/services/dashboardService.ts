@@ -92,14 +92,14 @@ export class DashboardService {
         throw new Error('AccountType is required for dashboard metrics');
       }
 
-      // Assumindo que getTenantDatabase é um método que retorna uma instância de conexão/query para o tenant específico
-      // e que o tenantDB importado acima é um utilitário para obter essa instância.
-      const tenantDBConnection = await tenantDB.getTenantDatabase(tenantId);
-
-      if (!tenantDBConnection) {
-        throw new Error(`Failed to initialize tenant database for: ${tenantId}`);
+      // Verificar e inicializar banco de dados do tenant
+      try {
+        const tenantDBConnection = await tenantDB.getTenantDatabase(tenantId);
+        console.log('Tenant database initialized successfully');
+      } catch (error) {
+        console.error(`Failed to initialize tenant database for: ${tenantId}`, error);
+        throw error;
       }
-      console.log('Tenant database initialized successfully');
 
       // Métricas básicas (todos os tipos de conta)
       const [clientsStats, projectsStats, tasksStats] = await Promise.all([
@@ -290,7 +290,7 @@ export class DashboardService {
         DATE(date) as day,
         SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END) as income,
         SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END) as expense
-      FROM ${tenantDB.getSchemaName(tenantId)}.transactions
+      FROM \${schema}.transactions
       WHERE is_active = TRUE AND date >= $1
       GROUP BY DATE(date)
       ORDER BY day ASC
@@ -320,7 +320,7 @@ export class DashboardService {
         status,
         COUNT(*) as count,
         COALESCE(SUM(budget), 0) as total_budget
-      FROM ${tenantDB.getSchemaName(tenantId)}.projects
+      FROM \${schema}.projects
       WHERE is_active = TRUE AND created_at >= $1
       GROUP BY status
     `;
@@ -349,7 +349,7 @@ export class DashboardService {
         priority,
         COUNT(*) as count,
         AVG(progress) as avg_progress
-      FROM ${tenantDB.getSchemaName(tenantId)}.tasks
+      FROM \${schema}.tasks
       WHERE is_active = TRUE AND created_at >= $1
       GROUP BY status, priority
     `;

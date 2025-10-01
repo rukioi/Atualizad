@@ -29,13 +29,8 @@ export class TenantDatabaseService {
       throw new Error('Tenant ID must be between 1 and 50 characters');
     }
     
-    // Normalizar removendo hífens
-    const normalized = tenantId.replace(/-/g, '');
-    if (normalized.length === 0) {
-      throw new Error('Tenant ID cannot be only hyphens');
-    }
-    
-    return normalized;
+    // Manter o ID como está (com hífens) para corresponder ao schemaName do banco
+    return tenantId.replace(/-/g, '');
   }
 
   // Obter cliente Prisma para um tenant específico
