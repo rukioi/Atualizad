@@ -359,9 +359,28 @@ export class AdminController {
 
       console.log(`Tenant ${id} status updated to ${isActive}`);
 
+      // Converter BigInt para string para evitar erro de serialização
+      const cleanTenant = {
+        id: updatedTenant.id,
+        name: updatedTenant.name,
+        schemaName: updatedTenant.schemaName,
+        planType: updatedTenant.planType,
+        isActive: updatedTenant.isActive,
+        maxUsers: Number(updatedTenant.maxUsers),
+        userCount: 0,
+        createdAt: updatedTenant.createdAt,
+        stats: {
+          clients: 0,
+          projects: 0,
+          tasks: 0,
+          transactions: 0,
+          invoices: 0,
+        },
+      };
+
       res.json({
         message: 'Tenant status updated successfully',
-        tenant: updatedTenant,
+        tenant: cleanTenant,
       });
     } catch (error) {
       console.error('Toggle tenant status error:', error);

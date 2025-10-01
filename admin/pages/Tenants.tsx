@@ -103,7 +103,11 @@ export function AdminTenants() {
     const newStatus = !tenant.isActive;
     const action = newStatus ? 'ativar' : 'desativar';
     
-    if (!confirm(`Tem certeza que deseja ${action} o tenant "${tenant.name}"?\n\n${!newStatus ? 'ATENÇÃO: Todos os usuários deste tenant serão bloqueados e não conseguirão fazer login.' : 'Os usuários poderão fazer login normalmente.'}`)) {
+    const confirmMessage = newStatus 
+      ? `✅ ATIVAR TENANT "${tenant.name}"?\n\n🔓 Todos os usuários deste tenant poderão fazer login e acessar o sistema normalmente.\n\n✓ Funcionalidades serão liberadas\n✓ Acesso completo restaurado` 
+      : `🔒 DESATIVAR TENANT "${tenant.name}"?\n\n⚠️ ATENÇÃO: Todos os usuários deste tenant serão BLOQUEADOS imediatamente!\n\n❌ Não conseguirão fazer login\n❌ Receberão mensagem para renovar conta`;
+    
+    if (!confirm(confirmMessage)) {
       return;
     }
 
@@ -263,9 +267,21 @@ export function AdminTenants() {
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => handleToggleStatus(tenant)}
-                                className={tenant.isActive ? 'text-red-600 hover:text-red-700 hover:bg-red-50' : 'text-green-600 hover:text-green-700 hover:bg-green-50'}
+                                disabled={isLoading}
+                                className={
+                                  tenant.isActive 
+                                    ? 'text-red-600 hover:text-red-700 hover:bg-red-50 font-medium' 
+                                    : 'text-green-600 hover:text-green-700 hover:bg-green-50 font-medium'
+                                }
                               >
-                                {tenant.isActive ? '🔒 Desativar' : '✅ Ativar'}
+                                {isLoading ? (
+                                  <div className="flex items-center gap-1">
+                                    <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                                    Processando...
+                                  </div>
+                                ) : (
+                                  tenant.isActive ? '🔒 Desativar' : '✅ Ativar'
+                                )}
                               </Button>
                             </div>
                             {isExpired(tenant.planExpiresAt) && (
