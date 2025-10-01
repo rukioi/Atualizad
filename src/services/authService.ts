@@ -8,8 +8,16 @@ export class AuthService {
   private refreshTokenSecret = process.env.JWT_REFRESH_SECRET || 'dev-refresh-secret-change-in-production';
 
   constructor() {
-    if (process.env.NODE_ENV === 'production' && (this.accessTokenSecret === 'dev-secret-change-in-production' || this.refreshTokenSecret === 'dev-refresh-secret-change-in-production')) {
-      console.error('⚠️  WARNING: Using default JWT secrets in production! Please set JWT_ACCESS_SECRET and JWT_REFRESH_SECRET environment variables.');
+    // SEGURANÇA CRÍTICA: Fail hard em produção com secrets default
+    if (process.env.NODE_ENV === 'production') {
+      if (this.accessTokenSecret === 'dev-secret-change-in-production' || 
+          this.refreshTokenSecret === 'dev-refresh-secret-change-in-production' ||
+          !process.env.JWT_ACCESS_SECRET || 
+          !process.env.JWT_REFRESH_SECRET) {
+        const errorMsg = '🚨 CRITICAL SECURITY ERROR: JWT secrets must be set in production! Set JWT_ACCESS_SECRET and JWT_REFRESH_SECRET environment variables.';
+        console.error(errorMsg);
+        throw new Error(errorMsg);
+      }
     }
   }
 
@@ -167,12 +175,10 @@ export class AuthService {
       throw new Error('Account is deactivated');
     }
 
-    // Verificar se o tenant está ativo
+    // Verificar se o tenant está ativo - OTIMIZADO
     const tenantId = user.tenantId || user.tenant_id;
     if (tenantId) {
-      const tenantsResult = await database.getAllTenants();
-      const tenants = Array.isArray(tenantsResult) ? tenantsResult : tenantsResult.rows || [];
-      const tenant = tenants.find((t: any) => t.id === tenantId);
+      const tenant = await database.getTenantById(tenantId);
 
       if (!tenant) {
         throw new Error('Tenant not found');
@@ -296,10 +302,8 @@ export class AuthService {
 
     const hashedPassword = await this.hashPassword(password);
     
-    // Use existing tenant (tenantId is now required)
-    const tenantsResult = await database.getAllTenants();
-    const tenants = Array.isArray(tenantsResult) ? tenantsResult : tenantsResult.rows || [];
-    const tenant = tenants.find(t => t.id === registrationKey.tenantId);
+    // Use existing tenant (tenantId is now required) - OTIMIZADO
+    const tenant = await database.getTenantById(registrationKey.tenantId);
     
     if (!tenant) {
       console.error('Associated tenant not found:', registrationKey.tenantId);

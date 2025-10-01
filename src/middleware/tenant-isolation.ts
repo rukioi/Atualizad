@@ -19,8 +19,8 @@ export const validateTenantAccess = async (req: TenantRequest, res: Response, ne
       return res.status(401).json({ error: 'Authentication required' });
     }
 
-    // Admin users bypass tenant validation
-    if (user.role === 'admin' || user.role === 'super_admin') {
+    // Admin users bypass tenant validation (CONSISTÊNCIA: superadmin)
+    if (user.role === 'admin' || user.role === 'superadmin') {
       return next();
     }
 
@@ -32,10 +32,9 @@ export const validateTenantAccess = async (req: TenantRequest, res: Response, ne
       });
     }
 
-    // Verify tenant exists and is active
-    const { database } = await import('../config/database');
-    const tenants = await database.getAllTenants();
-    const tenant = tenants.rows.find((t: any) => t.id === user.tenantId);
+    // OTIMIZADO: Busca direta por ID ao invés de getAllTenants + filter
+    const { database, tenantDB } = await import('../config/database');
+    const tenant = await database.getTenantById(user.tenantId);
     
     if (!tenant) {
       console.error('Tenant not found:', user.tenantId);
@@ -58,6 +57,9 @@ export const validateTenantAccess = async (req: TenantRequest, res: Response, ne
       isActive: tenant.isActive
     };
 
+    // CRÍTICO: Adicionar TenantDatabase ao request para isolamento real
+    req.tenantDB = await tenantDB.getTenantDatabase(user.tenantId);
+
     console.log('Tenant access validated:', {
       userId: user?.userId || user?.id,
       tenantId: tenant.id,
@@ -78,8 +80,8 @@ export const ensureTenantIsolation = (allowedAccountTypes?: string[]) => {
   return (req: TenantRequest, res: Response, next: NextFunction) => {
     const user = req.user;
     
-    // Skip for admin users
-    if (user.role === 'admin' || user.role === 'super_admin') {
+    // Skip for admin users (CONSISTÊNCIA: superadmin)
+    if (user.role === 'admin' || user.role === 'superadmin') {
       return next();
     }
 

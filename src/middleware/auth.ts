@@ -103,7 +103,8 @@ export const authenticateToken = async (req: AuthenticatedRequest, res: Response
       return res.status(401).json({ error: 'Access token required' });
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_ACCESS_SECRET || 'dev-secret-change-in-production') as any;
+    // CORRIGIDO: Usar AuthService.verifyAccessToken para validação consistente
+    const decoded = await authService.verifyAccessToken(token);
 
     // Validar se o usuário tem tenantId (não é admin)
     if (!decoded.role && !decoded.tenantId) {
@@ -120,6 +121,21 @@ export const authenticateToken = async (req: AuthenticatedRequest, res: Response
       });
     }
 
+    // SEGURANÇA CRÍTICA: Validar que token userId e tenantId batem com DB
+    if (!decoded.role) {
+      // Usuário regular (não admin)
+      if (decoded.userId !== user.id) {
+        console.error('Token userId mismatch:', {decoded: decoded.userId, db: user.id});
+        return res.status(403).json({ error: 'Token/user mismatch', code: 'AUTH_MISMATCH' });
+      }
+      
+      const userTenantId = String(user.tenantId || user.tenant_id);
+      if (decoded.tenantId && decoded.tenantId !== userTenantId) {
+        console.error('Token tenantId mismatch:', {decoded: decoded.tenantId, db: userTenantId});
+        return res.status(403).json({ error: 'Token/tenant mismatch', code: 'TENANT_MISMATCH' });
+      }
+    }
+
     req.user = {
       id: String(user.id),
       email: String(user.email),
@@ -127,16 +143,16 @@ export const authenticateToken = async (req: AuthenticatedRequest, res: Response
       accountType: String(user.accountType || user.account_type),
       name: String(user.name),
     };
+    
+    // SEMPRE derivar tenantId do DB, NUNCA do token
     req.tenantId = String(user.tenantId || user.tenant_id);
 
-    // Se não é admin, verificar tenant
-    if (!decoded.role && decoded.tenantId) {
-      const tenantsResult = await database.getAllTenants();
-      const tenants = Array.isArray(tenantsResult) ? tenantsResult : tenantsResult.rows || [];
-      const tenant = tenants.find((t: any) => t.id === decoded.tenantId);
+    // Se não é admin, verificar tenant - OTIMIZADO
+    if (!decoded.role && req.tenantId) {
+      const tenant = await database.getTenantById(req.tenantId);
 
       if (!tenant) {
-        console.error('Tenant not found for user:', decoded.userId, 'tenantId:', decoded.tenantId);
+        console.error('Tenant not found for user:', user.id, 'tenantId:', req.tenantId);
         return res.status(403).json({ 
           error: 'Invalid tenant',
           code: 'TENANT_NOT_FOUND'
@@ -144,14 +160,12 @@ export const authenticateToken = async (req: AuthenticatedRequest, res: Response
       }
 
       if (!tenant.isActive) {
-        console.error('Inactive tenant for user:', decoded.userId, 'tenantId:', decoded.tenantId);
+        console.error('Inactive tenant for user:', user.id, 'tenantId:', req.tenantId);
         return res.status(403).json({ 
           error: 'Renove Sua Conta ou Entre em contato com o Administrador do Sistema',
           code: 'TENANT_INACTIVE'
         });
       }
-
-      req.tenantId = tenant.id;
     }
 
     next();

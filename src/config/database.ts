@@ -143,6 +143,31 @@ export class Database {
     }
   }
 
+  async getTenantById(id: string, includeUsers: boolean = false) {
+    try {
+      const tenant = await prisma.tenant.findUnique({
+        where: { id },
+        ...(includeUsers && {
+          include: {
+            users: {
+              select: {
+                id: true,
+                email: true,
+                name: true,
+                accountType: true,
+                isActive: true
+              }
+            }
+          }
+        })
+      });
+      return tenant;
+    } catch (error) {
+      console.error('Error getting tenant by ID:', error);
+      throw error;
+    }
+  }
+
   async getAllUsers() {
     try {
       const users = await prisma.user.findMany({
@@ -217,7 +242,13 @@ export class Database {
       const tenant = await prisma.tenant.findUnique({ where: { id } });
       
       if (tenant) {
-        // Drop schema before deleting tenant record
+        // Validate schema name to prevent SQL injection
+        const validSchemaName = /^[a-zA-Z0-9_]+$/.test(tenant.schemaName);
+        if (!validSchemaName) {
+          throw new Error(`Invalid schema name: ${tenant.schemaName}`);
+        }
+        
+        // Drop schema before deleting tenant record  
         console.log(`Dropping schema: ${tenant.schemaName}`);
         await prisma.$executeRawUnsafe(`DROP SCHEMA IF EXISTS "${tenant.schemaName}" CASCADE`);
       }
@@ -913,12 +944,15 @@ export const tenantDB = {
   },
 
   getTenantDatabase: async (tenantId: string): Promise<TenantDatabase> => {
-    // Verify tenant exists
-    const tenants = await database.getAllTenants();
-    const tenant = tenants.rows.find((t: any) => t.id === tenantId);
+    // OTIMIZADO: busca direta por ID ao invés de getAllTenants + filter
+    const tenant = await database.getTenantById(tenantId);
     
     if (!tenant) {
       throw new Error(`Tenant ${tenantId} not found`);
+    }
+
+    if (!tenant.isActive) {
+      throw new Error(`Tenant ${tenantId} is not active`);
     }
 
     // Ensure schema exists
