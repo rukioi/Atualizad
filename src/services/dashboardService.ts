@@ -291,7 +291,7 @@ export class DashboardService {
         SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END) as income,
         SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END) as expense
       FROM \${schema}.transactions
-      WHERE is_active = TRUE AND date >= $1
+      WHERE is_active = TRUE AND date >= $1::date
       GROUP BY DATE(date)
       ORDER BY day ASC
     `;
@@ -321,7 +321,7 @@ export class DashboardService {
         COUNT(*) as count,
         COALESCE(SUM(budget), 0) as total_budget
       FROM \${schema}.projects
-      WHERE is_active = TRUE AND created_at >= $1
+      WHERE is_active = TRUE AND created_at >= $1::date
       GROUP BY status
     `;
 
@@ -350,7 +350,7 @@ export class DashboardService {
         COUNT(*) as count,
         AVG(progress) as avg_progress
       FROM \${schema}.tasks
-      WHERE is_active = TRUE AND created_at >= $1
+      WHERE is_active = TRUE AND created_at >= $1::date
       GROUP BY status, priority
     `;
 

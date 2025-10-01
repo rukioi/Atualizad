@@ -29,8 +29,8 @@ export class TenantDatabaseService {
       throw new Error('Tenant ID must be between 1 and 50 characters');
     }
     
-    // Manter o ID como está (com hífens) para corresponder ao schemaName do banco
-    return tenantId.replace(/-/g, '');
+    // Retornar o ID sem alterações para que seja usado na busca do tenant
+    return tenantId;
   }
 
   // Obter cliente Prisma para um tenant específico
@@ -66,11 +66,29 @@ export class TenantDatabaseService {
   ): Promise<T[]> {
     const prisma = this.getTenantPrisma(tenantId);
     
-    // Validar e normalizar tenant ID de forma segura
-    const normalizedTenantId = this.validateAndNormalizeTenantId(tenantId);
-    const schemaName = `tenant_${normalizedTenantId}`;
+    // Validar tenant ID
+    this.validateAndNormalizeTenantId(tenantId);
     
-    // Substituir placeholder ${schema} pela schema validada do tenant
+    // Buscar o schemaName real do tenant no banco
+    let schemaName: string;
+    try {
+      const tenant = await prisma.tenant.findUnique({
+        where: { id: tenantId },
+        select: { schemaName: true }
+      });
+      
+      if (!tenant) {
+        throw new Error(`Tenant ${tenantId} not found`);
+      }
+      
+      schemaName = tenant.schemaName;
+      console.log(`Using schema: ${schemaName} for tenant: ${tenantId}`);
+    } catch (error) {
+      console.error(`Error finding tenant schema for ${tenantId}:`, error);
+      throw error;
+    }
+    
+    // Substituir placeholder ${schema} pela schema real do tenant
     const finalQuery = query.replace(/\$\{schema\}/g, schemaName);
     
     try {
