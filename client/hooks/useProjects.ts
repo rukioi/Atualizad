@@ -1,59 +1,57 @@
-import { useState, useEffect } from 'react';
-import { apiService } from '../services/apiService';
+import { useState, useCallback } from 'react';
+import { Project } from '@/types/projects';
+import apiService from '@/services/apiService';
 
 export function useProjects() {
-  const [projects, setProjects] = useState([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const loadProjects = async (params: any = {}) => {
+  const loadProjects = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
     try {
-      setIsLoading(true);
-      setError(null);
-      const response = await apiService.getProjects(params);
-      setProjects(response.projects);
-      return response;
+      const response = await apiService.get('/api/projects');
+      setProjects(response.data.projects || []);
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to load projects';
-      setError(errorMessage);
-      throw err;
+      setError(err instanceof Error ? err.message : 'Failed to load projects');
+      console.error('Error loading projects:', err);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
-  const createProject = async (data: any) => {
+  const createProject = async (projectData: Partial<Project>) => {
     try {
-      const response = await apiService.createProject(data);
+      const response = await apiService.post('/api/projects', projectData);
       await loadProjects(); // Reload list
-      return response;
+      return response.data.project;
     } catch (err) {
+      console.error('Error creating project:', err);
       throw err;
     }
   };
 
-  const updateProject = async (id: string, data: any) => {
+  const updateProject = async (id: string, updates: Partial<Project>) => {
     try {
-      const response = await apiService.updateProject(id, data);
+      const response = await apiService.put(`/api/projects/${id}`, updates);
       await loadProjects(); // Reload list
-      return response;
+      return response.data.project;
     } catch (err) {
+      console.error('Error updating project:', err);
       throw err;
     }
   };
 
   const deleteProject = async (id: string) => {
     try {
-      await apiService.deleteProject(id);
+      await apiService.delete(`/api/projects/${id}`);
       await loadProjects(); // Reload list
     } catch (err) {
+      console.error('Error deleting project:', err);
       throw err;
     }
   };
-
-  useEffect(() => {
-    loadProjects();
-  }, []);
 
   return {
     projects,

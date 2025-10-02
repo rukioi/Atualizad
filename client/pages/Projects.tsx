@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { DashboardLayout } from '@/components/Layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -45,138 +45,9 @@ import {
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
 import { MoreHorizontal, Eye, Edit, Trash2 } from 'lucide-react';
+import { useProjects } from '@/hooks/useProjects'; // Assuming useProjects hook is available
 
-// Mock data - in real app would come from API
-const mockProjects: Project[] = [
-  {
-    id: '1',
-    title: 'Ação Previdenciária - João Santos',
-    description: 'Revisão de aposentadoria negada pelo INSS. Cliente tem direito a aposentadoria especial por tempo de contribuição.',
-    clientName: 'João Santos',
-    clientId: '1',
-    organization: '',
-    contacts: [
-      {
-        id: '1',
-        name: 'João Santos',
-        email: 'joao@email.com',
-        phone: '(11) 99999-1234',
-        role: 'Cliente'
-      }
-    ],
-    address: 'Rua das Flores, 123, São Paulo - SP',
-    budget: 8500,
-    currency: 'BRL',
-    status: 'proposal',
-    startDate: '2024-01-05T00:00:00Z',
-    dueDate: '2024-03-15T00:00:00Z',
-    tags: ['Previdenciário', 'INSS', 'Urgente'],
-    assignedTo: ['Dr. Silva', 'Ana Paralegal'],
-    priority: 'high',
-    progress: 65,
-    createdAt: '2024-01-05T10:00:00Z',
-    updatedAt: '2024-01-20T14:30:00Z',
-    notes: 'Cliente já possui todos os documentos necessários. Aguardando resposta do INSS.',
-    attachments: []
-  },
-  {
-    id: '2',
-    title: 'Divórcio Consensual - Maria e Carlos',
-    description: 'Processo de divórcio consensual com partilha de bens. Casal possui imóvel e veículos para partilha.',
-    clientName: 'Maria Silva',
-    clientId: '2',
-    contacts: [
-      {
-        id: '2',
-        name: 'Maria Silva',
-        email: 'maria@email.com',
-        phone: '(11) 88888-5678',
-        role: 'Cliente'
-      },
-      {
-        id: '3',
-        name: 'Carlos Santos',
-        email: 'carlos@email.com',
-        phone: '(11) 77777-9999',
-        role: 'Ex-cônjuge'
-      }
-    ],
-    address: 'Av. Paulista, 1000, São Paulo - SP',
-    budget: 12000,
-    currency: 'BRL',
-    status: 'won',
-    startDate: '2024-01-10T00:00:00Z',
-    dueDate: '2024-02-28T00:00:00Z',
-    tags: ['Família', 'Divórcio', 'Consensual'],
-    assignedTo: ['Dra. Costa'],
-    priority: 'medium',
-    progress: 80,
-    createdAt: '2024-01-10T09:15:00Z',
-    updatedAt: '2024-01-22T11:45:00Z',
-    notes: 'Documentação completa. Aguardando agendamento da audiência.',
-    attachments: []
-  },
-  {
-    id: '3',
-    title: 'Recuperação Judicial - Tech LTDA',
-    description: 'Processo de recuperação judicial para empresa de tecnologia com dificuldades financeiras.',
-    clientName: 'Tech LTDA',
-    clientId: '3',
-    organization: 'Tech Solutions LTDA',
-    contacts: [
-      {
-        id: '4',
-        name: 'Roberto Tech',
-        email: 'roberto@techltda.com',
-        phone: '(11) 66666-8888',
-        role: 'Sócio-Diretor'
-      }
-    ],
-    address: 'Rua da Inovação, 500, São Paulo - SP',
-    budget: 45000,
-    currency: 'BRL',
-    status: 'contacted',
-    startDate: '2024-01-12T00:00:00Z',
-    dueDate: '2024-04-30T00:00:00Z',
-    tags: ['Empresarial', 'Recuperação', 'Urgente'],
-    assignedTo: ['Dr. Oliveira', 'Dr. Silva', 'Ana Paralegal'],
-    priority: 'urgent',
-    progress: 40,
-    createdAt: '2024-01-12T14:20:00Z',
-    updatedAt: '2024-01-25T16:10:00Z',
-    notes: 'Empresa em situação crítica. Prioridade máxima.',
-    attachments: []
-  },
-  {
-    id: '4',
-    title: 'Ação Trabalhista - Pedro Souza',
-    description: 'Ação contra ex-empregador por horas extras não pagas e verbas rescisórias.',
-    clientName: 'Pedro Souza',
-    contacts: [
-      {
-        id: '5',
-        name: 'Pedro Souza',
-        email: 'pedro@email.com',
-        phone: '(11) 55555-7777',
-        role: 'Cliente'
-      }
-    ],
-    address: 'Rua do Trabalho, 789, São Paulo - SP',
-    budget: 15000,
-    currency: 'BRL',
-    status: 'contacted',
-    startDate: '2024-01-25T00:00:00Z',
-    dueDate: '2024-05-15T00:00:00Z',
-    tags: ['Trabalhista', 'Horas Extras'],
-    assignedTo: ['Dra. Trabalho'],
-    priority: 'medium',
-    progress: 10,
-    createdAt: '2024-01-25T08:30:00Z',
-    updatedAt: '2024-01-25T08:30:00Z',
-    notes: 'Início da coleta de documentos.',
-    attachments: []
-  }
-];
+// Projects will be loaded from API via useProjects hook
 
 interface ProjectCompactViewProps {
   projects: Project[];
@@ -300,20 +171,29 @@ export function Projects() {
   const [showProjectView, setShowProjectView] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | undefined>();
   const [viewingProject, setViewingProject] = useState<Project | null>(null);
-  const [projects, setProjects] = useState<Project[]>(mockProjects);
+  // const [projects, setProjects] = useState<Project[]>(mockProjects); // Removed mock data
+  const { projects, isLoading, error, loadProjects, createProject, updateProject, deleteProject } = useProjects();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
   const [viewMode, setViewMode] = useState<'kanban' | 'compact'>('kanban');
 
+  // Load projects on mount
+  React.useEffect(() => {
+    loadProjects();
+  }, [loadProjects]);
+
   // Filter projects based on search, status, and priority
   const filteredProjects = useMemo(() => {
-    return projects.filter((project) => {
-      const matchesSearch = project.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           project.clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           project.description.toLowerCase().includes(searchTerm.toLowerCase());
+    return projects.filter(project => {
+      const matchesSearch =
+        project.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        project.clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        project.description?.toLowerCase().includes(searchTerm.toLowerCase());
+
       const matchesStatus = statusFilter === 'all' || project.status === statusFilter;
       const matchesPriority = priorityFilter === 'all' || project.priority === priorityFilter;
+
       return matchesSearch && matchesStatus && matchesPriority;
     });
   }, [projects, searchTerm, statusFilter, priorityFilter]);
@@ -346,39 +226,39 @@ export function Projects() {
     },
   ];
 
-  const handleSubmitProject = (data: any) => {
-    if (editingProject) {
-      setProjects(projects.map(project =>
-        project.id === editingProject.id
-          ? {
-              ...project,
-              ...data,
-              startDate: data.startDate + 'T00:00:00Z',
-              dueDate: data.dueDate + 'T00:00:00Z',
-              updatedAt: new Date().toISOString(),
-              assignedTo: project.assignedTo, // Keep existing assignments
-              attachments: project.attachments, // Keep existing attachments
-            }
-          : project
-      ));
-      setEditingProject(undefined);
-    } else {
-      const newProject: Project = {
-        ...data,
-        id: Date.now().toString(),
-        startDate: data.startDate + 'T00:00:00Z',
-        dueDate: data.dueDate + 'T00:00:00Z',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        assignedTo: ['Dr. Silva'], // Default assignment
-        attachments: [],
-      };
-      setProjects([...projects, newProject]);
+  const handleSubmitProject = async (data: any) => {
+    try {
+      if (editingProject) {
+        await updateProject(editingProject.id, {
+          ...data,
+          startDate: data.startDate + 'T00:00:00Z',
+          dueDate: data.dueDate + 'T00:00:00Z',
+          updatedAt: new Date().toISOString(),
+        });
+        setEditingProject(undefined);
+      } else {
+        const newProject: Partial<Project> = {
+          ...data,
+          startDate: data.startDate + 'T00:00:00Z',
+          dueDate: data.dueDate + 'T00:00:00Z',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          assignedTo: ['Dr. Silva'], // Default assignment
+          attachments: [],
+          progress: 0, // Default progress
+          budget: Number(data.budget), // Ensure budget is a number
+        };
+        await createProject(newProject);
+      }
+      setShowProjectForm(false);
+      loadProjects(); // Refresh project list
+    } catch (err) {
+      console.error("Failed to submit project:", err);
+      // Handle error display to user
     }
-    setShowProjectForm(false);
   };
 
-  const handleAddProject = (status: ProjectStatus) => {
+  const handleAddProject = (status: ProjectStatus = 'contacted') => {
     setEditingProject(undefined);
     setShowProjectForm(true);
     // You could set default status here if needed
@@ -389,16 +269,24 @@ export function Projects() {
     setShowProjectForm(true);
   };
 
-  const handleDeleteProject = (projectId: string) => {
-    setProjects(projects.filter(project => project.id !== projectId));
+  const handleDeleteProject = async (projectId: string) => {
+    try {
+      await deleteProject(projectId);
+      loadProjects(); // Refresh project list
+    } catch (err) {
+      console.error("Failed to delete project:", err);
+      // Handle error display to user
+    }
   };
 
-  const handleMoveProject = (projectId: string, newStatus: ProjectStatus) => {
-    setProjects(projects.map(project =>
-      project.id === projectId
-        ? { ...project, status: newStatus, updatedAt: new Date().toISOString() }
-        : project
-    ));
+  const handleMoveProject = async (projectId: string, newStatus: ProjectStatus) => {
+    try {
+      await updateProject(projectId, { status: newStatus, updatedAt: new Date().toISOString() });
+      loadProjects(); // Refresh project list
+    } catch (err) {
+      console.error("Failed to move project:", err);
+      // Handle error display to user
+    }
   };
 
   const handleViewProject = (project: Project) => {
@@ -416,8 +304,16 @@ export function Projects() {
   const totalProjects = projects.length;
   const activeProjects = projects.filter(p => !['won', 'lost'].includes(p.status)).length;
   const overdueProjects = projects.filter(p => new Date(p.dueDate) < new Date() && !['won', 'lost'].includes(p.status)).length;
-  const totalRevenue = projects.filter(p => p.status === 'won').reduce((sum, project) => sum + project.budget, 0);
-  const avgProgress = activeProjects > 0 ? Math.round(projects.filter(p => !['won', 'lost'].includes(p.status)).reduce((sum, project) => sum + project.progress, 0) / activeProjects) : 0;
+  const totalRevenue = projects.filter(p => p.status === 'won').reduce((sum, project) => sum + (project.budget || 0), 0);
+  const avgProgress = activeProjects > 0 ? Math.round(projects.filter(p => !['won', 'lost'].includes(p.status)).reduce((sum, project) => sum + (project.progress || 0), 0) / activeProjects) : 0;
+
+  if (isLoading) {
+    return <div className="text-center py-10">Carregando projetos...</div>;
+  }
+
+  if (error) {
+    return <div className="text-center py-10 text-red-600">Erro ao carregar projetos: {error.message}</div>;
+  }
 
   return (
     <DashboardLayout>

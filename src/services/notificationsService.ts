@@ -55,7 +55,7 @@ export class NotificationsService {
    */
   private async ensureTables(tenantDB: TenantDatabase): Promise<void> {
     const createTableQuery = `
-      CREATE TABLE IF NOT EXISTS \${schema}.${this.tableName} (
+      CREATE TABLE IF NOT EXISTS ${tenantDB.schema}.${this.tableName} (
         id VARCHAR PRIMARY KEY,
         user_id VARCHAR NOT NULL,
         actor_id VARCHAR,
@@ -70,17 +70,17 @@ export class NotificationsService {
         is_active BOOLEAN DEFAULT TRUE
       )
     `;
-    
+
     await queryTenantSchema(tenantDB, createTableQuery);
-    
+
     const indexes = [
-      `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_user_id ON \${schema}.${this.tableName}(user_id)`,
-      `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_type ON \${schema}.${this.tableName}(type)`,
-      `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_read ON \${schema}.${this.tableName}(read)`,
-      `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_active ON \${schema}.${this.tableName}(is_active)`,
-      `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_created ON \${schema}.${this.tableName}(created_at DESC)`
+      `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_user_id ON ${tenantDB.schema}.${this.tableName}(user_id)`,
+      `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_type ON ${tenantDB.schema}.${this.tableName}(type)`,
+      `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_read ON ${tenantDB.schema}.${this.tableName}(read)`,
+      `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_active ON ${tenantDB.schema}.${this.tableName}(is_active)`,
+      `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_created ON ${tenantDB.schema}.${this.tableName}(created_at DESC)`
     ];
-    
+
     for (const indexQuery of indexes) {
       await queryTenantSchema(tenantDB, indexQuery);
     }
@@ -94,44 +94,44 @@ export class NotificationsService {
     pagination: any;
   }> {
     await this.ensureTables(tenantDB);
-    
+
     const page = filters.page || 1;
     const limit = filters.limit || 20;
     const offset = (page - 1) * limit;
-    
+
     let whereConditions = ['user_id = $1', 'is_active = TRUE'];
     let queryParams: any[] = [userId];
     let paramIndex = 2;
-    
+
     if (filters.unreadOnly) {
       whereConditions.push('read = FALSE');
     }
-    
+
     if (filters.type) {
       whereConditions.push(`type = $${paramIndex}`);
       queryParams.push(filters.type);
       paramIndex++;
     }
-    
+
     const whereClause = `WHERE ${whereConditions.join(' AND ')}`;
-    
+
     const notificationsQuery = `
-      SELECT * FROM \${schema}.${this.tableName}
+      SELECT * FROM ${tenantDB.schema}.${this.tableName}
       ${whereClause}
       ORDER BY created_at DESC
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
     `;
-    
-    const countQuery = `SELECT COUNT(*) as total FROM \${schema}.${this.tableName} ${whereClause}`;
-    
+
+    const countQuery = `SELECT COUNT(*) as total FROM ${tenantDB.schema}.${this.tableName} ${whereClause}`;
+
     const [notifications, countResult] = await Promise.all([
       queryTenantSchema<Notification>(tenantDB, notificationsQuery, [...queryParams, limit, offset]),
       queryTenantSchema<{total: string}>(tenantDB, countQuery, queryParams)
     ]);
-    
+
     const total = parseInt(countResult[0]?.total || '0');
     const totalPages = Math.ceil(total / limit);
-    
+
     return {
       notifications,
       pagination: { page, limit, total, totalPages, hasNext: page < totalPages, hasPrev: page > 1 }
@@ -143,13 +143,13 @@ export class NotificationsService {
    */
   async getUnreadCount(tenantDB: TenantDatabase, userId: string): Promise<number> {
     await this.ensureTables(tenantDB);
-    
+
     const query = `
       SELECT COUNT(*) as count
-      FROM \${schema}.${this.tableName}
+      FROM ${tenantDB.schema}.${this.tableName}
       WHERE user_id = $1 AND read = FALSE AND is_active = TRUE
     `;
-    
+
     const result = await queryTenantSchema<{count: string}>(tenantDB, query, [userId]);
     return parseInt(result[0]?.count || '0');
   }
@@ -157,24 +157,28 @@ export class NotificationsService {
   /**
    * Cria nova notificação
    */
-  async createNotification(tenantDB: TenantDatabase, notificationData: CreateNotificationData): Promise<Notification> {
-    await this.ensureTables(tenantDB);
-    
-    const notificationId = `notif_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-    
-    const data = {
-      id: notificationId,
-      user_id: notificationData.userId,
-      actor_id: notificationData.actorId || null,
-      type: notificationData.type,
-      title: notificationData.title,
-      message: notificationData.message,
-      payload: notificationData.payload ? JSON.stringify(notificationData.payload) : null,
-      link: notificationData.link || null,
-      read: false
-    };
-    
-    return await insertInTenantSchema<Notification>(tenantDB, this.tableName, data);
+  async createNotification(tenantDB: TenantDatabase, data: CreateNotificationData): Promise<Notification> {
+    try {
+      await this.ensureTables(tenantDB);
+
+      const notificationData = {
+        id: `notif_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+        user_id: data.userId,
+        actor_id: data.actorId || null,
+        type: data.type,
+        title: data.title,
+        message: data.message,
+        payload: data.payload ? JSON.stringify(data.payload) : null,
+        link: data.link || null,
+        read: false
+      };
+
+      return await insertInTenantSchema<Notification>(tenantDB, this.tableName, notificationData);
+    } catch (error) {
+      console.error('[NotificationsService] Failed to create notification:', error);
+      // Não propagar o erro para não quebrar a operação principal
+      throw error;
+    }
   }
 
   /**
@@ -182,13 +186,13 @@ export class NotificationsService {
    */
   async markAsRead(tenantDB: TenantDatabase, userId: string, notificationId: string): Promise<boolean> {
     await this.ensureTables(tenantDB);
-    
+
     const query = `
-      UPDATE \${schema}.${this.tableName}
+      UPDATE ${tenantDB.schema}.${this.tableName}
       SET read = TRUE, updated_at = NOW()
       WHERE id = $1 AND user_id = $2 AND is_active = TRUE
     `;
-    
+
     const result = await queryTenantSchema(tenantDB, query, [notificationId, userId]);
     return result.length > 0;
   }
@@ -198,13 +202,13 @@ export class NotificationsService {
    */
   async markAllAsRead(tenantDB: TenantDatabase, userId: string): Promise<boolean> {
     await this.ensureTables(tenantDB);
-    
+
     const query = `
-      UPDATE \${schema}.${this.tableName}
+      UPDATE ${tenantDB.schema}.${this.tableName}
       SET read = TRUE, updated_at = NOW()
       WHERE user_id = $1 AND is_active = TRUE
     `;
-    
+
     const result = await queryTenantSchema(tenantDB, query, [userId]);
     return result.length > 0;
   }
@@ -214,14 +218,14 @@ export class NotificationsService {
    */
   async markMultipleAsRead(tenantDB: TenantDatabase, userId: string, notificationIds: string[]): Promise<boolean> {
     await this.ensureTables(tenantDB);
-    
+
     const placeholders = notificationIds.map((_, i) => `$${i + 2}`).join(', ');
     const query = `
-      UPDATE \${schema}.${this.tableName}
+      UPDATE ${tenantDB.schema}.${this.tableName}
       SET read = TRUE, updated_at = NOW()
       WHERE user_id = $1 AND id IN (${placeholders}) AND is_active = TRUE
     `;
-    
+
     const result = await queryTenantSchema(tenantDB, query, [userId, ...notificationIds]);
     return result.length > 0;
   }
@@ -231,13 +235,13 @@ export class NotificationsService {
    */
   async deleteNotification(tenantDB: TenantDatabase, userId: string, notificationId: string): Promise<boolean> {
     await this.ensureTables(tenantDB);
-    
+
     const query = `
-      UPDATE \${schema}.${this.tableName}
+      UPDATE ${tenantDB.schema}.${this.tableName}
       SET is_active = FALSE, updated_at = NOW()
       WHERE id = $1 AND user_id = $2 AND is_active = TRUE
     `;
-    
+
     const result = await queryTenantSchema(tenantDB, query, [notificationId, userId]);
     return result.length > 0;
   }

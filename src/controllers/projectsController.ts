@@ -111,6 +111,25 @@ export class ProjectsController {
       
       console.log('[ProjectsController] Project created:', project.id);
 
+      // Tentar criar notificação (não-bloqueante)
+      try {
+        const { notificationsService } = await import('../services/notificationsService');
+        await notificationsService.createNotification(req.tenantDB, {
+          userId: req.user.id,
+          title: 'Novo Negócio Criado',
+          message: `O negócio "${validatedData.title}" foi criado com sucesso`,
+          type: 'success',
+          relatedEntityType: 'project',
+          relatedEntityId: project.id,
+          actionUrl: `/projects/${project.id}`,
+          priority: 'low',
+          actorId: req.user.id
+        });
+      } catch (notifError) {
+        console.warn('[ProjectsController] Failed to create notification:', notifError);
+        // Não quebrar a operação principal
+      }
+
       res.status(201).json({
         message: 'Project created successfully',
         project
