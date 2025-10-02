@@ -5,6 +5,7 @@ import {
 } from "@/lib/dialog-fix";
 import { useClients } from "@/hooks/useClients";
 import { DashboardLayout } from "@/components/Layout/DashboardLayout";
+import api from "@/services/apiInterceptor";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -516,37 +517,26 @@ export function CRM() {
 
       // ✅ IMPLEMENTAÇÃO: Criar notificação real para novo negócio
       try {
-        const response = await fetch('/api/notifications', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        await api.post('/notifications', {
+          type: 'project',
+          title: 'Novo Negócio no Pipeline',
+          message: `${newDeal.title} foi adicionado ao Pipeline de Vendas`,
+          payload: {
+            dealId: newDeal.id,
+            dealTitle: newDeal.title,
+            contactName: newDeal.contactName,
+            stage: newDeal.stage,
+            budget: newDeal.budget,
+            tags: newDeal.tags,
+            action: 'deal_created'
           },
-          body: JSON.stringify({
-            type: 'project',
-            title: 'Novo Negócio no Pipeline',
-            message: `${newDeal.title} foi adicionado ao Pipeline de Vendas`,
-            payload: {
-              dealId: newDeal.id,
-              dealTitle: newDeal.title,
-              contactName: newDeal.contactName,
-              stage: newDeal.stage,
-              budget: newDeal.budget,
-              tags: newDeal.tags,
-              action: 'deal_created'
-            },
-            link: '/crm?tab=pipeline'
-          }),
+          link: '/crm?tab=pipeline'
         });
 
-        if (!response.ok) {
-          console.warn('Falha ao criar notificação de negócio:', await response.text());
-        } else {
-          console.log("✅ NOTIFICAÇÃO CRIADA: Novo negócio no pipeline", {
-            dealTitle: newDeal.title,
-            dealId: newDeal.id
-          });
-        }
+        console.log("✅ NOTIFICAÇÃO CRIADA: Novo negócio no pipeline", {
+          dealTitle: newDeal.title,
+          dealId: newDeal.id
+        });
       } catch (error) {
         console.error('Erro ao criar notificação de negócio:', error);
       }
