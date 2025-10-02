@@ -34,19 +34,11 @@ const updateProjectSchema = createProjectSchema.partial();
 export class ProjectsController {
   async getProjects(req: TenantRequest, res: Response) {
     try {
-      if (!req.user) {
+      if (!req.user || !req.tenantDB) {
         return res.status(401).json({ error: 'Authentication required' });
       }
 
-      if (!req.tenantDB || !req.tenant) {
-        console.error('[ProjectsController] Missing tenant context:', {
-          hasTenantDB: !!req.tenantDB,
-          hasTenant: !!req.tenant
-        });
-        return res.status(400).json({ error: 'Tenant context missing' });
-      }
-
-      console.log('[ProjectsController] Fetching projects for tenant:', req.tenant.id);
+      console.log('[ProjectsController] Fetching projects for tenant:', req.tenant?.id);
 
       const filters = {
         page: parseInt(req.query.page as string) || 1,
@@ -75,12 +67,8 @@ export class ProjectsController {
 
   async getProject(req: TenantRequest, res: Response) {
     try {
-      if (!req.user) {
+      if (!req.user || !req.tenantDB) {
         return res.status(401).json({ error: 'Authentication required' });
-      }
-
-      if (!req.tenantDB || !req.tenant) {
-        return res.status(400).json({ error: 'Tenant context missing' });
       }
 
       const { id } = req.params;
@@ -107,12 +95,8 @@ export class ProjectsController {
 
   async createProject(req: TenantRequest, res: Response) {
     try {
-      if (!req.user) {
+      if (!req.user || !req.tenantDB) {
         return res.status(401).json({ error: 'Authentication required' });
-      }
-
-      if (!req.tenantDB || !req.tenant) {
-        return res.status(400).json({ error: 'Tenant context missing' });
       }
 
       const validatedData = createProjectSchema.parse(req.body);
@@ -126,25 +110,6 @@ export class ProjectsController {
       );
       
       console.log('[ProjectsController] Project created:', project.id);
-
-      // Tentar criar notificação (não-bloqueante)
-      try {
-        const { notificationsService } = await import('../services/notificationsService');
-        await notificationsService.createNotification(req.tenantDB, {
-          userId: req.user.id,
-          title: 'Novo Negócio Criado',
-          message: `O negócio "${validatedData.title}" foi criado com sucesso`,
-          type: 'success',
-          relatedEntityType: 'project',
-          relatedEntityId: project.id,
-          actionUrl: `/projects/${project.id}`,
-          priority: 'low',
-          actorId: req.user.id
-        });
-      } catch (notifError) {
-        console.warn('[ProjectsController] Failed to create notification:', notifError);
-        // Não quebrar a operação principal
-      }
 
       res.status(201).json({
         message: 'Project created successfully',
@@ -161,12 +126,8 @@ export class ProjectsController {
 
   async updateProject(req: TenantRequest, res: Response) {
     try {
-      if (!req.user) {
+      if (!req.user || !req.tenantDB) {
         return res.status(401).json({ error: 'Authentication required' });
-      }
-
-      if (!req.tenantDB || !req.tenant) {
-        return res.status(400).json({ error: 'Tenant context missing' });
       }
 
       const { id } = req.params;
@@ -197,12 +158,8 @@ export class ProjectsController {
 
   async deleteProject(req: TenantRequest, res: Response) {
     try {
-      if (!req.user) {
+      if (!req.user || !req.tenantDB) {
         return res.status(401).json({ error: 'Authentication required' });
-      }
-
-      if (!req.tenantDB || !req.tenant) {
-        return res.status(400).json({ error: 'Tenant context missing' });
       }
 
       const { id } = req.params;
