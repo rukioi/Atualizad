@@ -1,9 +1,12 @@
+
 /**
- * PROJECTS SERVICE - Gestão de Projetos
- * =====================================
+ * PROJECTS SERVICE - Gestão de Projetos/Negócios (Pipeline)
+ * =========================================================
  * 
  * ✅ ISOLAMENTO TENANT: Usa TenantDatabase e helpers de isolamento
  * ✅ SEM DADOS MOCK: Operações reais no PostgreSQL
+ * ✅ ID AUTOMÁTICO: PostgreSQL gen_random_uuid()
+ * ✅ CAST EXPLÍCITO: JSONB e DATE fields
  */
 
 import { TenantDatabase } from '../config/database';
@@ -18,50 +21,37 @@ export interface Project {
   id: string;
   title: string;
   description?: string;
-  client_name: string;
+  contact_name: string;
   client_id?: string;
   organization?: string;
+  email: string;
+  mobile: string;
   address?: string;
   budget?: number;
-  currency?: 'BRL' | 'USD' | 'EUR';
-  status: 'contacted' | 'proposal' | 'won' | 'lost';
-  priority: 'low' | 'medium' | 'high' | 'urgent';
-  start_date?: string;
-  due_date?: string;
+  currency: 'BRL' | 'USD' | 'EUR';
+  stage: 'contacted' | 'proposal' | 'won' | 'lost';
   tags: string[];
-  assigned_to: string[];
   notes?: string;
-  contacts: ProjectContact[];
   created_by: string;
   created_at: string;
   updated_at: string;
   is_active: boolean;
 }
 
-export interface ProjectContact {
-  name: string;
-  email: string;
-  phone: string;
-  role: string;
-}
-
 export interface CreateProjectData {
   title: string;
   description?: string;
-  clientName: string;
+  contactName: string;
   clientId?: string;
   organization?: string;
+  email: string;
+  mobile: string;
   address?: string;
   budget?: number;
   currency?: 'BRL' | 'USD' | 'EUR';
-  status?: 'contacted' | 'proposal' | 'won' | 'lost';
-  priority?: 'low' | 'medium' | 'high' | 'urgent';
-  startDate?: string;
-  dueDate?: string;
+  stage?: 'contacted' | 'proposal' | 'won' | 'lost';
   tags?: string[];
-  assignedTo?: string[];
   notes?: string;
-  contacts?: ProjectContact[];
 }
 
 export interface UpdateProjectData extends Partial<CreateProjectData> {}
@@ -69,11 +59,9 @@ export interface UpdateProjectData extends Partial<CreateProjectData> {}
 export interface ProjectFilters {
   page?: number;
   limit?: number;
-  status?: string;
-  priority?: string;
+  stage?: string;
   search?: string;
   tags?: string[];
-  assignedTo?: string[];
 }
 
 class ProjectsService {
@@ -82,23 +70,20 @@ class ProjectsService {
   private async ensureTables(tenantDB: TenantDatabase): Promise<void> {
     const createTableQuery = `
       CREATE TABLE IF NOT EXISTS \${schema}.${this.tableName} (
-        id VARCHAR PRIMARY KEY,
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         title VARCHAR NOT NULL,
         description TEXT,
-        client_name VARCHAR NOT NULL,
-        client_id VARCHAR,
+        contact_name VARCHAR NOT NULL,
+        client_id UUID,
         organization VARCHAR,
+        email VARCHAR NOT NULL,
+        mobile VARCHAR NOT NULL,
         address TEXT,
         budget DECIMAL(15,2),
         currency VARCHAR(3) DEFAULT 'BRL',
-        status VARCHAR DEFAULT 'contacted',
-        priority VARCHAR DEFAULT 'medium',
-        start_date DATE,
-        due_date DATE,
+        stage VARCHAR DEFAULT 'contacted',
         tags JSONB DEFAULT '[]',
-        assigned_to JSONB DEFAULT '[]',
         notes TEXT,
-        contacts JSONB DEFAULT '[]',
         created_by VARCHAR NOT NULL,
         created_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP DEFAULT NOW(),
@@ -110,8 +95,11 @@ class ProjectsService {
 
     const indexes = [
       `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_title ON \${schema}.${this.tableName}(title)`,
-      `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_status ON \${schema}.${this.tableName}(status)`,
-      `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_priority ON \${schema}.${this.tableName}(priority)`
+      `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_stage ON \${schema}.${this.tableName}(stage)`,
+      `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_contact_name ON \${schema}.${this.tableName}(contact_name)`,
+      `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_client_id ON \${schema}.${this.tableName}(client_id)`,
+      `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_active ON \${schema}.${this.tableName}(is_active)`,
+      `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_created_by ON \${schema}.${this.tableName}(created_by)`
     ];
 
     for (const indexQuery of indexes) {
@@ -121,7 +109,14 @@ class ProjectsService {
 
   async getProjects(tenantDB: TenantDatabase, filters: ProjectFilters = {}): Promise<{
     projects: Project[];
-    pagination: any;
+    pagination: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+      hasNext: boolean;
+      hasPrev: boolean;
+    };
   }> {
     await this.ensureTables(tenantDB);
 
@@ -133,34 +128,42 @@ class ProjectsService {
     let queryParams: any[] = [];
     let paramIndex = 1;
 
-    if (filters.status) {
-      whereConditions.push(`status = $${paramIndex}`);
-      queryParams.push(filters.status);
-      paramIndex++;
-    }
-
-    if (filters.priority) {
-      whereConditions.push(`priority = $${paramIndex}`);
-      queryParams.push(filters.priority);
+    if (filters.stage) {
+      whereConditions.push(`stage = $${paramIndex}`);
+      queryParams.push(filters.stage);
       paramIndex++;
     }
 
     if (filters.search) {
-      whereConditions.push(`(title ILIKE $${paramIndex} OR client_name ILIKE $${paramIndex})`);
+      whereConditions.push(`(title ILIKE $${paramIndex} OR contact_name ILIKE $${paramIndex} OR organization ILIKE $${paramIndex})`);
       queryParams.push(`%${filters.search}%`);
+      paramIndex++;
+    }
+
+    if (filters.tags && filters.tags.length > 0) {
+      whereConditions.push(`tags ?| $${paramIndex}`);
+      queryParams.push(filters.tags);
       paramIndex++;
     }
 
     const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
 
     const projectsQuery = `
-      SELECT * FROM \${schema}.${this.tableName}
+      SELECT 
+        id, title, description, contact_name, client_id, organization, 
+        email, mobile, address, budget, currency, stage, tags, notes,
+        created_by, created_at, updated_at, is_active
+      FROM \${schema}.${this.tableName}
       ${whereClause}
       ORDER BY created_at DESC
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
     `;
 
-    const countQuery = `SELECT COUNT(*) as total FROM \${schema}.${this.tableName} ${whereClause}`;
+    const countQuery = `
+      SELECT COUNT(*) as total
+      FROM \${schema}.${this.tableName}
+      ${whereClause}
+    `;
 
     const [projects, countResult] = await Promise.all([
       queryTenantSchema<Project>(tenantDB, projectsQuery, [...queryParams, limit, offset]),
@@ -172,14 +175,29 @@ class ProjectsService {
 
     return {
       projects,
-      pagination: { page, limit, total, totalPages, hasNext: page < totalPages, hasPrev: page > 1 }
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages,
+        hasNext: page < totalPages,
+        hasPrev: page > 1
+      }
     };
   }
 
   async getProjectById(tenantDB: TenantDatabase, projectId: string): Promise<Project | null> {
     await this.ensureTables(tenantDB);
 
-    const query = `SELECT * FROM \${schema}.${this.tableName} WHERE id = $1 AND is_active = TRUE`;
+    const query = `
+      SELECT 
+        id, title, description, contact_name, client_id, organization,
+        email, mobile, address, budget, currency, stage, tags, notes,
+        created_by, created_at, updated_at, is_active
+      FROM \${schema}.${this.tableName}
+      WHERE id = $1 AND is_active = TRUE
+    `;
+
     const result = await queryTenantSchema<Project>(tenantDB, query, [projectId]);
     return result[0] || null;
   }
@@ -187,26 +205,20 @@ class ProjectsService {
   async createProject(tenantDB: TenantDatabase, projectData: CreateProjectData, createdBy: string): Promise<Project> {
     await this.ensureTables(tenantDB);
 
-    const projectId = `project_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-
     const data = {
-      id: projectId,
       title: projectData.title,
       description: projectData.description || null,
-      client_name: projectData.clientName,
+      contact_name: projectData.contactName,
       client_id: projectData.clientId || null,
       organization: projectData.organization || null,
+      email: projectData.email,
+      mobile: projectData.mobile,
       address: projectData.address || null,
       budget: projectData.budget || null,
       currency: projectData.currency || 'BRL',
-      status: projectData.status || 'contacted',
-      priority: projectData.priority || 'medium',
-      start_date: projectData.startDate || null,
-      due_date: projectData.dueDate || null,
+      stage: projectData.stage || 'contacted',
       tags: JSON.stringify(projectData.tags || []),
-      assigned_to: JSON.stringify(projectData.assignedTo || []),
       notes: projectData.notes || null,
-      contacts: JSON.stringify(projectData.contacts || []),
       created_by: createdBy
     };
 
@@ -220,20 +232,17 @@ class ProjectsService {
 
     if (updateData.title !== undefined) data.title = updateData.title;
     if (updateData.description !== undefined) data.description = updateData.description;
-    if (updateData.clientName !== undefined) data.client_name = updateData.clientName;
+    if (updateData.contactName !== undefined) data.contact_name = updateData.contactName;
     if (updateData.clientId !== undefined) data.client_id = updateData.clientId;
     if (updateData.organization !== undefined) data.organization = updateData.organization;
+    if (updateData.email !== undefined) data.email = updateData.email;
+    if (updateData.mobile !== undefined) data.mobile = updateData.mobile;
     if (updateData.address !== undefined) data.address = updateData.address;
     if (updateData.budget !== undefined) data.budget = updateData.budget;
     if (updateData.currency !== undefined) data.currency = updateData.currency;
-    if (updateData.status !== undefined) data.status = updateData.status;
-    if (updateData.priority !== undefined) data.priority = updateData.priority;
-    if (updateData.startDate !== undefined) data.start_date = updateData.startDate;
-    if (updateData.dueDate !== undefined) data.due_date = updateData.dueDate;
+    if (updateData.stage !== undefined) data.stage = updateData.stage;
     if (updateData.tags !== undefined) data.tags = JSON.stringify(updateData.tags);
-    if (updateData.assignedTo !== undefined) data.assigned_to = JSON.stringify(updateData.assignedTo);
     if (updateData.notes !== undefined) data.notes = updateData.notes;
-    if (updateData.contacts !== undefined) data.contacts = JSON.stringify(updateData.contacts);
 
     if (Object.keys(data).length === 0) {
       throw new Error('No fields to update');
@@ -248,9 +257,6 @@ class ProjectsService {
     return !!project;
   }
 
-  /**
-   * Obtém estatísticas dos projetos
-   */
   async getProjectsStats(tenantDB: TenantDatabase): Promise<{
     total: number;
     contacted: number;
@@ -264,10 +270,10 @@ class ProjectsService {
     const query = `
       SELECT 
         COUNT(*) as total,
-        COUNT(*) FILTER (WHERE status = 'contacted') as contacted,
-        COUNT(*) FILTER (WHERE status = 'proposal') as proposal,
-        COUNT(*) FILTER (WHERE status = 'won') as won,
-        COUNT(*) FILTER (WHERE status = 'lost') as lost,
+        COUNT(*) FILTER (WHERE stage = 'contacted') as contacted,
+        COUNT(*) FILTER (WHERE stage = 'proposal') as proposal,
+        COUNT(*) FILTER (WHERE stage = 'won') as won,
+        COUNT(*) FILTER (WHERE stage = 'lost') as lost,
         COUNT(*) FILTER (WHERE created_at >= DATE_TRUNC('month', NOW())) as this_month
       FROM \${schema}.${this.tableName}
       WHERE is_active = TRUE

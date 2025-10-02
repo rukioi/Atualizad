@@ -1,9 +1,11 @@
+
 /**
- * PROJECTS CONTROLLER - Gestão de Projetos
- * ========================================
+ * PROJECTS CONTROLLER - Gestão de Negócios (Pipeline)
+ * ===================================================
  * 
- * ✅ ISOLAMENTO TENANT: Usa req.tenantDB para garantir isolamento por schema
- * ✅ SEM DADOS MOCK: Operações reais no banco de dados do tenant
+ * ✅ ISOLAMENTO TENANT: Usa req.tenantDB
+ * ✅ VALIDAÇÃO: Zod schema
+ * ✅ SEM MOCK: Operações reais no banco
  */
 
 import { Response } from 'express';
@@ -14,25 +16,17 @@ import { projectsService } from '../services/projectsService';
 const createProjectSchema = z.object({
   title: z.string().min(1, 'Title is required'),
   description: z.string().optional(),
-  clientName: z.string().min(1, 'Client name is required'),
+  contactName: z.string().min(1, 'Contact name is required'),
   clientId: z.string().optional(),
   organization: z.string().optional(),
+  email: z.string().email('Invalid email format'),
+  mobile: z.string().min(1, 'Mobile is required'),
   address: z.string().optional(),
   budget: z.number().min(0).optional(),
   currency: z.enum(['BRL', 'USD', 'EUR']).default('BRL'),
-  status: z.enum(['contacted', 'proposal', 'won', 'lost']).default('contacted'),
-  priority: z.enum(['low', 'medium', 'high', 'urgent']).default('medium'),
-  startDate: z.string().optional(),
-  dueDate: z.string().optional(),
+  stage: z.enum(['contacted', 'proposal', 'won', 'lost']).default('contacted'),
   tags: z.array(z.string()).default([]),
-  assignedTo: z.array(z.string()).default([]),
   notes: z.string().optional(),
-  contacts: z.array(z.object({
-    name: z.string(),
-    email: z.string(),
-    phone: z.string(),
-    role: z.string(),
-  })).default([]),
 });
 
 const updateProjectSchema = createProjectSchema.partial();
@@ -44,21 +38,30 @@ export class ProjectsController {
         return res.status(401).json({ error: 'Authentication required' });
       }
 
+      console.log('[ProjectsController] Fetching projects for tenant:', req.tenant?.id);
+
       const filters = {
         page: parseInt(req.query.page as string) || 1,
         limit: parseInt(req.query.limit as string) || 50,
-        status: req.query.status as string,
-        priority: req.query.priority as string,
+        stage: req.query.stage as string,
         search: req.query.search as string,
-        tags: req.query.tags ? (req.query.tags as string).split(',') : undefined,
-        assignedTo: req.query.assignedTo ? (req.query.assignedTo as string).split(',') : undefined
+        tags: req.query.tags ? (req.query.tags as string).split(',') : undefined
       };
 
       const result = await projectsService.getProjects(req.tenantDB, filters);
+      
+      console.log('[ProjectsController] Projects fetched:', {
+        count: result.projects.length,
+        total: result.pagination.total
+      });
+
       res.json(result);
     } catch (error) {
-      console.error('[ProjectsController] Error:', error);
-      res.status(500).json({ error: 'Failed to fetch projects' });
+      console.error('[ProjectsController] Get projects error:', error);
+      res.status(500).json({
+        error: 'Failed to fetch projects',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
     }
   }
 
@@ -69,16 +72,24 @@ export class ProjectsController {
       }
 
       const { id } = req.params;
+      
+      console.log('[ProjectsController] Fetching project:', id);
+
       const project = await projectsService.getProjectById(req.tenantDB, id);
       
       if (!project) {
         return res.status(404).json({ error: 'Project not found' });
       }
+      
+      console.log('[ProjectsController] Project fetched:', project.id);
 
-      res.json({ project, related: { tasks: [] } }); // TODO: Buscar tasks relacionadas
+      res.json({ project });
     } catch (error) {
-      console.error('[ProjectsController] Error:', error);
-      res.status(500).json({ error: 'Failed to fetch project' });
+      console.error('[ProjectsController] Get project error:', error);
+      res.status(500).json({
+        error: 'Failed to fetch project',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
     }
   }
 
@@ -89,12 +100,27 @@ export class ProjectsController {
       }
 
       const validatedData = createProjectSchema.parse(req.body);
-      const project = await projectsService.createProject(req.tenantDB, validatedData, req.user.id);
+      
+      console.log('[ProjectsController] Creating project for user:', req.user.id);
 
-      res.status(201).json({ message: 'Project created successfully', project });
+      const project = await projectsService.createProject(
+        req.tenantDB,
+        validatedData,
+        req.user.id
+      );
+      
+      console.log('[ProjectsController] Project created:', project.id);
+
+      res.status(201).json({
+        message: 'Project created successfully',
+        project
+      });
     } catch (error) {
-      console.error('[ProjectsController] Error:', error);
-      res.status(400).json({ error: 'Failed to create project' });
+      console.error('[ProjectsController] Create project error:', error);
+      res.status(400).json({
+        error: 'Failed to create project',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
     }
   }
 
@@ -106,16 +132,27 @@ export class ProjectsController {
 
       const { id } = req.params;
       const validatedData = updateProjectSchema.parse(req.body);
+      
+      console.log('[ProjectsController] Updating project:', id);
+
       const project = await projectsService.updateProject(req.tenantDB, id, validatedData);
 
       if (!project) {
         return res.status(404).json({ error: 'Project not found' });
       }
+      
+      console.log('[ProjectsController] Project updated:', project.id);
 
-      res.json({ message: 'Project updated successfully', project });
+      res.json({
+        message: 'Project updated successfully',
+        project
+      });
     } catch (error) {
-      console.error('[ProjectsController] Error:', error);
-      res.status(400).json({ error: 'Failed to update project' });
+      console.error('[ProjectsController] Update project error:', error);
+      res.status(400).json({
+        error: 'Failed to update project',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
     }
   }
 
@@ -126,16 +163,26 @@ export class ProjectsController {
       }
 
       const { id } = req.params;
+      
+      console.log('[ProjectsController] Deleting project:', id);
+
       const success = await projectsService.deleteProject(req.tenantDB, id);
 
       if (!success) {
         return res.status(404).json({ error: 'Project not found' });
       }
+      
+      console.log('[ProjectsController] Project deleted:', id);
 
-      res.json({ message: 'Project deleted successfully' });
+      res.json({
+        message: 'Project deleted successfully'
+      });
     } catch (error) {
-      console.error('[ProjectsController] Error:', error);
-      res.status(500).json({ error: 'Failed to delete project' });
+      console.error('[ProjectsController] Delete project error:', error);
+      res.status(500).json({
+        error: 'Failed to delete project',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
     }
   }
 }
