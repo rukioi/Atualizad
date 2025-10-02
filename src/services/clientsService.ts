@@ -301,9 +301,13 @@ export class ClientsService {
       rg: clientData.rg || null,
       professional_title: clientData.professionalTitle || null,
       marital_status: clientData.maritalStatus || null,
-      birth_date: clientData.birthDate || null,
       created_by: createdBy
     };
+    
+    // Adicionar birth_date apenas se existir (evita string vazia)
+    if (clientData.birthDate && clientData.birthDate.trim() !== '') {
+      data.birth_date = clientData.birthDate;
+    }
     
     const client = await insertInTenantSchema<Client>(tenantDB, this.tableName, data);
     return client;

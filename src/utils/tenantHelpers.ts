@@ -50,10 +50,17 @@ export async function insertInTenantSchema<T = any>(
   // JSONB fields que precisam de cast explícito
   const jsonbFields = ['tags', 'address', 'metadata', 'settings', 'data'];
   
+  // DATE fields que precisam de cast explícito
+  const dateFields = ['birth_date', 'due_date', 'start_date', 'end_date', 'paid_at', 'completed_at'];
+  
   const placeholders = columns.map((col, i) => {
     // Se o campo é JSONB, fazer cast explícito
     if (jsonbFields.includes(col)) {
       return `$${i + 1}::jsonb`;
+    }
+    // Se o campo é DATE, fazer cast explícito
+    if (dateFields.includes(col)) {
+      return `$${i + 1}::date`;
     }
     return `$${i + 1}`;
   }).join(', ');
@@ -89,11 +96,18 @@ export async function updateInTenantSchema<T = any>(
   // JSONB fields que precisam de cast explícito
   const jsonbFields = ['tags', 'address', 'metadata', 'settings', 'data'];
   
+  // DATE fields que precisam de cast explícito
+  const dateFields = ['birth_date', 'due_date', 'start_date', 'end_date', 'paid_at', 'completed_at'];
+  
   const setClause = Object.keys(data)
     .map((key, index) => {
       // Se o campo é JSONB, fazer cast explícito
       if (jsonbFields.includes(key)) {
         return `${key} = $${index + 2}::jsonb`;
+      }
+      // Se o campo é DATE, fazer cast explícito
+      if (dateFields.includes(key)) {
+        return `${key} = $${index + 2}::date`;
       }
       return `${key} = $${index + 2}`;
     })
