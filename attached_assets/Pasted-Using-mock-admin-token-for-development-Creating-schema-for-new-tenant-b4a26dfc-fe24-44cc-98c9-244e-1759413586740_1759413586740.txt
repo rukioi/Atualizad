@@ -1,0 +1,182 @@
+Using mock admin token for development
+Creating schema for new tenant: b4a26dfc-fe24-44cc-98c9-244e7e13947a
+Ensuring schema exists: tenant_1759413464091_mkwiju for tenant: b4a26dfc-fe24-44cc-98c9-244e7e13947a
+Schema tenant_1759413464091_mkwiju doesn't exist, creating...
+Schema tenant_1759413464091_mkwiju created successfully
+Table clients created successfully in schema tenant_1759413464091_mkwiju
+Table projects created successfully in schema tenant_1759413464091_mkwiju
+Table tasks created successfully in schema tenant_1759413464091_mkwiju
+Table transactions created successfully in schema tenant_1759413464091_mkwiju
+Table invoices created successfully in schema tenant_1759413464091_mkwiju
+Table publications created successfully in schema tenant_1759413464091_mkwiju
+Table categories created successfully in schema tenant_1759413464091_mkwiju
+All tables created successfully in schema tenant_1759413464091_mkwiju
+Schema tenant_1759413464091_mkwiju created successfully
+Schema created successfully for tenant: tenant_1759413464091_mkwiju
+Admin auth attempt: {
+  hasAuthHeader: true,
+  hasToken: true,
+  tokenPreview: 'mock-admin-token-175...'
+}
+Using mock admin token for development
+Tenant b4a26dfc-fe24-44cc-98c9-244e7e13947a (Murilo) has 0 users
+Admin auth attempt: {
+  hasAuthHeader: true,
+  hasToken: true,
+  tokenPreview: 'mock-admin-token-175...'
+}
+Using mock admin token for development
+Admin auth attempt: {
+  hasAuthHeader: true,
+  hasToken: true,
+  tokenPreview: 'mock-admin-token-175...'
+}
+Using mock admin token for development
+Tenant b4a26dfc-fe24-44cc-98c9-244e7e13947a (Murilo) has 0 users
+Admin auth attempt: {
+  hasAuthHeader: true,
+  hasToken: true,
+  tokenPreview: 'mock-admin-token-175...'
+}
+Using mock admin token for development
+Creating registration key with data: {
+  accountType: 'COMPOSTA',
+  tenantId: 'b4a26dfc-fe24-44cc-98c9-244e7e13947a',
+  usesAllowed: 1,
+  singleUse: true
+}
+Validated data: {
+  tenantId: 'b4a26dfc-fe24-44cc-98c9-244e7e13947a',
+  accountType: 'COMPOSTA',
+  usesAllowed: 1,
+  singleUse: true
+}
+Generating registration key with request: {
+  tenantId: 'b4a26dfc-fe24-44cc-98c9-244e7e13947a',
+  accountType: 'COMPOSTA',
+  usesAllowed: 1,
+  expiresAt: undefined,
+  singleUse: true
+}
+Generated key hash, creating database record...
+Creating key with data: {
+  keyHash: '$2b$12$GuRA1daW5gXoDtLpdcedYOt0b12lzQkpoYMMa1PAVJDRA9o6sN6Ia',
+  tenantId: 'b4a26dfc-fe24-44cc-98c9-244e7e13947a',
+  accountType: 'COMPOSTA',
+  usesAllowed: 1,
+  usesLeft: 1,
+  singleUse: true,
+  expiresAt: null,
+  metadata: {},
+  createdBy: 'admin',
+  usedLogs: [],
+  revoked: false
+}
+Database: Creating registration key with data: {
+  keyHash: '$2b$12$GuRA1daW5gXoDtLpdcedYOt0b12lzQkpoYMMa1PAVJDRA9o6sN6Ia',
+  tenantId: 'b4a26dfc-fe24-44cc-98c9-244e7e13947a',
+  accountType: 'COMPOSTA',
+  usesAllowed: 1,
+  usesLeft: 1,
+  singleUse: true,
+  expiresAt: null,
+  metadata: {},
+  createdBy: 'admin',
+  usedLogs: [],
+  revoked: false
+}
+Database: Registration key created with ID: c8cf6ea9-d3c0-4264-bd72-fd52570c3bcf
+Registration key created successfully
+Registration key created successfully: 18f4af6d55deb1f7857a65304e1e8306e6a4d9e90ffd0e05fd3f56552c2e1d9a
+Admin auth attempt: {
+  hasAuthHeader: true,
+  hasToken: true,
+  tokenPreview: 'mock-admin-token-175...'
+}
+Using mock admin token for development
+Registration attempt: { email: 'murilo@hotmail.com', name: 'murilo' }
+=== STARTING USER REGISTRATION ===
+Registration data: {
+  email: 'murilo@hotmail.com',
+  name: 'murilo',
+  keyPreview: '18f4af6d...'
+}
+Found valid registration keys: 1
+Keys details: [
+  {
+    id: 'c8cf6ea9-d3c0-4264-bd72-fd52570c3bcf',
+    accountType: 'COMPOSTA',
+    usesLeft: 1,
+    hashPreview: '$2b$12$GuR...'
+  }
+]
+Available registration keys: 1
+Looking for key: 18f4af6d...
+Comparing with key ID: c8cf6ea9-d3c0-4264-bd72-fd52570c3bcf hash preview: $2b$12$GuR...
+Key match found for ID: c8cf6ea9-d3c0-4264-bd72-fd52570c3bcf
+Valid registration key found: {
+  id: 'c8cf6ea9-d3c0-4264-bd72-fd52570c3bcf',
+  tenantId: 'b4a26dfc-fe24-44cc-98c9-244e7e13947a',
+  accountType: 'COMPOSTA',
+  usesLeft: 1
+}
+Using tenant: {
+  id: 'b4a26dfc-fe24-44cc-98c9-244e7e13947a',
+  name: 'Murilo',
+  isActive: true,
+  maxUsers: 5
+}
+Creating user with data: {
+  email: 'murilo@hotmail.com',
+  name: 'murilo',
+  accountType: 'COMPOSTA',
+  tenantId: 'b4a26dfc-fe24-44cc-98c9-244e7e13947a',
+  tenantName: 'Murilo'
+}
+User created successfully: {
+  id: '77919150-70ea-4c10-8389-f73b60db828e',
+  email: 'murilo@hotmail.com',
+  tenantId: 'b4a26dfc-fe24-44cc-98c9-244e7e13947a',
+  accountType: 'COMPOSTA',
+  userObject: {
+    id: '77919150-70ea-4c10-8389-f73b60db828e',
+    email: 'murilo@hotmail.com',
+    password: '$2a$12$t1FTzgtyhpmfh6l3eFIVjusdoG3G265AdZqCRTNJ934auCMGQHBvS',
+    name: 'murilo',
+    accountType: 'COMPOSTA',
+    tenantId: 'b4a26dfc-fe24-44cc-98c9-244e7e13947a',
+    isActive: true,
+    mustChangePassword: false,
+    lastLogin: null,
+    createdAt: 2025-10-02T13:58:30.649Z,
+    updatedAt: 2025-10-02T13:58:30.649Z,
+    tenant: {
+      id: 'b4a26dfc-fe24-44cc-98c9-244e7e13947a',
+      name: 'Murilo',
+      schemaName: 'tenant_1759413464091_mkwiju',
+      planType: 'basic',
+      isActive: true,
+      maxUsers: 5,
+      maxStorage: 1073741824n,
+      planExpiresAt: null,
+      createdAt: 2025-10-02T13:57:44.092Z,
+      updatedAt: 2025-10-02T13:57:44.092Z
+    }
+  }
+}
+Registration key usage updated successfully for ID: c8cf6ea9-d3c0-4264-bd72-fd52570c3bcf
+Registration completed successfully for: {
+  userId: '77919150-70ea-4c10-8389-f73b60db828e',
+  email: 'murilo@hotmail.com',
+  tenantId: 'b4a26dfc-fe24-44cc-98c9-244e7e13947a',
+  accountType: 'COMPOSTA'
+}
+=== USER REGISTRATION COMPLETED ===
+Registration successful: { userId: '77919150-70ea-4c10-8389-f73b60db828e', tenantId: undefined }
+Admin auth attempt: {
+  hasAuthHeader: true,
+  hasToken: true,
+  tokenPreview: 'mock-admin-token-175...'
+}
+Using mock admin token for development
+Tenant b4a26dfc-fe24-44cc-98c9-244e7e13947a (Murilo) has 1 users
