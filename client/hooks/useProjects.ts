@@ -11,9 +11,9 @@ export function useProjects() {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await apiService.get('/api/projects');
-      if (response && response.data) {
-        setProjects(response.data.projects || []);
+      const response = await apiService.getProjects();
+      if (response && response.projects) {
+        setProjects(response.projects || []);
       } else {
         throw new Error('Invalid response format');
       }
@@ -29,9 +29,9 @@ export function useProjects() {
 
   const createProject = async (projectData: Partial<Project>) => {
     try {
-      const response = await apiService.post('/api/projects', projectData);
+      const response = await apiService.createProject(projectData);
       await loadProjects(); // Reload list
-      return response.data.project;
+      return response.project;
     } catch (err) {
       console.error('Error creating project:', err);
       throw err;
@@ -40,9 +40,9 @@ export function useProjects() {
 
   const updateProject = async (id: string, updates: Partial<Project>) => {
     try {
-      const response = await apiService.put(`/api/projects/${id}`, updates);
+      const response = await apiService.updateProject(id, updates);
       await loadProjects(); // Reload list
-      return response.data.project;
+      return response.project;
     } catch (err) {
       console.error('Error updating project:', err);
       throw err;
@@ -51,7 +51,7 @@ export function useProjects() {
 
   const deleteProject = async (id: string) => {
     try {
-      await apiService.delete(`/api/projects/${id}`);
+      await apiService.deleteProject(id);
       await loadProjects(); // Reload list
     } catch (err) {
       console.error('Error deleting project:', err);
