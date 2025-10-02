@@ -1,6 +1,7 @@
 import { defineConfig, Plugin } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
+import "./src/env";
 import { createApp } from "./src/app";
 
 // https://vitejs.dev/config/
