@@ -12,10 +12,16 @@ export function useProjects() {
     setError(null);
     try {
       const response = await apiService.get('/api/projects');
-      setProjects(response.data.projects || []);
+      if (response && response.data) {
+        setProjects(response.data.projects || []);
+      } else {
+        throw new Error('Invalid response format');
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load projects');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to load projects';
+      setError(errorMessage);
       console.error('Error loading projects:', err);
+      setProjects([]); // Clear projects on error
     } finally {
       setIsLoading(false);
     }

@@ -34,11 +34,19 @@ const updateProjectSchema = createProjectSchema.partial();
 export class ProjectsController {
   async getProjects(req: TenantRequest, res: Response) {
     try {
-      if (!req.user || !req.tenantDB) {
+      if (!req.user) {
         return res.status(401).json({ error: 'Authentication required' });
       }
 
-      console.log('[ProjectsController] Fetching projects for tenant:', req.tenant?.id);
+      if (!req.tenantDB || !req.tenant) {
+        console.error('[ProjectsController] Missing tenant context:', {
+          hasTenantDB: !!req.tenantDB,
+          hasTenant: !!req.tenant
+        });
+        return res.status(400).json({ error: 'Tenant context missing' });
+      }
+
+      console.log('[ProjectsController] Fetching projects for tenant:', req.tenant.id);
 
       const filters = {
         page: parseInt(req.query.page as string) || 1,
@@ -67,8 +75,12 @@ export class ProjectsController {
 
   async getProject(req: TenantRequest, res: Response) {
     try {
-      if (!req.user || !req.tenantDB) {
+      if (!req.user) {
         return res.status(401).json({ error: 'Authentication required' });
+      }
+
+      if (!req.tenantDB || !req.tenant) {
+        return res.status(400).json({ error: 'Tenant context missing' });
       }
 
       const { id } = req.params;
@@ -95,8 +107,12 @@ export class ProjectsController {
 
   async createProject(req: TenantRequest, res: Response) {
     try {
-      if (!req.user || !req.tenantDB) {
+      if (!req.user) {
         return res.status(401).json({ error: 'Authentication required' });
+      }
+
+      if (!req.tenantDB || !req.tenant) {
+        return res.status(400).json({ error: 'Tenant context missing' });
       }
 
       const validatedData = createProjectSchema.parse(req.body);
@@ -145,8 +161,12 @@ export class ProjectsController {
 
   async updateProject(req: TenantRequest, res: Response) {
     try {
-      if (!req.user || !req.tenantDB) {
+      if (!req.user) {
         return res.status(401).json({ error: 'Authentication required' });
+      }
+
+      if (!req.tenantDB || !req.tenant) {
+        return res.status(400).json({ error: 'Tenant context missing' });
       }
 
       const { id } = req.params;
@@ -177,8 +197,12 @@ export class ProjectsController {
 
   async deleteProject(req: TenantRequest, res: Response) {
     try {
-      if (!req.user || !req.tenantDB) {
+      if (!req.user) {
         return res.status(401).json({ error: 'Authentication required' });
+      }
+
+      if (!req.tenantDB || !req.tenant) {
+        return res.status(400).json({ error: 'Tenant context missing' });
       }
 
       const { id } = req.params;

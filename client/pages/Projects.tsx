@@ -308,11 +308,33 @@ export function Projects() {
   const avgProgress = activeProjects > 0 ? Math.round(projects.filter(p => !['won', 'lost'].includes(p.status)).reduce((sum, project) => sum + (project.progress || 0), 0) / activeProjects) : 0;
 
   if (isLoading) {
-    return <div className="text-center py-10">Carregando projetos...</div>;
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-muted-foreground">Carregando projetos...</p>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
   }
 
   if (error) {
-    return <div className="text-center py-10 text-red-600">Erro ao carregar projetos: {error.message}</div>;
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center max-w-md">
+            <div className="text-red-600 mb-4">
+              <AlertTriangle className="h-12 w-12 mx-auto mb-2" />
+              <h3 className="text-lg font-semibold">Erro ao carregar projetos</h3>
+            </div>
+            <p className="text-muted-foreground mb-4">{error}</p>
+            <Button onClick={loadProjects}>Tentar novamente</Button>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
   }
 
   return (
