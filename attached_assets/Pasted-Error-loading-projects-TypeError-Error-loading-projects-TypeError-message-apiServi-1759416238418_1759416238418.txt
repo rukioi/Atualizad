@@ -1,0 +1,33 @@
+Error loading projects: 
+TypeError {}
+
+Error loading projects: 
+TypeError {}
+message: "apiService.get is not a function"
+stack: "TypeError: apiService.get is not a function↵ at https://87f02425-0ee2-4aac-8046-e0093b7a0d64-00-2u7gba3kg66tv.picard.replit.dev/client/hooks/useProjects.ts:11:47↵ at HTMLUnknownElement.callCallback2 (https://87f02425-0ee2-4aac-8046-e0093b7a0d64-00-2u7gba3kg66tv.picard.replit.dev/node_modules/.vite/deps/chunk-Z4UWYGUO.js?v=87d46713:3680:22)↵ at Object.invokeGuardedCallbackDev (https://87f02425-0ee2-4aac-8046-e0093b7a0d64-00-2u7gba3kg66tv.picard.replit.dev/node_modules/.vite/deps/chunk-Z4UWYGUO.js?v=87d46713:3705:24)↵ at invokeGuardedCallback (https://87f02425-0ee2-4aac-8046-e0093b7a0d64-00-2u7gba3kg66tv.picard.replit.dev/node_modules/.vite/deps/chunk-Z4UWYGUO.js?v=87d46713:3739:39)↵ at invokeGuardedCallbackAndCatchFirstError (https://87f02425-0ee2-4aac-8046-e0093b7a0d64-00-2u7gba3kg66tv.picard.replit.dev/node_modules/.vite/deps/chunk-Z4UWYGUO.js?v=87d46713:3742:33)↵ at executeDispatch (https://87f02425-0ee2-4aac-8046-e0093b7a0d64-00-2u7gba3kg66tv.picard.replit.dev/node_modules/.vite/deps/chunk-Z4UWYGUO.js?v=87d46713:7046:11)↵ at processDispatchQueueItemsInOrder (https://87f02425-0ee2-4aac-8046-e0093b7a0d64-00-2u7gba3kg66tv.picard.replit.dev/node_modules/.vite/deps/chunk-Z4UWYGUO.js?v=87d46713:7066:15)↵ at processDispatchQueue (https://87f02425-0ee2-4aac-8046-e0093b7a0d64-00-2u7gba3kg66tv.picard.replit.dev/node_modules/.vite/deps/chunk-Z4UWYGUO.js?v=87d46713:7075:13)↵ at dispatchEventsForPlugins (https://87f02425-0ee2-4aac-8046-e0093b7a0d64-00-2u7gba3kg66tv.picard.replit.dev/node_modules/.vite/deps/chunk-Z4UWYGUO.js?v=87d46713:7083:11)↵ at https://87f02425-0ee2-4aac-8046-e0093b7a0d64-00-2u7gba3kg66tv.picard.replit.dev/node_modules/.vite/deps/chunk-Z4UWYGUO.js?v=87d46713:7206:20"
+get stack: ƒ ()
+set stack: ƒ ()
+[[Prototype]]: Object
+
+API Request failed: 
+Error {}
+
+API Request failed: 
+Error {}
+
+API Request failed: 
+Error {}
+
+API Request failed: 
+Error {}
+
+Error loading projects: 
+TypeError {}
+
+Error loading projects: 
+TypeError {}
+message: "apiService.get is not a function"
+stack: "TypeError: apiService.get is not a function↵ at https://87f02425-0ee2-4aac-8046-e0093b7a0d64-00-2u7gba3kg66tv.picard.replit.dev/client/hooks/useProjects.ts:11:47↵ at HTMLUnknownElement.callCallback2 (https://87f02425-0ee2-4aac-8046-e0093b7a0d64-00-2u7gba3kg66tv.picard.replit.dev/node_modules/.vite/deps/chunk-Z4UWYGUO.js?v=87d46713:3680:22)↵ at Object.invokeGuardedCallbackDev (https://87f02425-0ee2-4aac-8046-e0093b7a0d64-00-2u7gba3kg66tv.picard.replit.dev/node_modules/.vite/deps/chunk-Z4UWYGUO.js?v=87d46713:3705:24)↵ at invokeGuardedCallback (https://87f02425-0ee2-4aac-8046-e0093b7a0d64-00-2u7gba3kg66tv.picard.replit.dev/node_modules/.vite/deps/chunk-Z4UWYGUO.js?v=87d46713:3739:39)↵ at invokeGuardedCallbackAndCatchFirstError (https://87f02425-0ee2-4aac-8046-e0093b7a0d64-00-2u7gba3kg66tv.picard.replit.dev/node_modules/.vite/deps/chunk-Z4UWYGUO.js?v=87d46713:3742:33)↵ at executeDispatch (https://87f02425-0ee2-4aac-8046-e0093b7a0d64-00-2u7gba3kg66tv.picard.replit.dev/node_modules/.vite/deps/chunk-Z4UWYGUO.js?v=87d46713:7046:11)↵ at processDispatchQueueItemsInOrder (https://87f02425-0ee2-4aac-8046-e0093b7a0d64-00-2u7gba3kg66tv.picard.replit.dev/node_modules/.vite/deps/chunk-Z4UWYGUO.js?v=87d46713:7066:15)↵ at processDispatchQueue (https://87f02425-0ee2-4aac-8046-e0093b7a0d64-00-2u7gba3kg66tv.picard.replit.dev/node_modules/.vite/deps/chunk-Z4UWYGUO.js?v=87d46713:7075:13)↵ at dispatchEventsForPlugins (https://87f02425-0ee2-4aac-8046-e0093b7a0d64-00-2u7gba3kg66tv.picard.replit.dev/node_modules/.vite/deps/chunk-Z4UWYGUO.js?v=87d46713:7083:11)↵ at https://87f02425-0ee2-4aac-8046-e0093b7a0d64-00-2u7gba3kg66tv.picard.replit.dev/node_modules/.vite/deps/chunk-Z4UWYGUO.js?v=87d46713:7206:20"
+get stack: ƒ ()
+set stack: ƒ ()
+[[Prototype]]: Object
