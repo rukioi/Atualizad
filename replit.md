@@ -6,7 +6,23 @@ This is a comprehensive SaaS legal practice management system built as a full-st
 
 # Recent Changes
 
-## October 2, 2025 - Fresh GitHub Clone Import to Replit
+## October 2, 2025 (Afternoon) - CRM Pipeline Authentication Fix & Complete CRUD Documentation
+- **Critical Bug Fix - Pipeline de Vendas**: 
+  - Fixed "Invalid or expired token" error in deal/project creation
+  - Root cause: Code was duplicating API path (`/api/api/notifications` instead of `/api/notifications`)
+  - Solution: Use `api` from `apiInterceptor.ts` with relative paths (e.g., `/notifications` not `/api/notifications`)
+  - Installed missing `axios` package dependency
+- **Comprehensive Documentation Created**:
+  - `DOCUMENTATION_CRUD_PATTERN.md`: Complete technical reference for CRUD implementation (CAST types, IDs, authentication, multi-tenant isolation)
+  - `PLAN_REMOVE_MOCKDATA.md`: Strategic plan to systematically remove mock data from all modules (CRM, Tasks, Transactions, Invoices, Publications)
+  - `PROMPT_TEMPLATE.md`: Reusable prompt template for future CRUD implementations following established patterns
+- **Key Pattern Established**: 
+  - Always use `localStorage.getItem('access_token')` not `'token'`
+  - Always use axios interceptor (`api` from `apiInterceptor.ts`) instead of fetch
+  - Never prefix paths with `/api/` when using axios (baseURL already set)
+  - Reference implementation: `src/services/clientsService.ts` and `src/controllers/clientsController.ts`
+
+## October 2, 2025 (Morning) - Fresh GitHub Clone Import to Replit
 - **Database Setup**: Created PostgreSQL database using Replit's built-in Neon database service
 - **Environment Configuration**: Created `.env.defaults` with JWT secrets and default environment variables (DATABASE_URL is managed as Replit secret)
 - **Prisma Setup**: 
