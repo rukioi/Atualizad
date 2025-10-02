@@ -108,7 +108,7 @@ export class ClientsService {
   private async ensureTables(tenantDB: TenantDatabase): Promise<void> {
     const createTableQuery = `
       CREATE TABLE IF NOT EXISTS \${schema}.${this.tableName} (
-        id VARCHAR PRIMARY KEY DEFAULT 'client_' || EXTRACT(EPOCH FROM NOW())::BIGINT || '_' || SUBSTR(md5(random()::text), 1, 8),
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         name VARCHAR NOT NULL,
         email VARCHAR NOT NULL,
         phone VARCHAR,
@@ -278,12 +278,9 @@ export class ClientsService {
   async createClient(tenantDB: TenantDatabase, clientData: CreateClientData, createdBy: string): Promise<Client> {
     await this.ensureTables(tenantDB);
     
-    // Gerar ID único
-    const clientId = `client_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-    
     // ✅ ISOLAMENTO: Inserção no schema correto usando helper
+    // Nota: O ID será gerado automaticamente pelo PostgreSQL (gen_random_uuid())
     const data = {
-      id: clientId,
       name: clientData.name,
       email: clientData.email,
       phone: clientData.mobile || clientData.phone || null,

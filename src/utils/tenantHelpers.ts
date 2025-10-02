@@ -39,21 +39,22 @@ export async function insertInTenantSchema<T = any>(
   tableName: string,
   data: Record<string, any>
 ): Promise<T> {
-  if (!tenantDB || typeof tenantDB.executeInTenantSchema !== 'function') {
-    throw new Error('Invalid TenantDatabase instance provided to insertInTenantSchema');
-  }
+  // Remover campos undefined ou null
+  const cleanData = Object.fromEntries(
+    Object.entries(data).filter(([_, v]) => v !== undefined && v !== null)
+  );
 
-  const columns = Object.keys(data).join(', ');
-  const placeholders = Object.keys(data).map((_, index) => `$${index + 1}`).join(', ');
-  const values = Object.values(data);
+  const columns = Object.keys(cleanData);
+  const values = Object.values(cleanData);
+  const placeholders = columns.map((_, i) => `$${i + 1}`).join(', ');
 
   const query = `
-    INSERT INTO \${schema}.${tableName} (${columns})
+    INSERT INTO \${schema}.${tableName} (${columns.join(', ')})
     VALUES (${placeholders})
     RETURNING *
   `;
 
-  const result = await tenantDB.executeInTenantSchema<T>(query, values);
+  const result = await queryTenantSchema<T>(tenantDB, query, values);
   return result[0];
 }
 
