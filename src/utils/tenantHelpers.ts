@@ -46,7 +46,17 @@ export async function insertInTenantSchema<T = any>(
 
   const columns = Object.keys(cleanData);
   const values = Object.values(cleanData);
-  const placeholders = columns.map((_, i) => `$${i + 1}`).join(', ');
+  
+  // JSONB fields que precisam de cast explícito
+  const jsonbFields = ['tags', 'address', 'metadata', 'settings', 'data'];
+  
+  const placeholders = columns.map((col, i) => {
+    // Se o campo é JSONB, fazer cast explícito
+    if (jsonbFields.includes(col)) {
+      return `$${i + 1}::jsonb`;
+    }
+    return `$${i + 1}`;
+  }).join(', ');
 
   const query = `
     INSERT INTO \${schema}.${tableName} (${columns.join(', ')})
@@ -76,8 +86,17 @@ export async function updateInTenantSchema<T = any>(
     throw new Error('Invalid TenantDatabase instance provided to updateInTenantSchema');
   }
 
+  // JSONB fields que precisam de cast explícito
+  const jsonbFields = ['tags', 'address', 'metadata', 'settings', 'data'];
+  
   const setClause = Object.keys(data)
-    .map((key, index) => `${key} = $${index + 2}`)
+    .map((key, index) => {
+      // Se o campo é JSONB, fazer cast explícito
+      if (jsonbFields.includes(key)) {
+        return `${key} = $${index + 2}::jsonb`;
+      }
+      return `${key} = $${index + 2}`;
+    })
     .join(', ');
   const values = [id, ...Object.values(data)];
 
