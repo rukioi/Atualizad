@@ -5,7 +5,6 @@ import {
 } from "@/lib/dialog-fix";
 import { useClients } from "@/hooks/useClients";
 import { DashboardLayout } from "@/components/Layout/DashboardLayout";
-import api from "@/services/apiInterceptor";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -515,31 +514,11 @@ export function CRM() {
       };
       setDeals([...deals, newDeal]);
 
-      // ✅ IMPLEMENTAÇÃO: Criar notificação real para novo negócio
-      try {
-        await api.post('/notifications', {
-          type: 'project',
-          title: 'Novo Negócio no Pipeline',
-          message: `${newDeal.title} foi adicionado ao Pipeline de Vendas`,
-          payload: {
-            dealId: newDeal.id,
-            dealTitle: newDeal.title,
-            contactName: newDeal.contactName,
-            stage: newDeal.stage,
-            budget: newDeal.budget,
-            tags: newDeal.tags,
-            action: 'deal_created'
-          },
-          link: '/crm?tab=pipeline'
-        });
-
-        console.log("✅ NOTIFICAÇÃO CRIADA: Novo negócio no pipeline", {
-          dealTitle: newDeal.title,
-          dealId: newDeal.id
-        });
-      } catch (error) {
-        console.error('Erro ao criar notificação de negócio:', error);
-      }
+      // TODO: Integrar com backend quando API de deals estiver pronta
+      console.log("✅ Novo negócio criado (mock):", {
+        dealTitle: newDeal.title,
+        dealId: newDeal.id
+      });
     }
     setShowDealForm(false);
     setDealInitialStage(undefined);

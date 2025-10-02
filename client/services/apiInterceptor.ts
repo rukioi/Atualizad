@@ -22,41 +22,54 @@ api.interceptors.request.use(
 
 // Response interceptor - handle errors globally
 api.interceptors.response.use(
-  (response) => {
-    return response;
-  },
-  (error: AxiosError) => {
-    if (error.response) {
-      const status = error.response.status;
-      const data: any = error.response.data;
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
 
-      // Handle authentication errors
-      if (status === 401) {
-        // Clear tokens and redirect to login
-        localStorage.removeItem('access_token');
-        localStorage.removeItem('refresh_token');
-        window.location.href = '/login';
-        return Promise.reject(error);
-      }
+    // Se receber 401 e não for uma requisição de refresh
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
 
-      // Handle permission errors
-      if (status === 403) {
-        const errorCode = data?.code;
-        
-        // If it's a permission denied error, show friendly message
-        if (errorCode === 'PERMISSION_DENIED') {
-          // Redirect to access denied page
-          window.location.href = '/acesso-negado';
+      try {
+        const refreshToken = localStorage.getItem('refresh_token');
+        if (!refreshToken) {
+          // NÃO redirecionar automaticamente - deixar o componente lidar com isso
+          console.error('No refresh token available');
           return Promise.reject(error);
         }
 
-        // Show error toast for other 403 errors
-        console.error('Access forbidden:', data?.error || 'You do not have permission to perform this action');
-      }
+        // Tentar renovar o token
+        const response = await fetch('/api/auth/refresh', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ refreshToken }),
+        });
 
-      // Handle server errors
-      if (status >= 500) {
-        console.error('Server error:', data?.error || 'An unexpected error occurred. Please try again later.');
+        if (response.ok) {
+          const data = await response.json();
+          localStorage.setItem('access_token', data.tokens.accessToken);
+          localStorage.setItem('refresh_token', data.tokens.refreshToken);
+
+          // Atualizar o header da requisição original
+          originalRequest.headers.Authorization = `Bearer ${data.tokens.accessToken}`;
+
+          // Reenviar a requisição original
+          return api(originalRequest);
+        } else {
+          // Se refresh falhar, apenas limpar tokens
+          localStorage.removeItem('access_token');
+          localStorage.removeItem('refresh_token');
+          console.error('Token refresh failed');
+          return Promise.reject(error);
+        }
+      } catch (refreshError) {
+        // Se refresh falhar, apenas limpar tokens
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
+        console.error('Token refresh error:', refreshError);
+        return Promise.reject(refreshError);
       }
     }
 
