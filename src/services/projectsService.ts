@@ -68,6 +68,34 @@ class ProjectsService {
   private tableName = 'projects';
 
   private async ensureTables(tenantDB: TenantDatabase): Promise<void> {
+    // Check if table exists and has correct schema
+    const checkTableQuery = `
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_schema = (SELECT schemaname FROM pg_tables WHERE tablename = '${this.tableName}' AND schemaname LIKE 'tenant_%' LIMIT 1)
+        AND table_name = '${this.tableName}'
+        AND column_name IN ('status', 'stage')
+    `;
+
+    try {
+      const existingColumns = await queryTenantSchema<{ column_name: string }>(tenantDB, checkTableQuery);
+      const hasStatus = existingColumns.some(col => col.column_name === 'status');
+      const hasStage = existingColumns.some(col => col.column_name === 'stage');
+
+      // If table has 'status' but not 'stage', rename it
+      if (hasStatus && !hasStage) {
+        console.log('[ProjectsService] Migrating old status column to stage');
+        await queryTenantSchema(tenantDB, `
+          ALTER TABLE \${schema}.${this.tableName} 
+          RENAME COLUMN status TO stage
+        `);
+      }
+    } catch (error) {
+      // Table doesn't exist yet, will be created below
+      console.log('[ProjectsService] Table does not exist yet, will create');
+    }
+
+    // Create table if not exists
     const createTableQuery = `
       CREATE TABLE IF NOT EXISTS \${schema}.${this.tableName} (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -93,6 +121,7 @@ class ProjectsService {
 
     await queryTenantSchema(tenantDB, createTableQuery);
 
+    // Create indexes
     const indexes = [
       `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_title ON \${schema}.${this.tableName}(title)`,
       `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_stage ON \${schema}.${this.tableName}(stage)`,
@@ -103,7 +132,11 @@ class ProjectsService {
     ];
 
     for (const indexQuery of indexes) {
-      await queryTenantSchema(tenantDB, indexQuery);
+      try {
+        await queryTenantSchema(tenantDB, indexQuery);
+      } catch (error) {
+        console.warn(`[ProjectsService] Failed to create index:`, error);
+      }
     }
   }
 
