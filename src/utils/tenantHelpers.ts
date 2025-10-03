@@ -43,9 +43,8 @@ export async function insertInTenantSchema<T = any>(
 
   const columns = Object.keys(data);
   const values = Object.values(data);
+  
   const placeholders = columns.map((col, idx) => {
-    const value = values[idx];
-
     // Handle JSONB columns with explicit cast (ONLY for actual JSONB columns)
     if (col === 'tags' || col === 'items' || col === 'metadata') {
       return `$${idx + 1}::jsonb`;
@@ -56,7 +55,7 @@ export async function insertInTenantSchema<T = any>(
       return `$${idx + 1}::date`;
     }
 
-    // Address is TEXT in projects table, not JSONB
+    // All other fields use standard placeholder
     return `$${idx + 1}`;
   });
 
@@ -65,6 +64,9 @@ export async function insertInTenantSchema<T = any>(
     VALUES (${placeholders.join(', ')})
     RETURNING *
   `;
+
+  console.log('Insert query:', query);
+  console.log('Insert values:', values);
 
   const result = await queryTenantSchema<T>(tenantDB, query, values);
 

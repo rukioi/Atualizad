@@ -303,22 +303,20 @@ class ProjectsService {
 
     const data: Record<string, any> = {
       title: projectData.title,
+      description: projectData.description || null,
       contact_name: projectData.contactName,
+      client_id: projectData.clientId || null,
+      organization: projectData.organization || null,
       email: projectData.email,
       mobile: projectData.mobile,
+      address: projectData.address || null,
       budget: projectData.budget || null,
       currency: projectData.currency || 'BRL',
       stage: projectData.stage || 'contacted',
       tags: JSON.stringify(projectData.tags || []),
+      notes: projectData.notes || null,
       created_by: createdBy
     };
-
-    // Add optional fields only if they have values
-    if (projectData.description) data.description = projectData.description;
-    if (projectData.clientId) data.client_id = projectData.clientId;
-    if (projectData.organization) data.organization = projectData.organization;
-    if (projectData.address) data.address = projectData.address;
-    if (projectData.notes) data.notes = projectData.notes;
 
     return await insertInTenantSchema<Project>(tenantDB, this.tableName, data);
   }
