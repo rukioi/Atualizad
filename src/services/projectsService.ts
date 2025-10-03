@@ -173,6 +173,16 @@ class ProjectsService {
           ) THEN
             ALTER TABLE \${schema}.${this.tableName} ADD COLUMN address TEXT;
           END IF;
+          
+          -- Add currency column if missing
+          IF NOT EXISTS (
+            SELECT FROM information_schema.columns 
+            WHERE table_schema = '\${schema}' 
+            AND table_name = '${this.tableName}' 
+            AND column_name = 'currency'
+          ) THEN
+            ALTER TABLE \${schema}.${this.tableName} ADD COLUMN currency VARCHAR(3) DEFAULT 'BRL';
+          END IF;
         END $$;
       `;
       
