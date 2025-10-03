@@ -68,30 +68,61 @@ class ProjectsService {
   private tableName = 'projects';
 
   private async ensureTables(tenantDB: TenantDatabase): Promise<void> {
-    const createTableQuery = `
-      CREATE TABLE IF NOT EXISTS \${schema}.${this.tableName} (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        title VARCHAR NOT NULL,
-        description TEXT,
-        contact_name VARCHAR NOT NULL,
-        client_id UUID,
-        organization VARCHAR,
-        email VARCHAR NOT NULL,
-        mobile VARCHAR NOT NULL,
-        address TEXT,
-        budget DECIMAL(15,2),
-        currency VARCHAR(3) DEFAULT 'BRL',
-        stage VARCHAR DEFAULT 'contacted',
-        tags JSONB DEFAULT '[]',
-        notes TEXT,
-        created_by VARCHAR NOT NULL,
-        created_at TIMESTAMP DEFAULT NOW(),
-        updated_at TIMESTAMP DEFAULT NOW(),
-        is_active BOOLEAN DEFAULT TRUE
+    // First, check if table exists
+    const checkTableQuery = `
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_schema = '\${schema}'
+        AND table_name = '${this.tableName}'
       )
     `;
-
-    await queryTenantSchema(tenantDB, createTableQuery);
+    
+    const tableExists = await queryTenantSchema<{exists: boolean}>(tenantDB, checkTableQuery);
+    
+    if (!tableExists[0]?.exists) {
+      // Create table only if it doesn't exist
+      const createTableQuery = `
+        CREATE TABLE \${schema}.${this.tableName} (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          title VARCHAR NOT NULL,
+          description TEXT,
+          contact_name VARCHAR NOT NULL,
+          client_id UUID,
+          organization VARCHAR,
+          email VARCHAR NOT NULL,
+          mobile VARCHAR NOT NULL,
+          address TEXT,
+          budget DECIMAL(15,2),
+          currency VARCHAR(3) DEFAULT 'BRL',
+          stage VARCHAR DEFAULT 'contacted',
+          tags JSONB DEFAULT '[]',
+          notes TEXT,
+          created_by VARCHAR NOT NULL,
+          created_at TIMESTAMP DEFAULT NOW(),
+          updated_at TIMESTAMP DEFAULT NOW(),
+          is_active BOOLEAN DEFAULT TRUE
+        )
+      `;
+      
+      await queryTenantSchema(tenantDB, createTableQuery);
+    } else {
+      // Table exists, ensure stage column exists (for legacy tables)
+      const addStageColumnQuery = `
+        DO $$ 
+        BEGIN
+          IF NOT EXISTS (
+            SELECT FROM information_schema.columns 
+            WHERE table_schema = '\${schema}' 
+            AND table_name = '${this.tableName}' 
+            AND column_name = 'stage'
+          ) THEN
+            ALTER TABLE \${schema}.${this.tableName} ADD COLUMN stage VARCHAR DEFAULT 'contacted';
+          END IF;
+        END $$;
+      `;
+      
+      await queryTenantSchema(tenantDB, addStageColumnQuery);
+    }
 
     const indexes = [
       `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_title ON \${schema}.${this.tableName}(title)`,

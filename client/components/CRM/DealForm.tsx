@@ -139,7 +139,13 @@ export function DealForm({
   };
 
   const handleSubmit = (data: DealFormData) => {
-    onSubmit({ ...data, tags });
+    // Ensure all required fields are present
+    const submitData = {
+      ...data,
+      tags,
+      contactName: data.contactName || '', // Ensure it's never undefined
+    };
+    onSubmit(submitData);
     handleClose();
   };
 

@@ -81,10 +81,10 @@ const mapProjectToDeal = (project: any): Deal => ({
 });
 
 // Helper function to map Deal (frontend) to Project data (backend)
-// Backend expects snake_case fields
+// Backend expects camelCase fields as per Zod schema
 const mapDealToProjectData = (deal: Partial<Deal>) => ({
   title: deal.title,
-  contact_name: deal.contactName,
+  contactName: deal.contactName,
   organization: deal.organization,
   email: deal.email,
   mobile: deal.mobile,
