@@ -4,6 +4,7 @@ import {
   createSafeDialogHandler,
 } from "@/lib/dialog-fix";
 import { useClients } from "@/hooks/useClients";
+import { useProjects } from "@/hooks/useProjects";
 import { DashboardLayout } from "@/components/Layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -61,95 +62,38 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, Eye, Edit, Trash2 } from "lucide-react";
 
-// Mock data - in real app would come from API
-const mockClients: Client[] = [
-  {
-    id: "1",
-    name: "Maria Silva Santos",
-    organization: "Silva & Associates",
-    email: "maria@silva.com.br",
-    mobile: "(11) 99999-1234",
-    country: "BR",
-    state: "São Paulo",
-    address: "Rua Augusta, 123, Cerqueira César",
-    city: "São Paulo",
-    zipCode: "01305-000",
-    budget: 15000,
-    currency: "BRL",
-    level: "Premium",
-    tags: ["Direito Civil", "Prioritário", "Empresa", "Premium"],
-    description: "Cliente premium com múltiplos casos",
-    cpf: "123.456.789-00",
-    rg: "12.345.678-9",
-    professionalTitle: "Empresária",
-    maritalStatus: "married",
-    birthDate: "1980-05-15",
-    inssStatus: "active",
-    amountPaid: 8000,
-    referredBy: "João Advogado",
-    registeredBy: "Dr. Silva - Sócio Gerente",
-    createdAt: "2024-01-01T10:00:00Z",
-    updatedAt: "2024-01-15T14:30:00Z",
-    status: "active",
-  },
-  {
-    id: "2",
-    name: "João Carlos Oliveira",
-    email: "joao@email.com",
-    mobile: "(11) 88888-5678",
-    country: "BR",
-    state: "Rio de Janeiro",
-    address: "Av. Copacabana, 456",
-    city: "Rio de Janeiro",
-    zipCode: "22070-000",
-    budget: 8500,
-    currency: "BRL",
-    tags: ["Trabalhista", "Demissão", "Rescisão"],
-    description: "Caso trabalhista - demissão sem justa causa",
-    cpf: "987.654.321-00",
-    maritalStatus: "single",
-    birthDate: "1985-09-20",
-    inssStatus: "inactive",
-    registeredBy: "Dra. Costa - Sócia Diretora",
-    createdAt: "2024-01-05T09:15:00Z",
-    updatedAt: "2024-01-10T16:45:00Z",
-    status: "active",
-  },
-];
+// Helper function to map Project (backend) to Deal (frontend)
+const mapProjectToDeal = (project: any): Deal => ({
+  id: project.id,
+  title: project.title,
+  contactName: project.contact_name || project.contactName,
+  organization: project.organization,
+  email: project.email,
+  mobile: project.mobile,
+  address: project.address || '',
+  budget: project.budget || 0,
+  currency: project.currency || 'BRL',
+  stage: project.stage as DealStage,
+  tags: project.tags || [],
+  description: project.description || project.notes,
+  createdAt: project.created_at || project.createdAt,
+  updatedAt: project.updated_at || project.updatedAt,
+});
 
-const mockDeals: Deal[] = [
-  {
-    id: "1",
-    title: "Consultoria Jurídica Empresarial",
-    contactName: "Ana Costa",
-    organization: "TechStart LTDA",
-    email: "ana@techstart.com",
-    mobile: "(11) 77777-9999",
-    address: "Rua da Inovação, 789, Vila Olímpia, São Paulo - SP",
-    budget: 25000,
-    currency: "BRL",
-    stage: "proposal",
-    tags: ["Direito Empresarial", "Startup"],
-    description: "Necessita de assessoria jurídica para expansão da empresa",
-    createdAt: "2024-01-10T10:00:00Z",
-    updatedAt: "2024-01-15T14:30:00Z",
-  },
-  {
-    id: "2",
-    title: "Ação Previdenciária",
-    contactName: "Roberto Silva",
-    email: "roberto@email.com",
-    mobile: "(11) 66666-8888",
-    address: "Rua das Flores, 321, Centro, São Paulo - SP",
-    budget: 12000,
-    currency: "BRL",
-    stage: "contacted",
-    tags: ["Previdenciário"],
-    description: "Aposentadoria negada pelo INSS",
-    createdAt: "2024-01-12T11:30:00Z",
-    updatedAt: "2024-01-16T09:15:00Z",
-  },
-];
+// Helper function to map Deal (frontend) to Project data (backend)
+const mapDealToProjectData = (deal: Partial<Deal>) => ({
+  title: deal.title,
+  contactName: deal.contactName,
+  organization: deal.organization,
+  email: deal.email,
+  mobile: deal.mobile,
+  address: deal.address,
+  budget: deal.budget,
+  currency: deal.currency,
+  stage: deal.stage,
+  tags: deal.tags,
+  notes: deal.description,
+});
 
 interface PipelineListViewProps {
   deals: Deal[];
@@ -219,9 +163,9 @@ function PipelineListView({
                     </div>
 
                     <div className="flex items-center space-x-4 text-xs text-muted-foreground">
-                      <span>{deal.clientName}</span>
+                      <span>{deal.contactName}</span>
                       <span>•</span>
-                      <span>{formatCurrency(deal.value)}</span>
+                      <span>{formatCurrency(deal.budget)}</span>
                       <span>•</span>
                       <span>
                         Criado:{" "}
@@ -232,12 +176,6 @@ function PipelineListView({
                 </div>
 
                 <div className="flex items-center space-x-2">
-                  <div className="text-right">
-                    <div className="text-sm font-medium">
-                      {deal.probability}%
-                    </div>
-                    <div className="text-xs text-muted-foreground">Prob.</div>
-                  </div>
 
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -294,7 +232,12 @@ export function CRM() {
     DealStage | undefined
   >();
   const { clients, createClient, updateClient, deleteClient, isLoading: clientsLoading } = useClients();
-  const [deals, setDeals] = useState<Deal[]>(mockDeals);
+  const { projects, createProject, updateProject, deleteProject, isLoading: projectsLoading } = useProjects();
+  
+  // Map projects to deals for frontend display
+  const deals = useMemo(() => {
+    return projects.map(mapProjectToDeal);
+  }, [projects]);
   const [selectedClients, setSelectedClients] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [dealSearchTerm, setDealSearchTerm] = useState("");
@@ -473,18 +416,20 @@ export function CRM() {
     setShowDealForm(true);
   };
 
-  const handleDeleteDeal = (dealId: string) => {
-    setDeals(deals.filter((deal) => deal.id !== dealId));
+  const handleDeleteDeal = async (dealId: string) => {
+    try {
+      await deleteProject(dealId);
+    } catch (error) {
+      console.error('Erro ao excluir negócio:', error);
+    }
   };
 
-  const handleMoveDeal = (dealId: string, newStage: DealStage) => {
-    setDeals(
-      deals.map((deal) =>
-        deal.id === dealId
-          ? { ...deal, stage: newStage, updatedAt: new Date().toISOString() }
-          : deal,
-      ),
-    );
+  const handleMoveDeal = async (dealId: string, newStage: DealStage) => {
+    try {
+      await updateProject(dealId, { stage: newStage });
+    } catch (error) {
+      console.error('Erro ao mover negócio:', error);
+    }
   };
 
   const handleApplyAdvancedFilters = (filters: any) => {
@@ -496,32 +441,21 @@ export function CRM() {
   };
 
   const handleSubmitDeal = async (data: any) => {
-    if (editingDeal) {
-      setDeals(
-        deals.map((deal) =>
-          deal.id === editingDeal.id
-            ? { ...deal, ...data, updatedAt: new Date().toISOString() }
-            : deal,
-        ),
-      );
-      setEditingDeal(undefined);
-    } else {
-      const newDeal: Deal = {
-        ...data,
-        id: Date.now().toString(),
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-      setDeals([...deals, newDeal]);
-
-      // TODO: Integrar com backend quando API de deals estiver pronta
-      console.log("✅ Novo negócio criado (mock):", {
-        dealTitle: newDeal.title,
-        dealId: newDeal.id
-      });
+    try {
+      const projectData = mapDealToProjectData(data);
+      
+      if (editingDeal) {
+        await updateProject(editingDeal.id, projectData);
+        setEditingDeal(undefined);
+      } else {
+        await createProject(projectData);
+      }
+      
+      setShowDealForm(false);
+      setDealInitialStage(undefined);
+    } catch (error) {
+      console.error('Erro ao salvar negócio:', error);
     }
-    setShowDealForm(false);
-    setDealInitialStage(undefined);
   };
 
   // Calculate metrics
