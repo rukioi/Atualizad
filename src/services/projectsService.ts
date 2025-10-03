@@ -89,18 +89,19 @@ class ProjectsService {
           contact_name VARCHAR NOT NULL,
           client_id UUID,
           organization VARCHAR,
-          email VARCHAR NOT NULL,
-          mobile VARCHAR NOT NULL,
+          email VARCHAR,
+          mobile VARCHAR,
           address TEXT,
           budget DECIMAL(15,2),
           currency VARCHAR(3) DEFAULT 'BRL',
           stage VARCHAR DEFAULT 'contacted',
           tags JSONB DEFAULT '[]',
           notes TEXT,
-          created_by VARCHAR NOT NULL,
+          created_by UUID NOT NULL,
           created_at TIMESTAMP DEFAULT NOW(),
           updated_at TIMESTAMP DEFAULT NOW(),
-          is_active BOOLEAN DEFAULT TRUE
+          is_active BOOLEAN DEFAULT TRUE,
+          CONSTRAINT fk_created_by FOREIGN KEY (created_by) REFERENCES public.users(id) ON DELETE CASCADE
         )
       `;
       
@@ -151,7 +152,7 @@ class ProjectsService {
             AND table_name = '${this.tableName}' 
             AND column_name = 'email'
           ) THEN
-            ALTER TABLE \${schema}.${this.tableName} ADD COLUMN email VARCHAR DEFAULT '';
+            ALTER TABLE \${schema}.${this.tableName} ADD COLUMN email VARCHAR;
           END IF;
           
           -- Add mobile column if missing
@@ -161,7 +162,7 @@ class ProjectsService {
             AND table_name = '${this.tableName}' 
             AND column_name = 'mobile'
           ) THEN
-            ALTER TABLE \${schema}.${this.tableName} ADD COLUMN mobile VARCHAR DEFAULT '';
+            ALTER TABLE \${schema}.${this.tableName} ADD COLUMN mobile VARCHAR;
           END IF;
           
           -- Add address column if missing
@@ -182,6 +183,21 @@ class ProjectsService {
             AND column_name = 'currency'
           ) THEN
             ALTER TABLE \${schema}.${this.tableName} ADD COLUMN currency VARCHAR(3) DEFAULT 'BRL';
+          END IF;
+
+          -- Drop old columns that shouldn't be NOT NULL
+          ALTER TABLE \${schema}.${this.tableName} ALTER COLUMN email DROP NOT NULL;
+          ALTER TABLE \${schema}.${this.tableName} ALTER COLUMN mobile DROP NOT NULL;
+          
+          -- Change created_by to UUID if it's VARCHAR
+          IF EXISTS (
+            SELECT FROM information_schema.columns 
+            WHERE table_schema = '\${schema}' 
+            AND table_name = '${this.tableName}' 
+            AND column_name = 'created_by'
+            AND data_type = 'character varying'
+          ) THEN
+            ALTER TABLE \${schema}.${this.tableName} ALTER COLUMN created_by TYPE UUID USING created_by::uuid;
           END IF;
         END $$;
       `;
@@ -303,12 +319,12 @@ class ProjectsService {
 
     const data: Record<string, any> = {
       title: projectData.title,
-      description: projectData.description || null,
       contact_name: projectData.contactName,
+      description: projectData.description || null,
       client_id: projectData.clientId || null,
       organization: projectData.organization || null,
-      email: projectData.email || '',
-      mobile: projectData.mobile || '',
+      email: projectData.email || null,
+      mobile: projectData.mobile || null,
       address: projectData.address || null,
       budget: projectData.budget || null,
       currency: projectData.currency || 'BRL',
