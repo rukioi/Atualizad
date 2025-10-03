@@ -81,9 +81,10 @@ const mapProjectToDeal = (project: any): Deal => ({
 });
 
 // Helper function to map Deal (frontend) to Project data (backend)
+// Backend expects snake_case fields
 const mapDealToProjectData = (deal: Partial<Deal>) => ({
   title: deal.title,
-  contactName: deal.contactName,
+  contact_name: deal.contactName,
   organization: deal.organization,
   email: deal.email,
   mobile: deal.mobile,
