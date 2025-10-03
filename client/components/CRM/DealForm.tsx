@@ -37,10 +37,9 @@ const dealSchema = z.object({
   organization: z.string().optional(),
   email: z.string().email('Email inválido'),
   mobile: z.string().min(1, 'Telefone é obrigatório'),
-  address: z.string().optional(), // CAMPO NÃO OBRIGATÓRIO conforme solicitado
-  budget: z.number().optional(), // CAMPO NÃO OBRIGATÓRIO conforme solicitado
+  address: z.string().optional(),
+  budget: z.number().min(0).default(0),
   currency: z.enum(['BRL', 'USD', 'EUR']),
-  // PIPELINE SIMPLIFICADO: Apenas 4 estágios conforme solicitado
   stage: z.enum(['contacted', 'proposal', 'won', 'lost']),
   description: z.string().optional(),
 });
@@ -95,16 +94,16 @@ export function DealForm({
   const form = useForm<DealFormData>({
     resolver: zodResolver(dealSchema),
     defaultValues: {
-      title: deal?.title || '',
-      contactName: deal?.contactName || '',
-      organization: deal?.organization || '',
-      email: deal?.email || '',
-      mobile: deal?.mobile || '',
-      address: deal?.address || '',
-      budget: deal?.budget || undefined, // Permite campo vazio
-      currency: deal?.currency || 'BRL',
-      stage: deal?.stage || initialStage || 'contacted', // Estágio válido
-      description: deal?.description || '',
+      title: '',
+      contactName: '',
+      organization: '',
+      email: '',
+      mobile: '',
+      address: '',
+      budget: 0,
+      currency: 'BRL',
+      stage: 'contacted',
+      description: '',
     },
   });
 
@@ -118,15 +117,27 @@ export function DealForm({
         email: deal.email || '',
         mobile: deal.mobile || '',
         address: deal.address || '',
-        budget: deal.budget || undefined, // Alterado para permitir campo vazio
+        budget: deal.budget || 0,
         currency: deal.currency || 'BRL',
-        stage: deal.stage || initialStage || 'contacted', // Alterado para stage válido
+        stage: deal.stage || 'contacted',
         description: deal.description || '',
       });
       setTags(deal.tags || []);
     } else {
+      form.reset({
+        title: '',
+        contactName: '',
+        organization: '',
+        email: '',
+        mobile: '',
+        address: '',
+        budget: 0,
+        currency: 'BRL',
+        stage: initialStage || 'contacted',
+        description: '',
+      });
       setTags([]);
-      setSelectedExistingTag(''); // Reset dropdown selection
+      setSelectedExistingTag('');
     }
   }, [deal, initialStage, form]);
 

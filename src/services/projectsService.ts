@@ -106,10 +106,11 @@ class ProjectsService {
       
       await queryTenantSchema(tenantDB, createTableQuery);
     } else {
-      // Table exists, ensure stage column exists (for legacy tables)
-      const addStageColumnQuery = `
+      // Table exists, ensure required columns exist
+      const addColumnsQuery = `
         DO $$ 
         BEGIN
+          -- Add stage column if missing
           IF NOT EXISTS (
             SELECT FROM information_schema.columns 
             WHERE table_schema = '\${schema}' 
@@ -118,10 +119,44 @@ class ProjectsService {
           ) THEN
             ALTER TABLE \${schema}.${this.tableName} ADD COLUMN stage VARCHAR DEFAULT 'contacted';
           END IF;
+          
+          -- Add contact_name column if missing (use client_name as fallback)
+          IF NOT EXISTS (
+            SELECT FROM information_schema.columns 
+            WHERE table_schema = '\${schema}' 
+            AND table_name = '${this.tableName}' 
+            AND column_name = 'contact_name'
+          ) THEN
+            ALTER TABLE \${schema}.${this.tableName} ADD COLUMN contact_name VARCHAR;
+            -- Copy client_name to contact_name for existing records
+            UPDATE \${schema}.${this.tableName} SET contact_name = COALESCE(client_name, '');
+            -- Make it NOT NULL after populating
+            ALTER TABLE \${schema}.${this.tableName} ALTER COLUMN contact_name SET NOT NULL;
+          END IF;
+          
+          -- Add email column if missing
+          IF NOT EXISTS (
+            SELECT FROM information_schema.columns 
+            WHERE table_schema = '\${schema}' 
+            AND table_name = '${this.tableName}' 
+            AND column_name = 'email'
+          ) THEN
+            ALTER TABLE \${schema}.${this.tableName} ADD COLUMN email VARCHAR DEFAULT '';
+          END IF;
+          
+          -- Add mobile column if missing
+          IF NOT EXISTS (
+            SELECT FROM information_schema.columns 
+            WHERE table_schema = '\${schema}' 
+            AND table_name = '${this.tableName}' 
+            AND column_name = 'mobile'
+          ) THEN
+            ALTER TABLE \${schema}.${this.tableName} ADD COLUMN mobile VARCHAR DEFAULT '';
+          END IF;
         END $$;
       `;
       
-      await queryTenantSchema(tenantDB, addStageColumnQuery);
+      await queryTenantSchema(tenantDB, addColumnsQuery);
     }
 
     const indexes = [
