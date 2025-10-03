@@ -39,39 +39,39 @@ export async function insertInTenantSchema<T = any>(
   tableName: string,
   data: Record<string, any>
 ): Promise<T> {
-  // Remover campos undefined ou null
-  const cleanData = Object.fromEntries(
-    Object.entries(data).filter(([_, v]) => v !== undefined && v !== null)
-  );
+  const schema = await tenantDB.getSchemaName();
 
-  const columns = Object.keys(cleanData);
-  const values = Object.values(cleanData);
+  const columns = Object.keys(data);
+  const values = Object.values(data);
+  const placeholders = columns.map((col, idx) => {
+    const value = values[idx];
 
-  // JSONB fields que precisam de cast explícito
-  const jsonbFields = ['tags', 'address', 'metadata', 'settings', 'data'];
-
-  // DATE fields que precisam de cast explícito
-  const dateFields = ['birth_date', 'due_date', 'start_date', 'end_date', 'paid_at', 'completed_at'];
-
-  const placeholders = columns.map((col, i) => {
-    // Se o campo é JSONB, fazer cast explícito
-    if (jsonbFields.includes(col)) {
-      return `$${i + 1}::jsonb`;
+    // Handle JSONB columns with explicit cast (ONLY for actual JSONB columns)
+    if (col === 'tags' || col === 'items' || col === 'metadata') {
+      return `$${idx + 1}::jsonb`;
     }
-    // Se o campo é DATE, fazer cast explícito
-    if (dateFields.includes(col)) {
-      return `$${i + 1}::date`;
+
+    // Handle DATE columns with explicit cast
+    if (col.includes('date') || col === 'birth_date') {
+      return `$${idx + 1}::date`;
     }
-    return `$${i + 1}`;
-  }).join(', ');
+
+    // Address is TEXT in projects table, not JSONB
+    return `$${idx + 1}`;
+  });
 
   const query = `
-    INSERT INTO \${schema}.${tableName} (${columns.join(', ')})
-    VALUES (${placeholders})
+    INSERT INTO ${schema}.${tableName} (${columns.join(', ')})
+    VALUES (${placeholders.join(', ')})
     RETURNING *
   `;
 
   const result = await queryTenantSchema<T>(tenantDB, query, values);
+
+  if (!result || result.length === 0) {
+    throw new Error(`Failed to insert into ${tableName}`);
+  }
+
   return result[0];
 }
 
