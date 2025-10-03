@@ -134,6 +134,16 @@ class ProjectsService {
             ALTER TABLE \${schema}.${this.tableName} ALTER COLUMN contact_name SET NOT NULL;
           END IF;
           
+          -- Add organization column if missing
+          IF NOT EXISTS (
+            SELECT FROM information_schema.columns 
+            WHERE table_schema = '\${schema}' 
+            AND table_name = '${this.tableName}' 
+            AND column_name = 'organization'
+          ) THEN
+            ALTER TABLE \${schema}.${this.tableName} ADD COLUMN organization VARCHAR;
+          END IF;
+          
           -- Add email column if missing
           IF NOT EXISTS (
             SELECT FROM information_schema.columns 
