@@ -163,6 +163,16 @@ class ProjectsService {
           ) THEN
             ALTER TABLE \${schema}.${this.tableName} ADD COLUMN mobile VARCHAR DEFAULT '';
           END IF;
+          
+          -- Add address column if missing
+          IF NOT EXISTS (
+            SELECT FROM information_schema.columns 
+            WHERE table_schema = '\${schema}' 
+            AND table_name = '${this.tableName}' 
+            AND column_name = 'address'
+          ) THEN
+            ALTER TABLE \${schema}.${this.tableName} ADD COLUMN address TEXT;
+          END IF;
         END $$;
       `;
       
@@ -281,22 +291,24 @@ class ProjectsService {
   async createProject(tenantDB: TenantDatabase, projectData: CreateProjectData, createdBy: string): Promise<Project> {
     await this.ensureTables(tenantDB);
 
-    const data = {
+    const data: Record<string, any> = {
       title: projectData.title,
-      description: projectData.description || null,
       contact_name: projectData.contactName,
-      client_id: projectData.clientId || null,
-      organization: projectData.organization || null,
       email: projectData.email,
       mobile: projectData.mobile,
-      address: projectData.address || null,
       budget: projectData.budget || null,
       currency: projectData.currency || 'BRL',
       stage: projectData.stage || 'contacted',
       tags: JSON.stringify(projectData.tags || []),
-      notes: projectData.notes || null,
       created_by: createdBy
     };
+
+    // Add optional fields only if they have values
+    if (projectData.description) data.description = projectData.description;
+    if (projectData.clientId) data.client_id = projectData.clientId;
+    if (projectData.organization) data.organization = projectData.organization;
+    if (projectData.address) data.address = projectData.address;
+    if (projectData.notes) data.notes = projectData.notes;
 
     return await insertInTenantSchema<Project>(tenantDB, this.tableName, data);
   }

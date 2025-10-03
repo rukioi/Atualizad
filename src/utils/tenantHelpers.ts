@@ -46,13 +46,13 @@ export async function insertInTenantSchema<T = any>(
 
   const columns = Object.keys(cleanData);
   const values = Object.values(cleanData);
-  
+
   // JSONB fields que precisam de cast explícito
   const jsonbFields = ['tags', 'address', 'metadata', 'settings', 'data'];
-  
+
   // DATE fields que precisam de cast explícito
   const dateFields = ['birth_date', 'due_date', 'start_date', 'end_date', 'paid_at', 'completed_at'];
-  
+
   const placeholders = columns.map((col, i) => {
     // Se o campo é JSONB, fazer cast explícito
     if (jsonbFields.includes(col)) {
@@ -95,10 +95,10 @@ export async function updateInTenantSchema<T = any>(
 
   // JSONB fields que precisam de cast explícito
   const jsonbFields = ['tags', 'address', 'metadata', 'settings', 'data'];
-  
+
   // DATE fields que precisam de cast explícito
   const dateFields = ['birth_date', 'due_date', 'start_date', 'end_date', 'paid_at', 'completed_at'];
-  
+
   const setClause = Object.keys(data)
     .map((key, index) => {
       // Se o campo é JSONB, fazer cast explícito
