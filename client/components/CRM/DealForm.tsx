@@ -35,11 +35,11 @@ const dealSchema = z.object({
   title: z.string().min(1, 'Título é obrigatório'),
   contactName: z.string().min(1, 'Nome do contato é obrigatório'),
   organization: z.string().optional(),
-  email: z.string().email('Email inválido'),
-  mobile: z.string().min(1, 'Telefone é obrigatório'),
+  email: z.string().optional(), // Agora opcional no frontend
+  mobile: z.string().optional(), // Agora opcional no frontend
   address: z.string().optional(),
-  budget: z.number().min(0).default(0),
-  currency: z.enum(['BRL', 'USD', 'EUR']),
+  budget: z.number().min(0).optional(),
+  currency: z.enum(['BRL', 'USD', 'EUR']).optional(),
   stage: z.enum(['contacted', 'proposal', 'won', 'lost']),
   description: z.string().optional(),
 });
@@ -236,7 +236,7 @@ export function DealForm({
                   name="email"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Email *</FormLabel>
+                      <FormLabel>Email</FormLabel>
                       <FormControl>
                         <Input type="email" placeholder="email@exemplo.com" {...field} />
                       </FormControl>
@@ -250,7 +250,7 @@ export function DealForm({
                   name="mobile"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Telefone *</FormLabel>
+                      <FormLabel>Telefone</FormLabel>
                       <FormControl>
                         <Input placeholder="(11) 99999-9999" {...field} />
                       </FormControl>
@@ -297,8 +297,8 @@ export function DealForm({
                   name="currency"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Moeda *</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormLabel>Moeda</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value || 'BRL'}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Selecione a moeda" />
