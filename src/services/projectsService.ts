@@ -304,27 +304,17 @@ class ProjectsService {
     const data: Record<string, any> = {
       title: projectData.title,
       description: projectData.description || null,
+      contact_name: projectData.contactName,
       client_id: projectData.clientId || null,
-      client_name: projectData.contactName, // Mapeamento para o nome correto no banco
       organization: projectData.organization || null,
+      email: projectData.email || '',
+      mobile: projectData.mobile || '',
       address: projectData.address || null,
       budget: projectData.budget || null,
       currency: projectData.currency || 'BRL',
-      status: projectData.stage || 'contacted', // status é o campo correto no banco
-      priority: 'medium', // Valor padrão
-      progress: 0,
-      start_date: null,
-      due_date: null,
-      completed_at: null,
-      tags: JSON.stringify(projectData.tags || []),
-      assigned_to: JSON.stringify([]),
-      notes: projectData.notes || null,
-      contacts: JSON.stringify([]),
-      // Novos campos adicionados dinamicamente
       stage: projectData.stage || 'contacted',
-      contact_name: projectData.contactName,
-      email: projectData.email || '',
-      mobile: projectData.mobile || '',
+      tags: JSON.stringify(projectData.tags || []),
+      notes: projectData.notes || null,
       created_by: createdBy
     };
 
