@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { api } from '@/services/apiService';
+import { apiService } from '@/services/apiService';
 
 export interface Project {
   id: string;
@@ -31,8 +31,8 @@ export function useProjects() {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await api.get('/api/deals');
-      setProjects(response.data.deals || []);
+      const response = await apiService.request('/deals');
+      setProjects(response.deals || []);
     } catch (err: any) {
       console.error('Erro ao buscar deals:', err);
       setError(err.message);
@@ -50,9 +50,12 @@ export function useProjects() {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await api.post('/api/deals', data);
+      const response = await apiService.request('/deals', {
+        method: 'POST',
+        body: JSON.stringify(data)
+      });
       await fetchProjects();
-      return response.data;
+      return response;
     } catch (err: any) {
       console.error('Erro ao criar deal:', err);
       setError(err.message);
@@ -66,9 +69,12 @@ export function useProjects() {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await api.put(`/api/deals/${id}`, data);
+      const response = await apiService.request(`/deals/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(data)
+      });
       await fetchProjects();
-      return response.data;
+      return response;
     } catch (err: any) {
       console.error('Erro ao atualizar deal:', err);
       setError(err.message);
@@ -82,7 +88,9 @@ export function useProjects() {
     setIsLoading(true);
     setError(null);
     try {
-      await api.delete(`/api/deals/${id}`);
+      await apiService.request(`/deals/${id}`, {
+        method: 'DELETE'
+      });
       await fetchProjects();
     } catch (err: any) {
       console.error('Erro ao excluir deal:', err);
