@@ -115,18 +115,56 @@ export function Pipeline({ stages, onAddDeal, onEditDeal, onDeleteDeal, onMoveDe
     });
   };
 
+  const [draggedDealId, setDraggedDealId] = React.useState<string | null>(null);
+  const [dragOverStage, setDragOverStage] = React.useState<string | null>(null);
+
   const handleDragStart = (e: React.DragEvent, dealId: string) => {
     e.dataTransfer.setData('text/plain', dealId);
+    e.dataTransfer.effectAllowed = 'move';
+    setDraggedDealId(dealId);
+    
+    // Adicionar estilo visual ao card sendo arrastado
+    if (e.currentTarget instanceof HTMLElement) {
+      e.currentTarget.style.opacity = '0.5';
+    }
+  };
+
+  const handleDragEnd = (e: React.DragEvent) => {
+    setDraggedDealId(null);
+    setDragOverStage(null);
+    
+    // Remover estilo visual
+    if (e.currentTarget instanceof HTMLElement) {
+      e.currentTarget.style.opacity = '1';
+    }
   };
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDragEnter = (e: React.DragEvent, stageId: string) => {
+    e.preventDefault();
+    setDragOverStage(stageId);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    // Só remove o highlight se estiver saindo do container principal
+    if (e.currentTarget === e.target) {
+      setDragOverStage(null);
+    }
   };
 
   const handleDrop = (e: React.DragEvent, targetStage: DealStage) => {
     e.preventDefault();
     const dealId = e.dataTransfer.getData('text/plain');
-    onMoveDeal(dealId, targetStage);
+    setDraggedDealId(null);
+    setDragOverStage(null);
+    
+    if (dealId) {
+      onMoveDeal(dealId, targetStage);
+    }
   };
 
   return (
@@ -138,9 +176,13 @@ export function Pipeline({ stages, onAddDeal, onEditDeal, onDeleteDeal, onMoveDe
           key={stage.id}
           className="flex flex-col h-full"
           onDragOver={handleDragOver}
+          onDragEnter={(e) => handleDragEnter(e, stage.id)}
+          onDragLeave={handleDragLeave}
           onDrop={(e) => handleDrop(e, stage.id)}
         >
-          <Card className="flex-1 flex flex-col">
+          <Card className={`flex-1 flex flex-col transition-all ${
+            dragOverStage === stage.id ? 'ring-2 ring-blue-400 bg-blue-50/50' : ''
+          }`}>
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-sm font-medium">
@@ -167,11 +209,12 @@ export function Pipeline({ stages, onAddDeal, onEditDeal, onDeleteDeal, onMoveDe
               {getCurrentPageDeals(stage.deals, stage.id).map((deal) => (
                 <Card
                   key={deal.id}
-                  className={`cursor-move hover:shadow-md transition-shadow ${
+                  className={`cursor-move hover:shadow-md transition-all ${
                     pinnedDeals.has(deal.id) ? 'ring-2 ring-blue-200 bg-blue-50/50' : ''
-                  }`}
+                  } ${draggedDealId === deal.id ? 'opacity-50' : ''}`}
                   draggable
                   onDragStart={(e) => handleDragStart(e, deal.id)}
+                  onDragEnd={handleDragEnd}
                 >
                   <CardContent className="p-3">
                     <div className="space-y-2">

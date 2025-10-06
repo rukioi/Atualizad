@@ -103,31 +103,30 @@ export async function updateInTenantSchema<T = any>(
   const setClause = Object.keys(data)
     .map((key, index) => {
       const value = data[key];
-      // If the field is JSONB, do explicit cast
-      if (key === 'tags' || key === 'address' || key === 'metadata' || key === 'settings' || key === 'data') {
+      // Handle JSONB fields
+      if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
         return `${key} = $${index + 1}::jsonb`;
       }
-      // If the field is DATE, do explicit cast
-      if (key.includes('date') || key === 'birth_date') {
-        return `${key} = $${index + 1}::date`;
-      }
-      // Check if value looks like a UUID
-      if (typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)) {
+      // Handle UUID fields by checking if value looks like a UUID
+      if (typeof value === 'string' && value.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
         return `${key} = $${index + 1}::uuid`;
       }
       return `${key} = $${index + 1}`;
     })
     .join(', ');
-  const values = Object.values(data);
+
+  const values = Object.values(data).map(val => 
+    typeof val === 'object' && val !== null ? JSON.stringify(val) : val
+  );
 
   const query = `
     UPDATE ${schema}.${tableName}
     SET ${setClause}, updated_at = NOW()
-    WHERE id = $${values.length + 1} AND is_active = TRUE
+    WHERE id = $${values.length + 1}::uuid AND is_active = TRUE
     RETURNING *
   `;
 
-  const result = await tenantDB.executeInTenantSchema<T>(query, [...values, id]);
+  const result = await tenantDB.executeInTenantSchema(query, [...values, id]);
   return result[0] || null;
 }
 

@@ -61,6 +61,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, Eye, Edit, Trash2 } from "lucide-react";
+import { toast } from "@/components/ui/use-toast";
+import apiService from "@/services/apiService";
 
 // Helper function to map Deal (backend) to Deal (frontend)
 const mapProjectToDeal = (deal: any): Deal => ({
@@ -233,11 +235,34 @@ export function CRM() {
   >();
   const { clients, createClient, updateClient, deleteClient, isLoading: clientsLoading } = useClients();
   const { projects, createProject, updateProject, deleteProject, isLoading: projectsLoading } = useProjects();
-  
+
+  const [deals, setDeals] = useState<Deal[]>([]); // Estado local para deals
+
+  // Helper function to load deals from the API
+  const loadDeals = async () => {
+    try {
+      const response = await apiService.get("/api/deals"); // Assumindo que este endpoint retorna todos os deals
+      setDeals(response.data.map(mapProjectToDeal));
+    } catch (error) {
+      console.error("Erro ao carregar negócios:", error);
+      toast({
+        title: "Erro ao carregar negócios",
+        description: "Não foi possível carregar os negócios do pipeline.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Efeito para carregar os deals quando o componente monta
+  useMemo(() => {
+    loadDeals();
+  }, []);
+
+
   // Map projects to deals for frontend display
-  const deals = useMemo(() => {
-    return projects.map(mapProjectToDeal);
-  }, [projects]);
+  // const deals = useMemo(() => {
+  //   return projects.map(mapProjectToDeal);
+  // }, [projects]);
   const [selectedClients, setSelectedClients] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [dealSearchTerm, setDealSearchTerm] = useState("");
@@ -419,18 +444,50 @@ export function CRM() {
   const handleDeleteDeal = async (dealId: string) => {
     try {
       await deleteProject(dealId);
+      setDeals((prevDeals) => prevDeals.filter((deal) => deal.id !== dealId)); // Atualiza estado local
     } catch (error) {
       console.error('Erro ao excluir negócio:', error);
+      toast({
+        title: "Erro ao excluir negócio",
+        description: "Não foi possível excluir o negócio.",
+        variant: "destructive",
+      });
     }
   };
 
+  // Handle moving a deal to a different stage (drag and drop)
   const handleMoveDeal = async (dealId: string, newStage: DealStage) => {
     try {
-      await updateProject(dealId, { stage: newStage });
+      console.log('Moving deal:', dealId, 'to stage:', newStage);
+
+      // Otimistic update - atualizar UI imediatamente
+      setDeals((prevDeals) =>
+        prevDeals.map((deal) =>
+          deal.id === dealId ? { ...deal, stage: newStage } : deal,
+        ),
+      );
+
+      // Fazer a requisição para o backend
+      await apiService.put(`/api/deals/${dealId}`, { stage: newStage });
+
+      toast({
+        title: "Negócio movido com sucesso",
+        description: `Negócio movido para "${newStage === 'contacted' ? 'Em Contato' : newStage === 'proposal' ? 'Com Proposta' : newStage === 'won' ? 'Cliente Bem Sucedido' : 'Cliente Perdido'}"`,
+      });
     } catch (error) {
-      console.error('Erro ao mover negócio:', error);
+      console.error("Erro ao mover negócio:", error);
+
+      // Reverter mudança otimista em caso de erro
+      await loadDeals();
+
+      toast({
+        title: "Erro ao mover negócio",
+        description: "Não foi possível atualizar o estágio do negócio. Tente novamente.",
+        variant: "destructive",
+      });
     }
   };
+
 
   const handleApplyAdvancedFilters = (filters: any) => {
     setAdvancedFilters(filters);
@@ -443,18 +500,24 @@ export function CRM() {
   const handleSubmitDeal = async (data: any) => {
     try {
       const projectData = mapDealToProjectData(data);
-      
+
       if (editingDeal) {
         await updateProject(editingDeal.id, projectData);
         setEditingDeal(undefined);
       } else {
         await createProject(projectData);
       }
-      
+
       setShowDealForm(false);
       setDealInitialStage(undefined);
+      await loadDeals(); // Recarrega deals após a submissão
     } catch (error) {
       console.error('Erro ao salvar negócio:', error);
+      toast({
+        title: "Erro ao salvar negócio",
+        description: "Não foi possível salvar o negócio. Tente novamente.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -505,7 +568,7 @@ export function CRM() {
                 Total de Clientes
               </CardTitle>
               <Users className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
+            </Header>
             <CardContent>
               <div className="text-2xl font-bold">{totalClients}</div>
               <p className="text-xs text-muted-foreground">
@@ -520,7 +583,7 @@ export function CRM() {
                 Pipeline Total
               </CardTitle>
               <Target className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
+            </Header>
             <CardContent>
               <div className="text-2xl font-bold">
                 {new Intl.NumberFormat("pt-BR", {
@@ -540,7 +603,7 @@ export function CRM() {
                 Taxa de Conversão
               </CardTitle>
               <BarChart3 className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
+            </Header>
             <CardContent>
               <div className="text-2xl font-bold">
                 {deals.length > 0
@@ -560,7 +623,7 @@ export function CRM() {
                 Receita Fechada
               </CardTitle>
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
+            </Header>
             <CardContent>
               <div className="text-2xl font-bold">
                 {new Intl.NumberFormat("pt-BR", {
