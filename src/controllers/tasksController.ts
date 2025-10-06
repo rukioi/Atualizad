@@ -175,11 +175,11 @@ export class TasksController {
       const stats = await tasksService.getTaskStats(req.tenantDB);
 
       res.json({
-        total: parseInt(stats.total) || 0,
-        completed: parseInt(stats.completed) || 0,
-        in_progress: parseInt(stats.in_progress) || 0,
-        not_started: parseInt(stats.not_started) || 0,
-        urgent: parseInt(stats.urgent) || 0,
+        total: Number(stats.total) || 0,
+        completed: Number(stats.completed) || 0,
+        in_progress: Number(stats.in_progress) || 0,
+        not_started: Number(stats.not_started) || 0,
+        urgent: Number(stats.urgent) || 0,
       });
     } catch (error) {
       console.error('[TasksController] Error:', error);

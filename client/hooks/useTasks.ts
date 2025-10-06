@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { apiService } from '../services/apiService';
+import { Task } from '../types/tasks';
 
 export function useTasks() {
-  const [tasks, setTasks] = useState([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

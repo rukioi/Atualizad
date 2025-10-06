@@ -102,7 +102,9 @@ export interface TaskStats {
   notStarted: number;
   inProgress: number;
   completed: number;
-  overdue: number;
-  completionRate: number;
-  averageCompletionTime: number; // in days
+  onHold: number;
+  urgent: number;
+  overdue?: number;
+  completionRate?: number;
+  averageCompletionTime?: number; // in days
 }
