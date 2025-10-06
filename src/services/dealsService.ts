@@ -201,10 +201,11 @@ export class DealsService {
 
     const deals = await queryTenantSchema(tenantDB, dataQuery, [...params, limit, offset]);
 
-    // Processar tags JSON
+    // Processar tags JSON e garantir registered_by
     const processedDeals = deals.map((deal: any) => ({
       ...deal,
-      tags: Array.isArray(deal.tags) ? deal.tags : []
+      tags: Array.isArray(deal.tags) ? deal.tags : [],
+      registered_by: deal.registered_by || null
     }));
 
     const totalPages = Math.ceil(total / limit);
@@ -243,7 +244,8 @@ export class DealsService {
     const deal = result[0];
     return {
       ...deal,
-      tags: Array.isArray(deal.tags) ? deal.tags : []
+      tags: Array.isArray(deal.tags) ? deal.tags : [],
+      registered_by: deal.registered_by || null
     };
   }
 
@@ -282,7 +284,8 @@ export class DealsService {
 
     return {
       ...result,
-      tags: Array.isArray(data.tags) ? data.tags : []
+      tags: Array.isArray(data.tags) ? data.tags : [],
+      registered_by: userName
     };
   }
 
@@ -318,7 +321,8 @@ export class DealsService {
 
     return {
       ...result,
-      tags: Array.isArray(result.tags) ? result.tags : []
+      tags: Array.isArray(result.tags) ? result.tags : [],
+      registered_by: result.registered_by || null
     };
   }
 
@@ -347,7 +351,8 @@ export class DealsService {
 
     return deals.map((deal: any) => ({
       ...deal,
-      tags: Array.isArray(deal.tags) ? deal.tags : []
+      tags: Array.isArray(deal.tags) ? deal.tags : [],
+      registered_by: deal.registered_by || null
     }));
   }
 

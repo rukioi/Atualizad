@@ -57,7 +57,7 @@ export interface Deal {
   clientId?: string;
   referredBy?: string;
   registeredBy?: string;
-  registered_by?: string;
+  registered_by?: string; // Nome do usuário que cadastrou
   createdAt: string;
   updatedAt: string;
 }

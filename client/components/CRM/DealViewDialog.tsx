@@ -225,7 +225,7 @@ export function DealViewDialog({
                 {/* Campo "Cadastrado por" - nome do usuário que criou o deal */}
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Cadastrado por:</span>
-                  <span>{deal.registered_by || deal.registeredBy || 'Sistema'}</span>
+                  <span>{deal.registered_by || deal.registeredBy || 'Não informado'}</span>
                 </div>
               </div>
             </div>
