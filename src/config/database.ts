@@ -290,7 +290,7 @@ export class Database {
         ) as schema_exists
       `;
 
-      const result = await prisma.$queryRawUnsafe(schemaCheckQuery, finalSchemaName);
+      const result = await prisma.$queryRawUnsafe(schemaCheckQuery, finalSchemaName) as any[];
       const schemaExists = result?.[0]?.schema_exists;
 
       if (!schemaExists) {
@@ -324,7 +324,7 @@ export class Database {
         WHERE table_schema = $1
       `;
 
-      const existingTables = await prisma.$queryRawUnsafe(tablesQuery, schemaName);
+      const existingTables = await prisma.$queryRawUnsafe(tablesQuery, schemaName) as any[];
       const existingTableNames = existingTables.map((t: any) => t.table_name);
 
       const missingTables = requiredTables.filter(table =>
