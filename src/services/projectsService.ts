@@ -189,6 +189,34 @@ class ProjectsService {
           ALTER TABLE \${schema}.${this.tableName} ALTER COLUMN email DROP NOT NULL;
           ALTER TABLE \${schema}.${this.tableName} ALTER COLUMN mobile DROP NOT NULL;
           
+          -- Drop NOT NULL from legacy columns if they exist
+          IF EXISTS (
+            SELECT FROM information_schema.columns 
+            WHERE table_schema = '\${schema}' 
+            AND table_name = '${this.tableName}' 
+            AND column_name = 'client_name'
+          ) THEN
+            ALTER TABLE \${schema}.${this.tableName} ALTER COLUMN client_name DROP NOT NULL;
+          END IF;
+          
+          IF EXISTS (
+            SELECT FROM information_schema.columns 
+            WHERE table_schema = '\${schema}' 
+            AND table_name = '${this.tableName}' 
+            AND column_name = 'status'
+          ) THEN
+            ALTER TABLE \${schema}.${this.tableName} ALTER COLUMN status DROP NOT NULL;
+          END IF;
+          
+          IF EXISTS (
+            SELECT FROM information_schema.columns 
+            WHERE table_schema = '\${schema}' 
+            AND table_name = '${this.tableName}' 
+            AND column_name = 'priority'
+          ) THEN
+            ALTER TABLE \${schema}.${this.tableName} ALTER COLUMN priority DROP NOT NULL;
+          END IF;
+          
           -- Change created_by to UUID if it's VARCHAR
           IF EXISTS (
             SELECT FROM information_schema.columns 
