@@ -1,0 +1,39 @@
+> dev
+> vite
+
+No .env.defaults file found, using environment variables only
+Database config loaded: {
+  url: 'postgresql://neondb_owner:npg_wITovUemn37c@ep-odd-...',
+  environment: 'development'
+}
+
+  VITE v6.3.5  ready in 511 ms
+
+  ➜  Local:   http://localhost:5000/
+  ➜  Network: http://172.31.87.98:5000/
+  ➜  press h + enter to show help
+✅ Database connection successful
+✅ Database connected successfully
+Error:   Failed to scan for dependencies from entries:
+  /home/runner/workspace/index.html
+
+  ✘ [ERROR] No matching export in "client/services/apiService.ts" for import "default"
+
+    client/pages/CRM.tsx:65:7:
+      65 │ import apiService from "@/services/apiService";
+         ╵        ~~~~~~~~~~
+
+
+    at failureErrorWithLog (/home/runner/workspace/node_modules/esbuild/lib/main.js:1467:15)
+    at /home/runner/workspace/node_modules/esbuild/lib/main.js:926:25
+    at runOnEndCallbacks (/home/runner/workspace/node_modules/esbuild/lib/main.js:1307:45)
+    at buildResponseToResult (/home/runner/workspace/node_modules/esbuild/lib/main.js:924:7)
+    at /home/runner/workspace/node_modules/esbuild/lib/main.js:936:9
+    at new Promise (<anonymous>)
+    at requestCallbacks.on-end (/home/runner/workspace/node_modules/esbuild/lib/main.js:935:54)
+    at handleRequest (/home/runner/workspace/node_modules/esbuild/lib/main.js:628:17)
+    at handleIncomingPacket (/home/runner/workspace/node_modules/esbuild/lib/main.js:653:7)
+    at Socket.readFromStdout (/home/runner/workspace/node_modules/esbuild/lib/main.js:581:7)
+3:13:13 PM [vite] (client) ✨ new dependencies optimized: @radix-ui/react-tooltip, next-themes, sonner, @radix-ui/react-slot, @radix-ui/react-select, class-variance-authority, @radix-ui/react-avatar, @radix-ui/react-progress, @radix-ui/react-dropdown-menu, clsx, tailwind-merge, recharts, @radix-ui/react-tabs, @radix-ui/react-dialog, @radix-ui/react-separator, @radix-ui/react-label, @radix-ui/react-switch, @radix-ui/react-toast, @radix-ui/react-checkbox, @radix-ui/react-scroll-area, date-fns, react-day-picker, @radix-ui/react-popover
+3:13:13 PM [vite] (client) ✨ optimized dependencies changed. reloading
+3:13:49 PM [vite] (client) hmr update /client/pages/CRM.tsx, /client/global.css
