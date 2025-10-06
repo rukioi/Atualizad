@@ -42,33 +42,36 @@ export async function insertInTenantSchema<T = any>(
   const schema = await tenantDB.getSchemaName();
 
   const columns = Object.keys(data);
-  const values = Object.values(data);
   
-  const placeholders = columns.map((col, idx) => {
-    // Handle JSONB columns with explicit cast (ONLY for actual JSONB columns)
-    if (col === 'tags' || col === 'items' || col === 'metadata') {
-      return `$${idx + 1}::jsonb`;
+  // Map values with proper casting for UUID and JSONB fields
+  const placeholders = columns.map((key, i) => {
+    // Check if value looks like a UUID (36 chars with dashes)
+    const value = data[key];
+    if (typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)) {
+      return `$${i + 1}::uuid`;
     }
-
+    // Check if it's a JSON string (starts with [ or {)
+    if (typeof value === 'string' && (value.startsWith('[') || value.startsWith('{'))) {
+      return `$${i + 1}::jsonb`;
+    }
     // Handle DATE columns with explicit cast
-    if (col.includes('date') || col === 'birth_date') {
-      return `$${idx + 1}::date`;
+    if (key.includes('date') || key === 'birth_date') {
+      return `$${i + 1}::date`;
     }
-
     // All other fields use standard placeholder
-    return `$${idx + 1}`;
-  });
+    return `$${i + 1}`;
+  }).join(', ');
 
   const query = `
     INSERT INTO ${schema}.${tableName} (${columns.join(', ')})
-    VALUES (${placeholders.join(', ')})
+    VALUES (${placeholders})
     RETURNING *
   `;
 
   console.log('Insert query:', query);
-  console.log('Insert values:', values);
+  console.log('Insert values:', Object.values(data));
 
-  const result = await queryTenantSchema<T>(tenantDB, query, values);
+  const result = await queryTenantSchema<T>(tenantDB, query, Object.values(data));
 
   if (!result || result.length === 0) {
     throw new Error(`Failed to insert into ${tableName}`);
@@ -95,35 +98,34 @@ export async function updateInTenantSchema<T = any>(
     throw new Error('Invalid TenantDatabase instance provided to updateInTenantSchema');
   }
 
-  // JSONB fields que precisam de cast explícito
-  const jsonbFields = ['tags', 'address', 'metadata', 'settings', 'data'];
-
-  // DATE fields que precisam de cast explícito
-  const dateFields = ['birth_date', 'due_date', 'start_date', 'end_date', 'paid_at', 'completed_at'];
-
   const setClause = Object.keys(data)
     .map((key, index) => {
-      // Se o campo é JSONB, fazer cast explícito
-      if (jsonbFields.includes(key)) {
-        return `${key} = $${index + 2}::jsonb`;
+      const value = data[key];
+      // If the field is JSONB, do explicit cast
+      if (key === 'tags' || key === 'address' || key === 'metadata' || key === 'settings' || key === 'data') {
+        return `${key} = $${index + 1}::jsonb`;
       }
-      // Se o campo é DATE, fazer cast explícito
-      if (dateFields.includes(key)) {
-        return `${key} = $${index + 2}::date`;
+      // If the field is DATE, do explicit cast
+      if (key.includes('date') || key === 'birth_date') {
+        return `${key} = $${index + 1}::date`;
       }
-      return `${key} = $${index + 2}`;
+      // Check if value looks like a UUID
+      if (typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)) {
+        return `${key} = $${index + 1}::uuid`;
+      }
+      return `${key} = $${index + 1}`;
     })
     .join(', ');
-  const values = [id, ...Object.values(data)];
+  const values = Object.values(data);
 
   const query = `
-    UPDATE \${schema}.${tableName}
+    UPDATE ${schema}.${tableName}
     SET ${setClause}, updated_at = NOW()
-    WHERE id = $1 AND is_active = TRUE
+    WHERE id = $${values.length + 1} AND is_active = TRUE
     RETURNING *
   `;
 
-  const result = await tenantDB.executeInTenantSchema<T>(query, values);
+  const result = await tenantDB.executeInTenantSchema<T>(query, [...values, id]);
   return result[0] || null;
 }
 
@@ -144,7 +146,7 @@ export async function softDeleteInTenantSchema<T = any>(
   }
 
   const query = `
-    UPDATE \${schema}.${tableName}
+    UPDATE ${schema}.${tableName}
     SET is_active = FALSE, updated_at = NOW()
     WHERE id = $1 AND is_active = TRUE
     RETURNING *
