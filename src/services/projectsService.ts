@@ -269,16 +269,19 @@ class ProjectsService {
         status,
         priority,
         COALESCE(progress, 0) as progress,
-        start_date::text,
-        due_date::text,
-        COALESCE(completed_at::text, NULL) as completed_at,
+        to_char(start_date, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as start_date,
+        to_char(due_date, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as due_date,
+        CASE WHEN completed_at IS NOT NULL 
+          THEN to_char(completed_at, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')
+          ELSE NULL 
+        END as completed_at,
         COALESCE(tags::jsonb, '[]'::jsonb) as tags,
         COALESCE(assigned_to::jsonb, '[]'::jsonb) as assigned_to,
         COALESCE(notes, '') as notes,
         COALESCE(contacts::jsonb, '[]'::jsonb) as contacts,
         created_by::text,
-        created_at::text,
-        updated_at::text,
+        to_char(created_at, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as created_at,
+        to_char(updated_at, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as updated_at,
         is_active
       FROM \${schema}.${this.tableName}
       WHERE ${whereClause}
@@ -333,16 +336,19 @@ class ProjectsService {
         status,
         priority,
         COALESCE(progress, 0) as progress,
-        start_date::text,
-        due_date::text,
-        COALESCE(completed_at::text, NULL) as completed_at,
+        to_char(start_date, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as start_date,
+        to_char(due_date, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as due_date,
+        CASE WHEN completed_at IS NOT NULL 
+          THEN to_char(completed_at, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')
+          ELSE NULL 
+        END as completed_at,
         COALESCE(tags::jsonb, '[]'::jsonb) as tags,
         COALESCE(assigned_to::jsonb, '[]'::jsonb) as assigned_to,
         COALESCE(notes, '') as notes,
         COALESCE(contacts::jsonb, '[]'::jsonb) as contacts,
         created_by::text,
-        created_at::text,
-        updated_at::text,
+        to_char(created_at, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as created_at,
+        to_char(updated_at, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as updated_at,
         is_active
       FROM \${schema}.${this.tableName}
       WHERE id::text = $1 AND is_active = TRUE
