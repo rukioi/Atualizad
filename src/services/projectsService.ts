@@ -317,26 +317,34 @@ class ProjectsService {
   async createProject(tenantDB: TenantDatabase, projectData: CreateProjectData, createdBy: string): Promise<Project> {
     await this.ensureTables(tenantDB);
 
+    // Validar campos obrigatórios
+    if (!projectData.title) throw new Error('Título é obrigatório');
+    if (!projectData.clientName) throw new Error('Cliente é obrigatório');
+    if (!projectData.startDate) throw new Error('Data de início é obrigatória');
+    if (!projectData.dueDate) throw new Error('Data de vencimento é obrigatória');
+
     const data: Record<string, any> = {
+      // CAMPOS OBRIGATÓRIOS
       title: projectData.title,
-      name: projectData.title, // Usar title como name também (campo legado)
       client_name: projectData.clientName,
+      status: projectData.status || 'contacted',
+      priority: projectData.priority || 'medium',
+      start_date: projectData.startDate,
+      due_date: projectData.dueDate,
+      created_by: createdBy,
+      
+      // CAMPOS OPCIONAIS
       description: projectData.description || null,
       client_id: projectData.clientId || null,
       organization: projectData.organization || null,
       address: projectData.address || null,
       budget: projectData.budget || null,
       currency: projectData.currency || 'BRL',
-      status: projectData.status || 'contacted',
-      priority: projectData.priority || 'medium',
       progress: projectData.progress || 0,
-      start_date: projectData.startDate || null,
-      due_date: projectData.dueDate || null,
       tags: projectData.tags || [],
       assigned_to: projectData.assignedTo || [],
       notes: projectData.notes || null,
-      contacts: projectData.contacts || [],
-      created_by: createdBy
+      contacts: projectData.contacts || []
     };
 
     return await insertInTenantSchema<Project>(tenantDB, this.tableName, data);
