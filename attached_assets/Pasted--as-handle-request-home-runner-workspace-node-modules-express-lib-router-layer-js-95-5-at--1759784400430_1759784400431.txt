@@ -1,0 +1,93 @@
+[as handle_request] (/home/runner/workspace/node_modules/express/lib/router/layer.js:95:5)
+    at /home/runner/workspace/node_modules/express/lib/router/index.js:284:15
+Tenant access validated: {
+  userId: 'aa1efad5-bd21-46c2-9b5f-2fb1367a34d6',
+  tenantId: '1f9cfc90-fe4c-49a1-b548-104457715600',
+  tenantName: 'Tenant-Teste',
+  accountType: 'GERENCIAL'
+}
+Tenant access validated: {
+  userId: 'aa1efad5-bd21-46c2-9b5f-2fb1367a34d6',
+  tenantId: '1f9cfc90-fe4c-49a1-b548-104457715600',
+  tenantName: 'Tenant-Teste',
+  accountType: 'GERENCIAL'
+}
+Error getting dashboard metrics: Error: Invalid TenantDatabase instance provided to queryTenantSchema
+    at queryTenantSchema (file:///home/runner/workspace/node_modules/.vite-temp/vite.config.ts.timestamp-1759783674114-1b02a46662646.mjs:1797:11)
+    at ClientsService.ensureTables (file:///home/runner/workspace/node_modules/.vite-temp/vite.config.ts.timestamp-1759783674114-1b02a46662646.mjs:1903:11)
+    at ClientsService.getClientsStats (file:///home/runner/workspace/node_modules/.vite-temp/vite.config.ts.timestamp-1759783674114-1b02a46662646.mjs:2081:16)
+    at DashboardService.getDashboardMetrics (file:///home/runner/workspace/node_modules/.vite-temp/vite.config.ts.timestamp-1759783674114-1b02a46662646.mjs:3455:22)
+    at file:///home/runner/workspace/node_modules/.vite-temp/vite.config.ts.timestamp-1759783674114-1b02a46662646.mjs:3864:44
+    at Layer.handle [as handle_request] (/home/runner/workspace/node_modules/express/lib/router/layer.js:95:5)
+    at next (/home/runner/workspace/node_modules/express/lib/router/route.js:149:13)
+    at Route.dispatch (/home/runner/workspace/node_modules/express/lib/router/route.js:119:3)
+    at Layer.handle [as handle_request] (/home/runner/workspace/node_modules/express/lib/router/layer.js:95:5)
+    at /home/runner/workspace/node_modules/express/lib/router/index.js:284:15
+[TasksController] Create task request received
+[TasksController] User: {
+  id: 'aa1efad5-bd21-46c2-9b5f-2fb1367a34d6',
+  email: 'murilo@hotmail.com',
+  tenantId: '1f9cfc90-fe4c-49a1-b548-104457715600',
+  accountType: 'GERENCIAL',
+  name: 'murilo barros'
+}
+[TasksController] TenantDB: Missing
+[TasksController] Request body: {
+  title: 'thh',
+  description: 'tyuu',
+  startDate: '2025-10-05',
+  endDate: '2025-10-28',
+  status: 'not_started',
+  priority: 'medium',
+  assignedTo: 'Marina Santos - Advogada Júnior',
+  projectId: '2',
+  clientId: '',
+  estimatedHours: 77,
+  actualHours: 9,
+  progress: 0,
+  notes: 'obs',
+  tags: [ 'pol' ],
+  subtasks: [
+    {
+      id: '1759784355719',
+      title: 'ok',
+      completed: false,
+      createdAt: '2025-10-06T20:59:15.719Z'
+    }
+  ]
+}
+[TasksController] Missing authentication or tenant database
+[TasksController] Create task request received
+[TasksController] User: {
+  id: 'aa1efad5-bd21-46c2-9b5f-2fb1367a34d6',
+  email: 'murilo@hotmail.com',
+  tenantId: '1f9cfc90-fe4c-49a1-b548-104457715600',
+  accountType: 'GERENCIAL',
+  name: 'murilo barros'
+}
+[TasksController] TenantDB: Missing
+[TasksController] Request body: {
+  title: 'thh',
+  description: 'tyuu',
+  startDate: '2025-10-05',
+  endDate: '2025-10-28',
+  status: 'not_started',
+  priority: 'medium',
+  assignedTo: 'Marina Santos - Advogada Júnior',
+  projectId: '2',
+  clientId: '',
+  estimatedHours: 77,
+  actualHours: 9,
+  progress: 0,
+  notes: 'obs',
+  tags: [ 'pol' ],
+  subtasks: [
+    {
+      id: '1759784355719',
+      title: 'ok',
+      completed: false,
+      createdAt: '2025-10-06T20:59:15.719Z'
+    }
+  ]
+}
+[TasksController] Missing authentication or tenant database
