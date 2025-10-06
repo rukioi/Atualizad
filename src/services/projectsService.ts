@@ -35,8 +35,8 @@ export interface Project {
   status: 'contacted' | 'proposal' | 'won' | 'lost';
   priority: 'low' | 'medium' | 'high';
   progress: number;
-  start_date?: string;
-  due_date?: string;
+  start_date: string;
+  due_date: string;
   completed_at?: string;
   tags: string[];
   assigned_to: string[];
@@ -60,8 +60,8 @@ export interface CreateProjectData {
   status?: 'contacted' | 'proposal' | 'won' | 'lost';
   priority?: 'low' | 'medium' | 'high';
   progress?: number;
-  startDate?: string;
-  dueDate?: string;
+  startDate: string;
+  dueDate: string;
   tags?: string[];
   assignedTo?: string[];
   notes?: string;
@@ -156,6 +156,47 @@ class ProjectsService {
       `);
     } catch (e) {
       console.log('Error migrating end_date to due_date:', e);
+    }
+
+    // Preencher valores NULL em start_date com created_at
+    try {
+      await tenantDB.executeInTenantSchema(`
+        UPDATE \${schema}.projects 
+        SET start_date = created_at 
+        WHERE start_date IS NULL
+      `);
+    } catch (e) {
+      console.log('Error filling NULL start_date:', e);
+    }
+
+    // Preencher valores NULL em due_date com created_at + 30 dias
+    try {
+      await tenantDB.executeInTenantSchema(`
+        UPDATE \${schema}.projects 
+        SET due_date = created_at + INTERVAL '30 days' 
+        WHERE due_date IS NULL
+      `);
+    } catch (e) {
+      console.log('Error filling NULL due_date:', e);
+    }
+
+    // Garantir que start_date e due_date sejam NOT NULL
+    try {
+      await tenantDB.executeInTenantSchema(`
+        ALTER TABLE \${schema}.projects 
+        ALTER COLUMN start_date SET NOT NULL
+      `);
+    } catch (e) {
+      console.log('Column start_date already NOT NULL or error:', e);
+    }
+
+    try {
+      await tenantDB.executeInTenantSchema(`
+        ALTER TABLE \${schema}.projects 
+        ALTER COLUMN due_date SET NOT NULL
+      `);
+    } catch (e) {
+      console.log('Column due_date already NOT NULL or error:', e);
     }
   }
 

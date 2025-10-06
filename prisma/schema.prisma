@@ -305,8 +305,8 @@ model Project {
   status       String    @default("contacted")
   priority     String    @default("medium")
   progress     Int       @default(0)
-  startDate    DateTime? @map("start_date") @db.Date
-  dueDate      DateTime? @map("due_date") @db.Date
+  startDate    DateTime  @map("start_date") @db.Date
+  dueDate      DateTime  @map("due_date") @db.Date
   completedAt  DateTime? @map("completed_at")
   tags         Json      @default("[]")
   assignedTo   Json      @default("[]") @map("assigned_to")
