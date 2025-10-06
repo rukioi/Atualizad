@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { tasksController } from '../controllers/tasksController';
 import { authenticateToken, tenantMiddleware } from '../middleware/auth';
 
 const router = Router();
