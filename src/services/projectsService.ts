@@ -358,15 +358,16 @@ class ProjectsService {
   async createProject(tenantDB: TenantDatabase, projectData: CreateProjectData, createdBy: string): Promise<Project> {
     await this.ensureTables(tenantDB);
 
-    // Validar APENAS campos obrigatórios
+    // Validar campos obrigatórios
     if (!projectData.title) throw new Error('Título é obrigatório');
     if (!projectData.clientName) throw new Error('Cliente é obrigatório');
     if (!projectData.startDate) throw new Error('Data de início é obrigatória');
     if (!projectData.dueDate) throw new Error('Data de vencimento é obrigatória');
+    if (!createdBy) throw new Error('Usuário não identificado');
 
-    // Montar dados com APENAS campos essenciais e identificáveis
+    // Montar dados garantindo todos os campos obrigatórios
     const data: Record<string, any> = {
-      // CAMPOS OBRIGATÓRIOS
+      // CAMPOS OBRIGATÓRIOS (NOT NULL)
       title: projectData.title,
       client_name: projectData.clientName,
       status: projectData.status || 'contacted',
@@ -375,21 +376,19 @@ class ProjectsService {
       due_date: projectData.dueDate,
       created_by: createdBy,
       
-      // CAMPOS OPCIONAIS ESSENCIAIS
-      description: projectData.description || null,
+      // CAMPOS OPCIONAIS COM VALORES DEFAULT
+      description: projectData.description || '',
       client_id: projectData.clientId || null,
-      budget: projectData.budget || null,
+      organization: projectData.organization || '',
+      address: projectData.address || '',
+      budget: projectData.budget || 0,
       currency: projectData.currency || 'BRL',
       progress: projectData.progress || 0,
-      tags: projectData.tags || [],
-      notes: projectData.notes || null
+      tags: JSON.stringify(projectData.tags || []),
+      assigned_to: JSON.stringify(projectData.assignedTo || []),
+      contacts: JSON.stringify(projectData.contacts || []),
+      notes: projectData.notes || ''
     };
-
-    // Adicionar campos opcionais somente se preenchidos
-    if (projectData.organization) data.organization = projectData.organization;
-    if (projectData.address) data.address = projectData.address;
-    if (projectData.assignedTo && projectData.assignedTo.length > 0) data.assigned_to = projectData.assignedTo;
-    if (projectData.contacts && projectData.contacts.length > 0) data.contacts = projectData.contacts;
 
     return await insertInTenantSchema<Project>(tenantDB, this.tableName, data);
   }
