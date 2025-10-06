@@ -62,7 +62,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, Eye, Edit, Trash2 } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
-import { api } from "@/services/apiService";
+import { apiService } from "@/services/apiService";
 
 // Helper function to map Deal (backend) to Deal (frontend)
 const mapProjectToDeal = (deal: any): Deal => ({
@@ -252,8 +252,8 @@ export function CRM() {
   // Helper function to load deals from the API
   const loadDeals = async () => {
     try {
-      const response = await api.get("/api/deals"); // Assumindo que este endpoint retorna todos os deals
-      setDeals(response.data.map(mapProjectToDeal));
+      const response = await apiService.getProjects(); // Usando o método correto do apiService
+      setDeals(response.map(mapProjectToDeal));
     } catch (error) {
       console.error("Erro ao carregar negócios:", error);
       toast({
@@ -478,7 +478,7 @@ export function CRM() {
       );
 
       // Fazer a requisição para o backend
-      await api.put(`/api/deals/${dealId}`, { stage: newStage });
+      await apiService.updateProject(dealId, { stage: newStage });
 
       toast({
         title: "Negócio movido com sucesso",
