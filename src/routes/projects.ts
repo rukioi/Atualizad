@@ -1,4 +1,3 @@
-
 import { Router } from 'express';
 import { projectsController } from '../controllers/projectsController';
 import { authenticateToken, tenantMiddleware } from '../middleware/auth';
@@ -10,6 +9,9 @@ const router = Router();
 router.use(authenticateToken);
 router.use(tenantMiddleware);
 router.use(validateTenantAccess);
+
+// Stats route deve vir antes do :id route
+router.get('/stats', (req, res) => projectsController.getProjectsStats(req, res));
 
 router.get('/', (req, res) => projectsController.getProjects(req, res));
 router.get('/:id', (req, res) => projectsController.getProject(req, res));

@@ -1,12 +1,13 @@
-
 /**
- * PROJECTS SERVICE - Gestão de Projetos/Negócios (Pipeline)
- * =========================================================
+ * PROJECTS SERVICE - Gestão de Projetos/Casos
+ * ============================================
  * 
- * ✅ ISOLAMENTO TENANT: Usa TenantDatabase e helpers de isolamento
+ * ✅ ISOL AMENTO TENANT: Usa TenantDatabase e helpers de isolamento
  * ✅ SEM DADOS MOCK: Operações reais no PostgreSQL
  * ✅ ID AUTOMÁTICO: PostgreSQL gen_random_uuid()
  * ✅ CAST EXPLÍCITO: JSONB e DATE fields
+ * 
+ * Baseado no padrão do clientsService.ts
  */
 
 import { TenantDatabase } from '../config/database';
@@ -17,21 +18,30 @@ import {
   softDeleteInTenantSchema
 } from '../utils/tenantHelpers';
 
+// ============================================================================
+// INTERFACES
+// ============================================================================
+
 export interface Project {
   id: string;
   title: string;
   description?: string;
-  contact_name: string;
   client_id?: string;
+  client_name: string;
   organization?: string;
-  email: string;
-  mobile: string;
   address?: string;
   budget?: number;
   currency: 'BRL' | 'USD' | 'EUR';
-  stage: 'contacted' | 'proposal' | 'won' | 'lost';
+  status: 'contacted' | 'proposal' | 'won' | 'lost';
+  priority: 'low' | 'medium' | 'high';
+  progress: number;
+  start_date?: string;
+  due_date?: string;
+  completed_at?: string;
   tags: string[];
+  assigned_to: string[];
   notes?: string;
+  contacts: any[];
   created_by: string;
   created_at: string;
   updated_at: string;
@@ -41,17 +51,21 @@ export interface Project {
 export interface CreateProjectData {
   title: string;
   description?: string;
-  contactName: string;
   clientId?: string;
+  clientName: string;
   organization?: string;
-  email: string;
-  mobile: string;
   address?: string;
   budget?: number;
   currency?: 'BRL' | 'USD' | 'EUR';
-  stage?: 'contacted' | 'proposal' | 'won' | 'lost';
+  status?: 'contacted' | 'proposal' | 'won' | 'lost';
+  priority?: 'low' | 'medium' | 'high';
+  progress?: number;
+  startDate?: string;
+  dueDate?: string;
   tags?: string[];
+  assignedTo?: string[];
   notes?: string;
+  contacts?: any[];
 }
 
 export interface UpdateProjectData extends Partial<CreateProjectData> {}
@@ -59,16 +73,25 @@ export interface UpdateProjectData extends Partial<CreateProjectData> {}
 export interface ProjectFilters {
   page?: number;
   limit?: number;
-  stage?: string;
+  status?: string;
+  priority?: string;
   search?: string;
   tags?: string[];
 }
 
+// ============================================================================
+// SERVICE CLASS
+// ============================================================================
+
 class ProjectsService {
   private tableName = 'projects';
 
+  /**
+   * Cria as tabelas necessárias se não existirem
+   * IMPORTANTE: Tabela criada automaticamente no schema do tenant
+   */
   private async ensureTables(tenantDB: TenantDatabase): Promise<void> {
-    // First, check if table exists
+    // Verifica se a tabela existe
     const checkTableQuery = `
       SELECT EXISTS (
         SELECT FROM information_schema.tables 
@@ -79,174 +102,13 @@ class ProjectsService {
     
     const tableExists = await queryTenantSchema<{exists: boolean}>(tenantDB, checkTableQuery);
     
-    if (!tableExists[0]?.exists) {
-      // Create table only if it doesn't exist
-      const createTableQuery = `
-        CREATE TABLE \${schema}.${this.tableName} (
-          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-          title VARCHAR NOT NULL,
-          description TEXT,
-          contact_name VARCHAR NOT NULL,
-          client_id UUID,
-          organization VARCHAR,
-          email VARCHAR,
-          mobile VARCHAR,
-          address TEXT,
-          budget DECIMAL(15,2),
-          currency VARCHAR(3) DEFAULT 'BRL',
-          stage VARCHAR DEFAULT 'contacted',
-          tags JSONB DEFAULT '[]',
-          notes TEXT,
-          created_by UUID NOT NULL,
-          created_at TIMESTAMP DEFAULT NOW(),
-          updated_at TIMESTAMP DEFAULT NOW(),
-          is_active BOOLEAN DEFAULT TRUE,
-          CONSTRAINT fk_created_by FOREIGN KEY (created_by) REFERENCES public.users(id) ON DELETE CASCADE
-        )
-      `;
-      
-      await queryTenantSchema(tenantDB, createTableQuery);
-    } else {
-      // Table exists, ensure required columns exist
-      const addColumnsQuery = `
-        DO $$ 
-        BEGIN
-          -- Add stage column if missing
-          IF NOT EXISTS (
-            SELECT FROM information_schema.columns 
-            WHERE table_schema = '\${schema}' 
-            AND table_name = '${this.tableName}' 
-            AND column_name = 'stage'
-          ) THEN
-            ALTER TABLE \${schema}.${this.tableName} ADD COLUMN stage VARCHAR DEFAULT 'contacted';
-          END IF;
-          
-          -- Add contact_name column if missing (use client_name as fallback)
-          IF NOT EXISTS (
-            SELECT FROM information_schema.columns 
-            WHERE table_schema = '\${schema}' 
-            AND table_name = '${this.tableName}' 
-            AND column_name = 'contact_name'
-          ) THEN
-            ALTER TABLE \${schema}.${this.tableName} ADD COLUMN contact_name VARCHAR;
-            -- Copy client_name to contact_name for existing records
-            UPDATE \${schema}.${this.tableName} SET contact_name = COALESCE(client_name, '');
-            -- Make it NOT NULL after populating
-            ALTER TABLE \${schema}.${this.tableName} ALTER COLUMN contact_name SET NOT NULL;
-          END IF;
-          
-          -- Add organization column if missing
-          IF NOT EXISTS (
-            SELECT FROM information_schema.columns 
-            WHERE table_schema = '\${schema}' 
-            AND table_name = '${this.tableName}' 
-            AND column_name = 'organization'
-          ) THEN
-            ALTER TABLE \${schema}.${this.tableName} ADD COLUMN organization VARCHAR;
-          END IF;
-          
-          -- Add email column if missing
-          IF NOT EXISTS (
-            SELECT FROM information_schema.columns 
-            WHERE table_schema = '\${schema}' 
-            AND table_name = '${this.tableName}' 
-            AND column_name = 'email'
-          ) THEN
-            ALTER TABLE \${schema}.${this.tableName} ADD COLUMN email VARCHAR;
-          END IF;
-          
-          -- Add mobile column if missing
-          IF NOT EXISTS (
-            SELECT FROM information_schema.columns 
-            WHERE table_schema = '\${schema}' 
-            AND table_name = '${this.tableName}' 
-            AND column_name = 'mobile'
-          ) THEN
-            ALTER TABLE \${schema}.${this.tableName} ADD COLUMN mobile VARCHAR;
-          END IF;
-          
-          -- Add address column if missing
-          IF NOT EXISTS (
-            SELECT FROM information_schema.columns 
-            WHERE table_schema = '\${schema}' 
-            AND table_name = '${this.tableName}' 
-            AND column_name = 'address'
-          ) THEN
-            ALTER TABLE \${schema}.${this.tableName} ADD COLUMN address TEXT;
-          END IF;
-          
-          -- Add currency column if missing
-          IF NOT EXISTS (
-            SELECT FROM information_schema.columns 
-            WHERE table_schema = '\${schema}' 
-            AND table_name = '${this.tableName}' 
-            AND column_name = 'currency'
-          ) THEN
-            ALTER TABLE \${schema}.${this.tableName} ADD COLUMN currency VARCHAR(3) DEFAULT 'BRL';
-          END IF;
-
-          -- Drop old columns that shouldn't be NOT NULL
-          ALTER TABLE \${schema}.${this.tableName} ALTER COLUMN email DROP NOT NULL;
-          ALTER TABLE \${schema}.${this.tableName} ALTER COLUMN mobile DROP NOT NULL;
-          
-          -- Drop NOT NULL from legacy columns if they exist
-          IF EXISTS (
-            SELECT FROM information_schema.columns 
-            WHERE table_schema = '\${schema}' 
-            AND table_name = '${this.tableName}' 
-            AND column_name = 'client_name'
-          ) THEN
-            ALTER TABLE \${schema}.${this.tableName} ALTER COLUMN client_name DROP NOT NULL;
-          END IF;
-          
-          IF EXISTS (
-            SELECT FROM information_schema.columns 
-            WHERE table_schema = '\${schema}' 
-            AND table_name = '${this.tableName}' 
-            AND column_name = 'status'
-          ) THEN
-            ALTER TABLE \${schema}.${this.tableName} ALTER COLUMN status DROP NOT NULL;
-          END IF;
-          
-          IF EXISTS (
-            SELECT FROM information_schema.columns 
-            WHERE table_schema = '\${schema}' 
-            AND table_name = '${this.tableName}' 
-            AND column_name = 'priority'
-          ) THEN
-            ALTER TABLE \${schema}.${this.tableName} ALTER COLUMN priority DROP NOT NULL;
-          END IF;
-          
-          -- Change created_by to UUID if it's VARCHAR
-          IF EXISTS (
-            SELECT FROM information_schema.columns 
-            WHERE table_schema = '\${schema}' 
-            AND table_name = '${this.tableName}' 
-            AND column_name = 'created_by'
-            AND data_type = 'character varying'
-          ) THEN
-            ALTER TABLE \${schema}.${this.tableName} ALTER COLUMN created_by TYPE UUID USING created_by::uuid;
-          END IF;
-        END $$;
-      `;
-      
-      await queryTenantSchema(tenantDB, addColumnsQuery);
-    }
-
-    const indexes = [
-      `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_title ON \${schema}.${this.tableName}(title)`,
-      `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_stage ON \${schema}.${this.tableName}(stage)`,
-      `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_contact_name ON \${schema}.${this.tableName}(contact_name)`,
-      `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_client_id ON \${schema}.${this.tableName}(client_id)`,
-      `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_active ON \${schema}.${this.tableName}(is_active)`,
-      `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_created_by ON \${schema}.${this.tableName}(created_by)`
-    ];
-
-    for (const indexQuery of indexes) {
-      await queryTenantSchema(tenantDB, indexQuery);
-    }
+    // Se não existir, não fazemos nada pois a tabela já é criada pelo Prisma
+    // Esta função serve apenas para garantir compatibilidade
   }
 
+  /**
+   * Lista projetos com paginação e filtros
+   */
   async getProjects(tenantDB: TenantDatabase, filters: ProjectFilters = {}): Promise<{
     projects: Project[];
     pagination: {
@@ -268,14 +130,25 @@ class ProjectsService {
     let queryParams: any[] = [];
     let paramIndex = 1;
 
-    if (filters.stage) {
-      whereConditions.push(`stage = $${paramIndex}`);
-      queryParams.push(filters.stage);
+    if (filters.status) {
+      whereConditions.push(`status = $${paramIndex}`);
+      queryParams.push(filters.status);
+      paramIndex++;
+    }
+
+    if (filters.priority) {
+      whereConditions.push(`priority = $${paramIndex}`);
+      queryParams.push(filters.priority);
       paramIndex++;
     }
 
     if (filters.search) {
-      whereConditions.push(`(title ILIKE $${paramIndex} OR contact_name ILIKE $${paramIndex} OR organization ILIKE $${paramIndex})`);
+      whereConditions.push(`(
+        title ILIKE $${paramIndex} OR 
+        client_name ILIKE $${paramIndex} OR 
+        organization ILIKE $${paramIndex} OR
+        description ILIKE $${paramIndex}
+      )`);
       queryParams.push(`%${filters.search}%`);
       paramIndex++;
     }
@@ -286,15 +159,35 @@ class ProjectsService {
       paramIndex++;
     }
 
-    const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
+    const whereClause = whereConditions.join(' AND ');
 
     const projectsQuery = `
       SELECT 
-        id, title, description, contact_name, client_id, organization, 
-        email, mobile, address, budget, currency, stage, tags, notes,
-        created_by, created_at, updated_at, is_active
+        id::text,
+        title,
+        description,
+        client_id::text,
+        client_name,
+        organization,
+        address,
+        budget::numeric,
+        currency,
+        status,
+        priority,
+        progress,
+        start_date::text,
+        due_date::text,
+        completed_at::text,
+        tags::jsonb,
+        assigned_to::jsonb,
+        notes,
+        contacts::jsonb,
+        created_by::text,
+        created_at::text,
+        updated_at::text,
+        is_active
       FROM \${schema}.${this.tableName}
-      ${whereClause}
+      WHERE ${whereClause}
       ORDER BY created_at DESC
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
     `;
@@ -302,7 +195,7 @@ class ProjectsService {
     const countQuery = `
       SELECT COUNT(*) as total
       FROM \${schema}.${this.tableName}
-      ${whereClause}
+      WHERE ${whereClause}
     `;
 
     const [projects, countResult] = await Promise.all([
@@ -326,45 +219,78 @@ class ProjectsService {
     };
   }
 
+  /**
+   * Busca projeto por ID
+   */
   async getProjectById(tenantDB: TenantDatabase, projectId: string): Promise<Project | null> {
     await this.ensureTables(tenantDB);
 
     const query = `
       SELECT 
-        id, title, description, contact_name, client_id, organization,
-        email, mobile, address, budget, currency, stage, tags, notes,
-        created_by, created_at, updated_at, is_active
+        id::text,
+        title,
+        description,
+        client_id::text,
+        client_name,
+        organization,
+        address,
+        budget::numeric,
+        currency,
+        status,
+        priority,
+        progress,
+        start_date::text,
+        due_date::text,
+        completed_at::text,
+        tags::jsonb,
+        assigned_to::jsonb,
+        notes,
+        contacts::jsonb,
+        created_by::text,
+        created_at::text,
+        updated_at::text,
+        is_active
       FROM \${schema}.${this.tableName}
-      WHERE id = $1 AND is_active = TRUE
+      WHERE id::text = $1 AND is_active = TRUE
     `;
 
     const result = await queryTenantSchema<Project>(tenantDB, query, [projectId]);
     return result[0] || null;
   }
 
+  /**
+   * Cria novo projeto
+   */
   async createProject(tenantDB: TenantDatabase, projectData: CreateProjectData, createdBy: string): Promise<Project> {
     await this.ensureTables(tenantDB);
 
     const data: Record<string, any> = {
       title: projectData.title,
-      contact_name: projectData.contactName,
+      client_name: projectData.clientName,
       description: projectData.description || null,
       client_id: projectData.clientId || null,
       organization: projectData.organization || null,
-      email: projectData.email || null,
-      mobile: projectData.mobile || null,
       address: projectData.address || null,
       budget: projectData.budget || null,
       currency: projectData.currency || 'BRL',
-      stage: projectData.stage || 'contacted',
+      status: projectData.status || 'contacted',
+      priority: projectData.priority || 'medium',
+      progress: projectData.progress || 0,
+      start_date: projectData.startDate || null,
+      due_date: projectData.dueDate || null,
       tags: JSON.stringify(projectData.tags || []),
+      assigned_to: JSON.stringify(projectData.assignedTo || []),
       notes: projectData.notes || null,
+      contacts: JSON.stringify(projectData.contacts || []),
       created_by: createdBy
     };
 
     return await insertInTenantSchema<Project>(tenantDB, this.tableName, data);
   }
 
+  /**
+   * Atualiza projeto existente
+   */
   async updateProject(tenantDB: TenantDatabase, projectId: string, updateData: UpdateProjectData): Promise<Project | null> {
     await this.ensureTables(tenantDB);
 
@@ -372,17 +298,21 @@ class ProjectsService {
 
     if (updateData.title !== undefined) data.title = updateData.title;
     if (updateData.description !== undefined) data.description = updateData.description;
-    if (updateData.contactName !== undefined) data.contact_name = updateData.contactName;
     if (updateData.clientId !== undefined) data.client_id = updateData.clientId;
+    if (updateData.clientName !== undefined) data.client_name = updateData.clientName;
     if (updateData.organization !== undefined) data.organization = updateData.organization;
-    if (updateData.email !== undefined) data.email = updateData.email;
-    if (updateData.mobile !== undefined) data.mobile = updateData.mobile;
     if (updateData.address !== undefined) data.address = updateData.address;
     if (updateData.budget !== undefined) data.budget = updateData.budget;
     if (updateData.currency !== undefined) data.currency = updateData.currency;
-    if (updateData.stage !== undefined) data.stage = updateData.stage;
+    if (updateData.status !== undefined) data.status = updateData.status;
+    if (updateData.priority !== undefined) data.priority = updateData.priority;
+    if (updateData.progress !== undefined) data.progress = updateData.progress;
+    if (updateData.startDate !== undefined) data.start_date = updateData.startDate;
+    if (updateData.dueDate !== undefined) data.due_date = updateData.dueDate;
     if (updateData.tags !== undefined) data.tags = JSON.stringify(updateData.tags);
+    if (updateData.assignedTo !== undefined) data.assigned_to = JSON.stringify(updateData.assignedTo);
     if (updateData.notes !== undefined) data.notes = updateData.notes;
+    if (updateData.contacts !== undefined) data.contacts = JSON.stringify(updateData.contacts);
 
     if (Object.keys(data).length === 0) {
       throw new Error('No fields to update');
@@ -391,30 +321,50 @@ class ProjectsService {
     return await updateInTenantSchema<Project>(tenantDB, this.tableName, projectId, data);
   }
 
+  /**
+   * Deleta projeto (soft delete)
+   */
   async deleteProject(tenantDB: TenantDatabase, projectId: string): Promise<boolean> {
     await this.ensureTables(tenantDB);
     const project = await softDeleteInTenantSchema<Project>(tenantDB, this.tableName, projectId);
     return !!project;
   }
 
+  /**
+   * Estatísticas de projetos
+   */
   async getProjectsStats(tenantDB: TenantDatabase): Promise<{
     total: number;
-    contacted: number;
-    proposal: number;
-    won: number;
-    lost: number;
-    thisMonth: number;
+    avgProgress: number;
+    overdue: number;
+    revenue: number;
+    byStatus: {
+      contacted: number;
+      proposal: number;
+      won: number;
+      lost: number;
+    };
+    byPriority: {
+      low: number;
+      medium: number;
+      high: number;
+    };
   }> {
     await this.ensureTables(tenantDB);
     
     const query = `
       SELECT 
         COUNT(*) as total,
-        COUNT(*) FILTER (WHERE stage = 'contacted') as contacted,
-        COUNT(*) FILTER (WHERE stage = 'proposal') as proposal,
-        COUNT(*) FILTER (WHERE stage = 'won') as won,
-        COUNT(*) FILTER (WHERE stage = 'lost') as lost,
-        COUNT(*) FILTER (WHERE created_at >= DATE_TRUNC('month', NOW())) as this_month
+        COALESCE(AVG(progress), 0) as avg_progress,
+        COUNT(*) FILTER (WHERE due_date < CURRENT_DATE AND status NOT IN ('won', 'lost')) as overdue,
+        COALESCE(SUM(CASE WHEN status = 'won' THEN budget ELSE 0 END), 0) as revenue,
+        COUNT(*) FILTER (WHERE status = 'contacted') as contacted,
+        COUNT(*) FILTER (WHERE status = 'proposal') as proposal,
+        COUNT(*) FILTER (WHERE status = 'won') as won,
+        COUNT(*) FILTER (WHERE status = 'lost') as lost,
+        COUNT(*) FILTER (WHERE priority = 'low') as priority_low,
+        COUNT(*) FILTER (WHERE priority = 'medium') as priority_medium,
+        COUNT(*) FILTER (WHERE priority = 'high') as priority_high
       FROM \${schema}.${this.tableName}
       WHERE is_active = TRUE
     `;
@@ -424,11 +374,20 @@ class ProjectsService {
     
     return {
       total: parseInt(stats.total || '0'),
-      contacted: parseInt(stats.contacted || '0'),
-      proposal: parseInt(stats.proposal || '0'),
-      won: parseInt(stats.won || '0'),
-      lost: parseInt(stats.lost || '0'),
-      thisMonth: parseInt(stats.this_month || '0')
+      avgProgress: Math.round(parseFloat(stats.avg_progress || '0')),
+      overdue: parseInt(stats.overdue || '0'),
+      revenue: parseFloat(stats.revenue || '0'),
+      byStatus: {
+        contacted: parseInt(stats.contacted || '0'),
+        proposal: parseInt(stats.proposal || '0'),
+        won: parseInt(stats.won || '0'),
+        lost: parseInt(stats.lost || '0')
+      },
+      byPriority: {
+        low: parseInt(stats.priority_low || '0'),
+        medium: parseInt(stats.priority_medium || '0'),
+        high: parseInt(stats.priority_high || '0')
+      }
     };
   }
 }

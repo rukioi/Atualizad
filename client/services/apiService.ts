@@ -251,6 +251,10 @@ class ApiService {
     });
   }
 
+  async getProjectsStats() {
+    return this.request('/projects/stats');
+  }
+
   // Tasks
   async getTasks(params: any = {}) {
     const query = new URLSearchParams(params).toString();
