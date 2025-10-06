@@ -319,6 +319,7 @@ class ProjectsService {
 
     const data: Record<string, any> = {
       title: projectData.title,
+      name: projectData.title, // Usar title como name também (campo legado)
       client_name: projectData.clientName,
       description: projectData.description || null,
       client_id: projectData.clientId || null,
