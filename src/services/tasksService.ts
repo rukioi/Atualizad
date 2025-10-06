@@ -80,13 +80,13 @@ class TasksService {
    */
   private async ensureTables(tenantDB: TenantDatabase): Promise<void> {
     const createTableQuery = `
-      CREATE TABLE IF NOT EXISTS ${this.tableName} (
-        id VARCHAR PRIMARY KEY,
+      CREATE TABLE IF NOT EXISTS \${schema}.${this.tableName} (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         title VARCHAR NOT NULL,
         description TEXT,
-        project_id VARCHAR,
+        project_id UUID,
         project_title VARCHAR,
-        client_id VARCHAR,
+        client_id UUID,
         client_name VARCHAR,
         assigned_to VARCHAR NOT NULL,
         status VARCHAR DEFAULT 'not_started' CHECK (status IN ('not_started', 'in_progress', 'completed', 'on_hold', 'cancelled')),
@@ -96,9 +96,9 @@ class TasksService {
         estimated_hours DECIMAL(5,2),
         actual_hours DECIMAL(5,2),
         progress INTEGER DEFAULT 0 CHECK (progress >= 0 AND progress <= 100),
-        tags JSONB DEFAULT '[]',
+        tags JSONB DEFAULT '[]'::jsonb,
         notes TEXT,
-        subtasks JSONB DEFAULT '[]',
+        subtasks JSONB DEFAULT '[]'::jsonb,
         created_by VARCHAR NOT NULL,
         created_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP DEFAULT NOW(),
@@ -110,11 +110,13 @@ class TasksService {
 
     // Criar índices para performance otimizada
     const indexes = [
-      `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_assigned_to ON ${this.tableName}(assigned_to)`,
-      `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_status ON ${this.tableName}(status)`,
-      `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_priority ON ${this.tableName}(priority)`,
-      `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_project_id ON ${this.tableName}(project_id)`,
-      `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_active ON ${this.tableName}(is_active)`
+      `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_assigned_to ON \${schema}.${this.tableName}(assigned_to)`,
+      `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_status ON \${schema}.${this.tableName}(status)`,
+      `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_priority ON \${schema}.${this.tableName}(priority)`,
+      `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_project_id ON \${schema}.${this.tableName}(project_id)`,
+      `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_client_id ON \${schema}.${this.tableName}(client_id)`,
+      `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_active ON \${schema}.${this.tableName}(is_active)`,
+      `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_created_by ON \${schema}.${this.tableName}(created_by)`
     ];
 
     for (const indexQuery of indexes) {
@@ -172,13 +174,36 @@ class TasksService {
     const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
 
     const tasksQuery = `
-      SELECT * FROM ${this.tableName}
+      SELECT 
+        id::text,
+        title,
+        COALESCE(description, '') as description,
+        COALESCE(project_id::text, NULL) as project_id,
+        COALESCE(project_title, '') as project_title,
+        COALESCE(client_id::text, NULL) as client_id,
+        COALESCE(client_name, '') as client_name,
+        assigned_to,
+        status,
+        priority,
+        COALESCE(progress, 0) as progress,
+        COALESCE(start_date::text, NULL) as start_date,
+        COALESCE(end_date::text, NULL) as end_date,
+        COALESCE(estimated_hours::numeric, NULL) as estimated_hours,
+        COALESCE(actual_hours::numeric, NULL) as actual_hours,
+        COALESCE(tags::jsonb, '[]'::jsonb) as tags,
+        COALESCE(notes, '') as notes,
+        COALESCE(subtasks::jsonb, '[]'::jsonb) as subtasks,
+        created_by,
+        created_at::text,
+        updated_at::text,
+        is_active
+      FROM \${schema}.${this.tableName}
       ${whereClause}
       ORDER BY created_at DESC
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
     `;
 
-    const countQuery = `SELECT COUNT(*) as total FROM ${this.tableName} ${whereClause}`;
+    const countQuery = `SELECT COUNT(*) as total FROM \${schema}.${this.tableName} ${whereClause}`;
 
     const [tasks, countResult] = await Promise.all([
       queryTenantSchema<Task>(tenantDB, tasksQuery, [...queryParams, limit, offset]),
@@ -200,7 +225,33 @@ class TasksService {
   async getTaskById(tenantDB: TenantDatabase, taskId: string): Promise<Task | null> {
     await this.ensureTables(tenantDB);
 
-    const query = `SELECT * FROM ${this.tableName} WHERE id = $1 AND is_active = TRUE`;
+    const query = `
+      SELECT 
+        id::text,
+        title,
+        COALESCE(description, '') as description,
+        COALESCE(project_id::text, NULL) as project_id,
+        COALESCE(project_title, '') as project_title,
+        COALESCE(client_id::text, NULL) as client_id,
+        COALESCE(client_name, '') as client_name,
+        assigned_to,
+        status,
+        priority,
+        COALESCE(progress, 0) as progress,
+        COALESCE(start_date::text, NULL) as start_date,
+        COALESCE(end_date::text, NULL) as end_date,
+        COALESCE(estimated_hours::numeric, NULL) as estimated_hours,
+        COALESCE(actual_hours::numeric, NULL) as actual_hours,
+        COALESCE(tags::jsonb, '[]'::jsonb) as tags,
+        COALESCE(notes, '') as notes,
+        COALESCE(subtasks::jsonb, '[]'::jsonb) as subtasks,
+        created_by,
+        created_at::text,
+        updated_at::text,
+        is_active
+      FROM \${schema}.${this.tableName}
+      WHERE id::text = $1 AND is_active = TRUE
+    `;
     const result = await queryTenantSchema<Task>(tenantDB, query, [taskId]);
     return result[0] || null;
   }
@@ -211,29 +262,32 @@ class TasksService {
   async createTask(tenantDB: TenantDatabase, taskData: CreateTaskData, createdBy: string): Promise<Task> {
     await this.ensureTables(tenantDB);
 
-    const taskId = `task_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    // Validar campos obrigatórios
+    if (!taskData.title) throw new Error('Título é obrigatório');
+    if (!taskData.assignedTo) throw new Error('Responsável é obrigatório');
 
-    const data = {
-      id: taskId,
+    const data: Record<string, any> = {
       title: taskData.title,
-      description: taskData.description || null,
-      project_id: taskData.projectId || null,
-      project_title: taskData.projectTitle || null,
-      client_id: taskData.clientId || null,
-      client_name: taskData.clientName || null,
       assigned_to: taskData.assignedTo,
       status: taskData.status || 'not_started',
       priority: taskData.priority || 'medium',
-      start_date: taskData.startDate || null,
-      end_date: taskData.endDate || null,
-      estimated_hours: taskData.estimatedHours || null,
-      actual_hours: taskData.actualHours || null,
       progress: taskData.progress || 0,
-      tags: JSON.stringify(taskData.tags || []),
-      notes: taskData.notes || null,
-      subtasks: JSON.stringify(taskData.subtasks || []),
       created_by: createdBy
     };
+
+    // Adicionar campos opcionais apenas se fornecidos
+    if (taskData.description) data.description = taskData.description;
+    if (taskData.projectId) data.project_id = taskData.projectId;
+    if (taskData.projectTitle) data.project_title = taskData.projectTitle;
+    if (taskData.clientId) data.client_id = taskData.clientId;
+    if (taskData.clientName) data.client_name = taskData.clientName;
+    if (taskData.startDate) data.start_date = taskData.startDate;
+    if (taskData.endDate) data.end_date = taskData.endDate;
+    if (taskData.estimatedHours !== undefined) data.estimated_hours = taskData.estimatedHours;
+    if (taskData.actualHours !== undefined) data.actual_hours = taskData.actualHours;
+    if (taskData.notes) data.notes = taskData.notes;
+    if (taskData.tags && taskData.tags.length > 0) data.tags = taskData.tags;
+    if (taskData.subtasks && taskData.subtasks.length > 0) data.subtasks = taskData.subtasks;
 
     return await insertInTenantSchema<Task>(tenantDB, this.tableName, data);
   }
@@ -299,7 +353,7 @@ class TasksService {
         COUNT(*) FILTER (WHERE status = 'in_progress') as in_progress,
         COUNT(*) FILTER (WHERE status = 'not_started') as not_started,
         COUNT(*) FILTER (WHERE priority = 'urgent') as urgent
-      FROM ${this.tableName}
+      FROM \${schema}.${this.tableName}
       WHERE is_active = TRUE
     `;
 

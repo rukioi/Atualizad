@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useTasks } from '@/hooks/useTasks';
 import { DashboardLayout } from '@/components/Layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -45,158 +45,7 @@ import {
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
 import { MoreHorizontal, Eye, Edit, Trash2 } from 'lucide-react';
-
-// Mock data - in real app would come from API
-const mockTasks: Task[] = [
-  {
-    id: '1',
-    title: 'Revisar contrato de prestação de serviços',
-    description: 'Analisar cláusulas contratuais e identificar possíveis riscos jurídicos para o cliente.',
-    startDate: '2024-01-20T00:00:00Z',
-    endDate: '2024-01-25T00:00:00Z',
-    status: 'in_progress',
-    priority: 'high',
-    assignedTo: 'Dr. Silva',
-    projectId: '1',
-    projectTitle: 'Ação Previdenciária - João Santos',
-    clientId: '1',
-    clientName: 'João Santos',
-    tags: ['Contrato', 'Revisão', 'Urgente'],
-    estimatedHours: 4,
-    actualHours: 2.5,
-    progress: 60,
-    createdAt: '2024-01-20T09:00:00Z',
-    updatedAt: '2024-01-22T14:30:00Z',
-    notes: 'Cliente solicitou urgência devido a prazo de assinatura.',
-    attachments: [],
-    subtasks: [
-      {
-        id: '1',
-        title: 'Ler contrato completo',
-        completed: true,
-        createdAt: '2024-01-20T09:00:00Z',
-        completedAt: '2024-01-21T10:30:00Z',
-      },
-      {
-        id: '2',
-        title: 'Identificar cláusulas problemáticas',
-        completed: true,
-        createdAt: '2024-01-20T09:00:00Z',
-        completedAt: '2024-01-22T11:15:00Z',
-      },
-      {
-        id: '3',
-        title: 'Elaborar parecer jurídico',
-        completed: false,
-        createdAt: '2024-01-20T09:00:00Z',
-      },
-      {
-        id: '4',
-        title: 'Enviar relatório ao cliente',
-        completed: false,
-        createdAt: '2024-01-20T09:00:00Z',
-      },
-    ],
-  },
-  {
-    id: '2',
-    title: 'Preparar petição inicial',
-    description: 'Elaborar petição inicial para ação de divórcio consensual.',
-    startDate: '2024-01-18T00:00:00Z',
-    endDate: '2024-01-30T00:00:00Z',
-    status: 'not_started',
-    priority: 'medium',
-    assignedTo: 'Dra. Costa',
-    projectId: '2',
-    projectTitle: 'Divórcio Consensual - Maria e Carlos',
-    clientId: '2',
-    clientName: 'Maria Silva',
-    tags: ['Petição', 'Divórcio', 'Família'],
-    estimatedHours: 6,
-    actualHours: 0,
-    progress: 0,
-    createdAt: '2024-01-18T10:15:00Z',
-    updatedAt: '2024-01-18T10:15:00Z',
-    notes: 'Aguardando documentos do cliente.',
-    attachments: [],
-    subtasks: [
-      {
-        id: '5',
-        title: 'Coletar documentos necessários',
-        completed: false,
-        createdAt: '2024-01-18T10:15:00Z',
-      },
-      {
-        id: '6',
-        title: 'Redigir petição',
-        completed: false,
-        createdAt: '2024-01-18T10:15:00Z',
-      },
-    ],
-  },
-  {
-    id: '3',
-    title: 'Acompanhar audiência no INSS',
-    description: 'Comparecer à audiência administrativa no INSS para defesa do cliente.',
-    startDate: '2024-01-15T00:00:00Z',
-    endDate: '2024-01-28T00:00:00Z',
-    status: 'completed',
-    priority: 'urgent',
-    assignedTo: 'Dr. Silva',
-    projectId: '1',
-    projectTitle: 'Ação Previdenciária - João Santos',
-    clientId: '1',
-    clientName: 'João Santos',
-    tags: ['INSS', 'Audiência', 'Previdenciário'],
-    estimatedHours: 3,
-    actualHours: 3.5,
-    progress: 100,
-    createdAt: '2024-01-15T08:00:00Z',
-    updatedAt: '2024-01-28T16:45:00Z',
-    completedAt: '2024-01-28T16:45:00Z',
-    notes: 'Audiência realizada com sucesso. Aguardando decisão.',
-    attachments: [],
-    subtasks: [
-      {
-        id: '7',
-        title: 'Preparar documentação',
-        completed: true,
-        createdAt: '2024-01-15T08:00:00Z',
-        completedAt: '2024-01-20T09:30:00Z',
-      },
-      {
-        id: '8',
-        title: 'Comparecer à audiência',
-        completed: true,
-        createdAt: '2024-01-15T08:00:00Z',
-        completedAt: '2024-01-28T16:45:00Z',
-      },
-    ],
-  },
-  {
-    id: '4',
-    title: 'Análise de viabilidade processual',
-    description: 'Estudar caso e avaliar chances de sucesso na ação judicial.',
-    startDate: '2024-01-25T00:00:00Z',
-    endDate: '2024-02-05T00:00:00Z',
-    status: 'on_hold',
-    priority: 'low',
-    assignedTo: 'Ana Paralegal',
-    projectId: '4',
-    projectTitle: 'Ação Trabalhista - Pedro Souza',
-    clientId: '4',
-    clientName: 'Pedro Souza',
-    tags: ['Análise', 'Trabalhista', 'Viabilidade'],
-    estimatedHours: 8,
-    actualHours: 1,
-    progress: 15,
-    createdAt: '2024-01-25T11:20:00Z',
-    updatedAt: '2024-01-26T14:10:00Z',
-    notes: 'Pausado até recebimento de documentos adicionais.',
-    attachments: [],
-    subtasks: [],
-  },
-];
+import { toast } from 'sonner';
 
 interface TasksListViewProps {
   tasks: Task[];
@@ -245,14 +94,6 @@ function TasksListView({
     return colors[priority] || colors.medium;
   };
 
-  const statusOptions = [
-    { value: 'not_started', label: '🔴 Não Feito' },
-    { value: 'in_progress', label: '🟡 Em Progresso' },
-    { value: 'completed', label: '🟢 Feito' },
-    { value: 'on_hold', label: '⏸️ Pausado' },
-    { value: 'cancelled', label: '❌ Cancelado' }
-  ];
-
   return (
     <div className="space-y-3">
       {tasks.map((task) => (
@@ -277,8 +118,12 @@ function TasksListView({
 
                   <div className="flex items-center space-x-4 text-xs text-muted-foreground">
                     <span>{task.assignedTo}</span>
-                    <span>•</span>
-                    <span>Vence: {new Date(task.endDate).toLocaleDateString('pt-BR')}</span>
+                    {task.endDate && (
+                      <>
+                        <span>•</span>
+                        <span>Vence: {new Date(task.endDate).toLocaleDateString('pt-BR')}</span>
+                      </>
+                    )}
                     {task.clientName && (
                       <>
                         <span>•</span>
@@ -335,11 +180,11 @@ function TasksListView({
 }
 
 export function Tasks() {
+  const { tasks, isLoading, loadTasks, createTask, updateTask, deleteTask } = useTasks();
   const [showTaskForm, setShowTaskForm] = useState(false);
   const [showTaskView, setShowTaskView] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | undefined>();
   const [viewingTask, setViewingTask] = useState<Task | null>(null);
-  const [tasks, setTasks] = useState<Task[]>(mockTasks);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
@@ -393,66 +238,21 @@ export function Tasks() {
     },
   ];
 
-  const handleSubmitTask = (data: any) => {
-    if (editingTask) {
-      setTasks(tasks.map(task =>
-        task.id === editingTask.id
-          ? {
-              ...task,
-              ...data,
-              startDate: data.startDate + 'T00:00:00Z',
-              endDate: data.endDate + 'T00:00:00Z',
-              updatedAt: new Date().toISOString(),
-              attachments: task.attachments, // Keep existing attachments
-            }
-          : task
-      ));
-      setEditingTask(undefined);
-    } else {
-      const newTask: Task = {
-        ...data,
-        id: Date.now().toString(),
-        startDate: data.startDate + 'T00:00:00Z',
-        endDate: data.endDate + 'T00:00:00Z',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        attachments: [],
-        clientName: data.projectId ? 'Cliente do Projeto' : undefined,
-        projectTitle: data.projectId ? 'Projeto Relacionado' : undefined,
-      };
-      setTasks([...tasks, newTask]);
-
-      // NOVIDADE: Enviar notificação quando nova tarefa for criada
-      // Em produção, isso seria uma chamada para API de notificações
-      console.log("📢 NOTIFICAÇÃO ENVIADA: Nova tarefa criada", {
-        type: 'info',
-        title: 'Nova Tarefa Criada',
-        message: `${newTask.title} foi atribuída${newTask.assignedTo ? ` a ${newTask.assignedTo}` : ''}`,
-        category: 'task',
-        createdBy: 'Usuário Atual', // Em produção: pegar do contexto de auth
-        taskData: {
-          id: newTask.id,
-          title: newTask.title,
-          assignedTo: newTask.assignedTo,
-          priority: newTask.priority,
-          endDate: newTask.endDate,
-          projectTitle: newTask.projectTitle,
-          tags: newTask.tags
-        }
-      });
-
-      // FUTURO: Integração com sistema de notificações
-      // await NotificationService.create({
-      //   type: 'task_created',
-      //   title: 'Nova Tarefa Criada',
-      //   message: `${newTask.title} foi${newTask.assignedTo ? ` atribuída a ${newTask.assignedTo}` : ' criada'}`,
-      //   entityId: newTask.id,
-      //   entityType: 'task',
-      //   userId: currentUser.id,
-      //   assignedUserId: newTask.assignedTo ? getUserIdByName(newTask.assignedTo) : null
-      // });
+  const handleSubmitTask = async (data: any) => {
+    try {
+      if (editingTask) {
+        await updateTask(editingTask.id, data);
+        toast.success('Tarefa atualizada com sucesso!');
+        setEditingTask(undefined);
+      } else {
+        await createTask(data);
+        toast.success('Tarefa criada com sucesso!');
+      }
+      setShowTaskForm(false);
+    } catch (error) {
+      toast.error(editingTask ? 'Erro ao atualizar tarefa' : 'Erro ao criar tarefa');
+      console.error('Error submitting task:', error);
     }
-    setShowTaskForm(false);
   };
 
   const handleAddTask = (status: TaskStatus) => {
@@ -465,22 +265,24 @@ export function Tasks() {
     setShowTaskForm(true);
   };
 
-  const handleDeleteTask = (taskId: string) => {
-    setTasks(tasks.filter(task => task.id !== taskId));
+  const handleDeleteTask = async (taskId: string) => {
+    try {
+      await deleteTask(taskId);
+      toast.success('Tarefa excluída com sucesso!');
+    } catch (error) {
+      toast.error('Erro ao excluir tarefa');
+      console.error('Error deleting task:', error);
+    }
   };
 
-  const handleMoveTask = (taskId: string, newStatus: TaskStatus) => {
-    setTasks(tasks.map(task =>
-      task.id === taskId
-        ? {
-            ...task,
-            status: newStatus,
-            updatedAt: new Date().toISOString(),
-            completedAt: newStatus === 'completed' ? new Date().toISOString() : undefined,
-            progress: newStatus === 'completed' ? 100 : task.progress
-          }
-        : task
-    ));
+  const handleMoveTask = async (taskId: string, newStatus: TaskStatus) => {
+    try {
+      await updateTask(taskId, { status: newStatus });
+      toast.success('Status da tarefa atualizado!');
+    } catch (error) {
+      toast.error('Erro ao mover tarefa');
+      console.error('Error moving task:', error);
+    }
   };
 
   const handleViewTask = (task: Task) => {
@@ -494,66 +296,45 @@ export function Tasks() {
     setShowTaskForm(true);
   };
 
-  const handleToggleSubtask = (taskId: string, subtaskId: string) => {
-    setTasks(tasks.map(task =>
-      task.id === taskId
+  const handleToggleSubtask = async (taskId: string, subtaskId: string) => {
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
+
+    const updatedSubtasks = task.subtasks.map(subtask =>
+      subtask.id === subtaskId
         ? {
-            ...task,
-            subtasks: task.subtasks.map(subtask =>
-              subtask.id === subtaskId
-                ? {
-                    ...subtask,
-                    completed: !subtask.completed,
-                    completedAt: !subtask.completed ? new Date().toISOString() : undefined
-                  }
-                : subtask
-            ),
-            updatedAt: new Date().toISOString()
+            ...subtask,
+            completed: !subtask.completed,
+            completedAt: !subtask.completed ? new Date().toISOString() : undefined
           }
-        : task
-    ));
+        : subtask
+    );
+
+    try {
+      await updateTask(taskId, { subtasks: updatedSubtasks });
+    } catch (error) {
+      toast.error('Erro ao atualizar subtarefa');
+      console.error('Error toggling subtask:', error);
+    }
   };
 
-  // Calculate task statistics
-  const taskStats: TaskStats = useMemo(() => {
-    const total = tasks.length;
-    const notStarted = tasks.filter(t => t.status === 'not_started').length;
-    const inProgress = tasks.filter(t => t.status === 'in_progress').length;
-    const completed = tasks.filter(t => t.status === 'completed').length;
-    const overdue = tasks.filter(t =>
-      new Date(t.endDate) < new Date() &&
-      !['completed', 'cancelled'].includes(t.status)
-    ).length;
-    const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
-
-    // Calculate average completion time
-    const completedTasks = tasks.filter(t => t.status === 'completed' && t.completedAt);
-    const avgCompletionTime = completedTasks.length > 0
-      ? Math.round(completedTasks.reduce((sum, task) => {
-          const start = new Date(task.createdAt);
-          const end = new Date(task.completedAt!);
-          const diffDays = (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24);
-          return sum + diffDays;
-        }, 0) / completedTasks.length)
-      : 0;
-
-    return {
-      total,
-      notStarted,
-      inProgress,
-      completed,
-      overdue,
-      completionRate,
-      averageCompletionTime: avgCompletionTime
-    };
-  }, [tasks]);
-
   // Get unique assignees for filter
-  const assignees = [...new Set(tasks.map(task => task.assignedTo))];
+  const uniqueAssignees = Array.from(new Set(tasks.map(task => task.assignedTo)));
+
+  // Calculate stats
+  const taskStats: TaskStats = {
+    total: filteredTasks.length,
+    notStarted: filteredTasks.filter(t => t.status === 'not_started').length,
+    inProgress: filteredTasks.filter(t => t.status === 'in_progress').length,
+    completed: filteredTasks.filter(t => t.status === 'completed').length,
+    onHold: filteredTasks.filter(t => t.status === 'on_hold').length,
+    urgent: filteredTasks.filter(t => t.priority === 'urgent').length,
+  };
 
   return (
     <DashboardLayout>
-      <div className="space-y-6 p-6">
+      <div className="space-y-6">
+        {/* Breadcrumbs */}
         <Breadcrumb>
           <BreadcrumbList>
             <BreadcrumbItem>
@@ -566,40 +347,21 @@ export function Tasks() {
           </BreadcrumbList>
         </Breadcrumb>
 
+        {/* Header */}
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Tarefas</h1>
             <p className="text-muted-foreground">
-              Gerenciamento pessoal de tarefas por colaborador
+              Gerencie e acompanhe todas as tarefas e subtarefas do escritório
             </p>
           </div>
-          <div className="flex space-x-2">
-            <div className="flex border rounded-lg p-1">
-              <Button
-                variant={viewMode === 'kanban' ? 'default' : 'ghost'}
-                size="sm"
-                onClick={() => setViewMode('kanban')}
-              >
-                <Grid3X3 className="h-4 w-4 mr-1" />
-                Kanban
-              </Button>
-              <Button
-                variant={viewMode === 'list' ? 'default' : 'ghost'}
-                size="sm"
-                onClick={() => setViewMode('list')}
-              >
-                <List className="h-4 w-4 mr-1" />
-                Lista
-              </Button>
-            </div>
-            <Button onClick={() => handleAddTask('not_started')}>
-              <Plus className="h-4 w-4 mr-2" />
-              Nova Tarefa
-            </Button>
-          </div>
+          <Button onClick={() => handleAddTask('not_started')}>
+            <Plus className="mr-2 h-4 w-4" />
+            Nova Tarefa
+          </Button>
         </div>
 
-        {/* Statistics Cards */}
+        {/* Stats Cards */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -608,160 +370,163 @@ export function Tasks() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{taskStats.total}</div>
-              <p className="text-xs text-muted-foreground">
-                {taskStats.inProgress} em progresso
-              </p>
+              <p className="text-xs text-muted-foreground">Todas as tarefas ativas</p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Taxa de Conclusão</CardTitle>
+              <CardTitle className="text-sm font-medium">Em Progresso</CardTitle>
+              <Clock className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{taskStats.inProgress}</div>
+              <p className="text-xs text-muted-foreground">Tarefas em andamento</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Concluídas</CardTitle>
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{taskStats.completionRate}%</div>
-              <p className="text-xs text-muted-foreground">
-                {taskStats.completed} concluídas
-              </p>
+              <div className="text-2xl font-bold">{taskStats.completed}</div>
+              <p className="text-xs text-muted-foreground">Tarefas finalizadas</p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Tarefas Vencidas</CardTitle>
-              <AlertTriangle className="h-4 w-4 text-red-500" />
+              <CardTitle className="text-sm font-medium">Urgentes</CardTitle>
+              <AlertTriangle className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-red-600">{taskStats.overdue}</div>
-              <p className="text-xs text-muted-foreground">
-                Necessitam atenção
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Tempo Médio</CardTitle>
-              <Timer className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{taskStats.averageCompletionTime}d</div>
-              <p className="text-xs text-muted-foreground">
-                Para conclusão
-              </p>
+              <div className="text-2xl font-bold">{taskStats.urgent}</div>
+              <p className="text-xs text-muted-foreground">Requerem atenção imediata</p>
             </CardContent>
           </Card>
         </div>
 
         {/* Filters */}
-        <div className="flex items-center space-x-4">
-          <div className="flex-1 max-w-md">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Procurar tarefas..."
-                className="pl-10"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-          </div>
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-40">
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos Status</SelectItem>
-              <SelectItem value="not_started">Não Feito</SelectItem>
-              <SelectItem value="in_progress">Em Progresso</SelectItem>
-              <SelectItem value="completed">Feito</SelectItem>
-              <SelectItem value="on_hold">Pausado</SelectItem>
-              <SelectItem value="cancelled">Cancelado</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-            <SelectTrigger className="w-40">
-              <SelectValue placeholder="Prioridade" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas</SelectItem>
-              <SelectItem value="low">Baixa</SelectItem>
-              <SelectItem value="medium">Média</SelectItem>
-              <SelectItem value="high">Alta</SelectItem>
-              <SelectItem value="urgent">Urgente</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={assigneeFilter} onValueChange={setAssigneeFilter}>
-            <SelectTrigger className="w-40">
-              <SelectValue placeholder="Responsável" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos</SelectItem>
-              {assignees.map((assignee) => (
-                <SelectItem key={assignee} value={assignee}>
-                  {assignee}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Task Board */}
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <CheckSquare className="h-5 w-5 mr-2" />
-              Quadro de Tarefas ({filteredTasks.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {viewMode === 'kanban' ? (
-              <TaskBoard
-                boards={taskBoards}
-                onAddTask={handleAddTask}
-                onEditTask={handleEditTask}
-                onDeleteTask={handleDeleteTask}
-                onMoveTask={handleMoveTask}
-                onViewTask={handleViewTask}
-                onToggleSubtask={handleToggleSubtask}
-              />
-            ) : (
-              <TasksListView
-                tasks={filteredTasks}
-                onEditTask={handleEditTask}
-                onDeleteTask={handleDeleteTask}
-                onViewTask={handleViewTask}
-                onMoveTask={handleMoveTask}
-              />
-            )}
+          <CardContent className="pt-6">
+            <div className="flex flex-col md:flex-row gap-4">
+              <div className="flex-1">
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Buscar tarefas..."
+                    className="pl-8"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-full md:w-[180px]">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os Status</SelectItem>
+                  <SelectItem value="not_started">Não Feito</SelectItem>
+                  <SelectItem value="in_progress">Em Progresso</SelectItem>
+                  <SelectItem value="completed">Feito</SelectItem>
+                  <SelectItem value="on_hold">Pausado</SelectItem>
+                  <SelectItem value="cancelled">Cancelado</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+                <SelectTrigger className="w-full md:w-[180px]">
+                  <SelectValue placeholder="Prioridade" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas as Prioridades</SelectItem>
+                  <SelectItem value="low">Baixa</SelectItem>
+                  <SelectItem value="medium">Média</SelectItem>
+                  <SelectItem value="high">Alta</SelectItem>
+                  <SelectItem value="urgent">Urgente</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select value={assigneeFilter} onValueChange={setAssigneeFilter}>
+                <SelectTrigger className="w-full md:w-[180px]">
+                  <SelectValue placeholder="Responsável" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os Responsáveis</SelectItem>
+                  {uniqueAssignees.map(assignee => (
+                    <SelectItem key={assignee} value={assignee}>{assignee}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <div className="flex gap-2">
+                <Button
+                  variant={viewMode === 'kanban' ? 'default' : 'outline'}
+                  size="icon"
+                  onClick={() => setViewMode('kanban')}
+                >
+                  <Grid3X3 className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant={viewMode === 'list' ? 'default' : 'outline'}
+                  size="icon"
+                  onClick={() => setViewMode('list')}
+                >
+                  <List className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
           </CardContent>
         </Card>
 
-        {/* Task Form Modal */}
+        {/* Tasks View */}
+        {isLoading ? (
+          <div className="text-center py-12">
+            <div className="text-muted-foreground">Carregando tarefas...</div>
+          </div>
+        ) : viewMode === 'kanban' ? (
+          <TaskBoard
+            boards={taskBoards}
+            onAddTask={handleAddTask}
+            onEditTask={handleEditTask}
+            onDeleteTask={handleDeleteTask}
+            onViewTask={handleViewTask}
+            onMoveTask={handleMoveTask}
+            onToggleSubtask={handleToggleSubtask}
+          />
+        ) : (
+          <TasksListView
+            tasks={filteredTasks}
+            onEditTask={handleEditTask}
+            onDeleteTask={handleDeleteTask}
+            onViewTask={handleViewTask}
+            onMoveTask={handleMoveTask}
+          />
+        )}
+
+        {/* Task Form Dialog */}
         <TaskForm
           open={showTaskForm}
           onOpenChange={setShowTaskForm}
           task={editingTask}
           onSubmit={handleSubmitTask}
-          isEditing={!!editingTask}
-          existingTags={
-            /* Extrair todas as tags únicas das tarefas existentes */
-            Array.from(
-              new Set(
-                tasks.flatMap(task => task.tags || [])
-              )
-            ).sort()
-          }
         />
 
         {/* Task View Dialog */}
-        <TaskViewDialog
-          open={showTaskView}
-          onOpenChange={setShowTaskView}
-          task={viewingTask}
-          onEdit={handleEditFromView}
-        />
+        {viewingTask && (
+          <TaskViewDialog
+            open={showTaskView}
+            onOpenChange={setShowTaskView}
+            task={viewingTask}
+            onEdit={handleEditFromView}
+            onDelete={handleDeleteTask}
+            onToggleSubtask={handleToggleSubtask}
+          />
+        )}
       </div>
     </DashboardLayout>
   );
