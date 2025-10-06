@@ -1,0 +1,123 @@
+Ensuring schema exists: tenant_1759764064910_lhpl45 for tenant: 2febe8a4-175c-4f3d-acc3-5c1ac4309e49
+Schema tenant_1759764064910_lhpl45 already exists
+Tenant access validated: {
+  userId: '471e4206-6b55-4c4a-9810-4d2f1011f6fd',
+  tenantId: '2febe8a4-175c-4f3d-acc3-5c1ac4309e49',
+  tenantName: 'Teste-Tenant',
+  accountType: 'GERENCIAL'
+}
+[ProjectsController] Creating project for user: 471e4206-6b55-4c4a-9810-4d2f1011f6fd
+Ensuring schema exists: tenant_1759764064910_lhpl45 for tenant: 2febe8a4-175c-4f3d-acc3-5c1ac4309e49
+Schema tenant_1759764064910_lhpl45 already exists
+Executing query in schema tenant_1759764064910_lhpl45: 
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_schema = 'tenant_1759764064910_lhpl45'
+        AND table_name = 'projects'
+      )
+    
+Ensuring schema exists: tenant_1759764064910_lhpl45 for tenant: 2febe8a4-175c-4f3d-acc3-5c1ac4309e49
+Schema tenant_1759764064910_lhpl45 already exists
+Executing query in schema tenant_1759764064910_lhpl45: 
+        ALTER TABLE tenant_1759764064910_lhpl45.projects 
+        ADD COLUMN IF NOT EXISTS due_date TIMESTAMP WITH TIME ZONE
+      
+Ensuring schema exists: tenant_1759764064910_lhpl45 for tenant: 2febe8a4-175c-4f3d-acc3-5c1ac4309e49
+Schema tenant_1759764064910_lhpl45 already exists
+Executing query in schema tenant_1759764064910_lhpl45: 
+        ALTER TABLE tenant_1759764064910_lhpl45.projects 
+        ADD COLUMN IF NOT EXISTS completed_at TIMESTAMP WITH TIME ZONE
+      
+Ensuring schema exists: tenant_1759764064910_lhpl45 for tenant: 2febe8a4-175c-4f3d-acc3-5c1ac4309e49
+Schema tenant_1759764064910_lhpl45 already exists
+Executing query in schema tenant_1759764064910_lhpl45: 
+        ALTER TABLE tenant_1759764064910_lhpl45.projects 
+        ADD COLUMN IF NOT EXISTS assigned_to JSONB DEFAULT '[]'::jsonb
+      
+Ensuring schema exists: tenant_1759764064910_lhpl45 for tenant: 2febe8a4-175c-4f3d-acc3-5c1ac4309e49
+Schema tenant_1759764064910_lhpl45 already exists
+Executing query in schema tenant_1759764064910_lhpl45: 
+        ALTER TABLE tenant_1759764064910_lhpl45.projects 
+        ADD COLUMN IF NOT EXISTS contacts JSONB DEFAULT '[]'::jsonb
+      
+Ensuring schema exists: tenant_1759764064910_lhpl45 for tenant: 2febe8a4-175c-4f3d-acc3-5c1ac4309e49
+Schema tenant_1759764064910_lhpl45 already exists
+Executing query in schema tenant_1759764064910_lhpl45: 
+        UPDATE tenant_1759764064910_lhpl45.projects 
+        SET due_date = end_date 
+        WHERE due_date IS NULL AND end_date IS NOT NULL
+      
+Insert query: 
+    INSERT INTO tenant_1759764064910_lhpl45.projects (id, title, client_name, description, client_id, organization, address, budget, currency, status, priority, progress, start_date, due_date, tags, assigned_to, notes, contacts, created_by)
+    VALUES (gen_random_uuid(), $1, $2, $3, $4::uuid, $5, $6, $7, $8, $9, $10, $11, $12::date, $13::date, $14::jsonb, $15::jsonb, $16, $17::jsonb, $18::uuid)
+    RETURNING *
+  
+Insert values: [
+  'Titulo do Projeto',
+  'Nome do cliente',
+  'Descrição',
+  null,
+  'organização',
+  'endereço',
+  1200,
+  'BRL',
+  'contacted',
+  'medium',
+  30,
+  '2025-09-28',
+  '2025-10-14',
+  '["NovaTag"]',
+  '[]',
+  'Observações',
+  '[]',
+  '471e4206-6b55-4c4a-9810-4d2f1011f6fd'
+]
+Ensuring schema exists: tenant_1759764064910_lhpl45 for tenant: 2febe8a4-175c-4f3d-acc3-5c1ac4309e49
+Schema tenant_1759764064910_lhpl45 already exists
+Executing query in schema tenant_1759764064910_lhpl45: 
+    INSERT INTO tenant_1759764064910_lhpl45.projects (id, title, client_name, description, client_id, organization, address, budget, currency, status, priority, progress, start_date, due_date, tags, assigned_to, notes, contacts, created_by)
+    VALUES (gen_random_uuid(), $1, $2, $3, $4::uuid, $5, $6, $7, $8, $9, $10, $11, $12::date, $13::date, $14::jsonb, $15::jsonb, $16, $17::jsonb, $18::uuid)
+    RETURNING *
+  
+Error executing tenant query: PrismaClientKnownRequestError: 
+Invalid `prisma.$queryRawUnsafe()` invocation:
+
+
+Raw query failed. Code: `23502`. Message: `Failing row contains (d808b05a-03a2-4410-9db2-d54d4f5206a6, Titulo do Projeto, null, Descrição, null, Nome do cliente, contacted, medium, 30, 1200.00, null, 2025-09-28, null, ["NovaTag"], Observações, 471e4206-6b55-4c4a-9810-4d2f1011f6fd, t, 2025-10-06 19:06:16.967309+00, 2025-10-06 19:06:16.967309+00, contacted, null, organização, null, null, endereço, BRL, 2025-10-14 00:00:00+00, null, [], []).`
+    at ei.handleRequestError (/home/runner/workspace/node_modules/@prisma/client/runtime/library.js:121:7283)
+    at ei.handleAndLogRequestError (/home/runner/workspace/node_modules/@prisma/client/runtime/library.js:121:6608)
+    at ei.request (/home/runner/workspace/node_modules/@prisma/client/runtime/library.js:121:6315)
+    at async a (/home/runner/workspace/node_modules/@prisma/client/runtime/library.js:130:9551)
+    at async TenantDatabase.executeInTenantSchema (file:///home/runner/workspace/node_modules/.vite-temp/vite.config.ts.timestamp-1759777488026-6b366759c9be8.mjs:989:26)
+    at async queryTenantSchema (file:///home/runner/workspace/node_modules/.vite-temp/vite.config.ts.timestamp-1759777488026-6b366759c9be8.mjs:1799:10)
+    at async insertInTenantSchema (file:///home/runner/workspace/node_modules/.vite-temp/vite.config.ts.timestamp-1759777488026-6b366759c9be8.mjs:1847:18)
+    at async ProjectsService.createProject (file:///home/runner/workspace/node_modules/.vite-temp/vite.config.ts.timestamp-1759777488026-6b366759c9be8.mjs:2350:12)
+    at async ProjectsController.createProject (file:///home/runner/workspace/node_modules/.vite-temp/vite.config.ts.timestamp-1759777488026-6b366759c9be8.mjs:4630:23) {
+  code: 'P2010',
+  meta: {
+    code: '23502',
+    message: 'Failing row contains (d808b05a-03a2-4410-9db2-d54d4f5206a6, Titulo do Projeto, null, Descrição, null, Nome do cliente, contacted, medium, 30, 1200.00, null, 2025-09-28, null, ["NovaTag"], Observações, 471e4206-6b55-4c4a-9810-4d2f1011f6fd, t, 2025-10-06 19:06:16.967309+00, 2025-10-06 19:06:16.967309+00, contacted, null, organização, null, null, endereço, BRL, 2025-10-14 00:00:00+00, null, [], []).'
+  },
+  clientVersion: '6.16.3'
+}
+[ProjectsController] Create project error: PrismaClientKnownRequestError: 
+Invalid `prisma.$queryRawUnsafe()` invocation:
+
+
+Raw query failed. Code: `23502`. Message: `Failing row contains (d808b05a-03a2-4410-9db2-d54d4f5206a6, Titulo do Projeto, null, Descrição, null, Nome do cliente, contacted, medium, 30, 1200.00, null, 2025-09-28, null, ["NovaTag"], Observações, 471e4206-6b55-4c4a-9810-4d2f1011f6fd, t, 2025-10-06 19:06:16.967309+00, 2025-10-06 19:06:16.967309+00, contacted, null, organização, null, null, endereço, BRL, 2025-10-14 00:00:00+00, null, [], []).`
+    at ei.handleRequestError (/home/runner/workspace/node_modules/@prisma/client/runtime/library.js:121:7283)
+    at ei.handleAndLogRequestError (/home/runner/workspace/node_modules/@prisma/client/runtime/library.js:121:6608)
+    at ei.request (/home/runner/workspace/node_modules/@prisma/client/runtime/library.js:121:6315)
+    at async a (/home/runner/workspace/node_modules/@prisma/client/runtime/library.js:130:9551)
+    at async TenantDatabase.executeInTenantSchema (file:///home/runner/workspace/node_modules/.vite-temp/vite.config.ts.timestamp-1759777488026-6b366759c9be8.mjs:989:26)
+    at async queryTenantSchema (file:///home/runner/workspace/node_modules/.vite-temp/vite.config.ts.timestamp-1759777488026-6b366759c9be8.mjs:1799:10)
+    at async insertInTenantSchema (file:///home/runner/workspace/node_modules/.vite-temp/vite.config.ts.timestamp-1759777488026-6b366759c9be8.mjs:1847:18)
+    at async ProjectsService.createProject (file:///home/runner/workspace/node_modules/.vite-temp/vite.config.ts.timestamp-1759777488026-6b366759c9be8.mjs:2350:12)
+    at async ProjectsController.createProject (file:///home/runner/workspace/node_modules/.vite-temp/vite.config.ts.timestamp-1759777488026-6b366759c9be8.mjs:4630:23) {
+  code: 'P2010',
+  meta: {
+    code: '23502',
+    message: 'Failing row contains (d808b05a-03a2-4410-9db2-d54d4f5206a6, Titulo do Projeto, null, Descrição, null, Nome do cliente, contacted, medium, 30, 1200.00, null, 2025-09-28, null, ["NovaTag"], Observações, 471e4206-6b55-4c4a-9810-4d2f1011f6fd, t, 2025-10-06 19:06:16.967309+00, 2025-10-06 19:06:16.967309+00, contacted, null, organização, null, null, endereço, BRL, 2025-10-14 00:00:00+00, null, [], []).'
+  },
+  clientVersion: '6.16.3'
+}
