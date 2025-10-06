@@ -10,6 +10,7 @@ const __dirname = path.dirname(__filename);
 import authRoutes from './routes/auth';
 import dashboardRoutes from './routes/dashboard';
 import clientsRoutes from './routes/clients';
+import dealsRoutes from './routes/deals';
 import projectsRoutes from './routes/projects';
 import tasksRoutes from './routes/tasks';
 import transactionsRoutes from './routes/transactions';
@@ -40,6 +41,7 @@ export function createApp() {
   app.use('/api/auth', authRoutes);
   app.use('/api/dashboard', dashboardRoutes);
   app.use('/api/clients', clientsRoutes);
+  app.use('/api/deals', dealsRoutes);
   app.use('/api/projects', projectsRoutes);
   app.use('/api/tasks', tasksRoutes);
   app.use('/api/transactions', transactionsRoutes);

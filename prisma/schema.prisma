@@ -243,6 +243,7 @@ model Client {
   tasks         Task[]
   invoices      Invoice[]
   transactions  Transaction[]
+  deals         Deal[]
 
   @@index([name], map: "idx_clients_name")
   @@index([email], map: "idx_clients_email")
@@ -252,6 +253,42 @@ model Client {
   @@index([phone], map: "idx_clients_phone")
   @@index([createdBy], map: "idx_clients_created_by")
   @@map("clients")
+}
+
+// 💼 DEAL - Pipeline de Vendas (CRM)
+model Deal {
+  id            String    @id @default(cuid())
+  title         String
+  contactName   String    @map("contact_name")
+  organization  String?
+  email         String?
+  phone         String?
+  address       String?   @db.Text
+  budget        Decimal?  @db.Decimal(15, 2)
+  currency      String    @default("BRL")
+  stage         String    @default("contacted")
+  tags          Json      @default("[]")
+  description   String?   @db.Text
+  
+  // Relacionamento opcional com cliente
+  clientId      String?   @map("client_id")
+  
+  // Auditoria
+  createdBy     String    @map("created_by")
+  isActive      Boolean   @default(true) @map("is_active")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  client  Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
+
+  @@index([stage], map: "idx_deals_stage")
+  @@index([contactName], map: "idx_deals_contact_name")
+  @@index([clientId], map: "idx_deals_client_id")
+  @@index([createdBy], map: "idx_deals_created_by")
+  @@index([isActive], map: "idx_deals_active")
+  @@index([createdAt(sort: Desc)], map: "idx_deals_created_at")
+  @@map("deals")
 }
 
 // 📁 PROJECT - Gestão de Projetos/Casos
