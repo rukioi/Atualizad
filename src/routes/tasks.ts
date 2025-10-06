@@ -1,12 +1,13 @@
 import { Router } from 'express';
 import { tasksController } from '../controllers/tasksController';
-import { authenticateToken, tenantMiddleware } from '../middleware/auth';
+import { authenticateToken } from '../middleware/auth';
+import { validateTenantAccess } from '../middleware/tenant-isolation';
 
 const router = Router();
 
 // All task routes require authentication and tenant context
 router.use(authenticateToken);
-router.use(tenantMiddleware);
+router.use(validateTenantAccess);
 
 // Stats route must come before /:id to avoid matching "stats" as an id
 router.get('/stats/overview', tasksController.getTaskStats);
