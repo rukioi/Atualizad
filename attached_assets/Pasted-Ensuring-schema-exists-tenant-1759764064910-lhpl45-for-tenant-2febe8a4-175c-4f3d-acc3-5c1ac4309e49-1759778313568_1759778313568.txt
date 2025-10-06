@@ -1,0 +1,288 @@
+Ensuring schema exists: tenant_1759764064910_lhpl45 for tenant: 2febe8a4-175c-4f3d-acc3-5c1ac4309e49
+Schema tenant_1759764064910_lhpl45 already exists
+Ensuring schema exists: tenant_1759764064910_lhpl45 for tenant: 2febe8a4-175c-4f3d-acc3-5c1ac4309e49
+Tenant access validated: {
+  userId: '471e4206-6b55-4c4a-9810-4d2f1011f6fd',
+  tenantId: '2febe8a4-175c-4f3d-acc3-5c1ac4309e49',
+  tenantName: 'Teste-Tenant',
+  accountType: 'GERENCIAL'
+}
+[ProjectsController] Fetching projects for tenant: 2febe8a4-175c-4f3d-acc3-5c1ac4309e49
+Ensuring schema exists: tenant_1759764064910_lhpl45 for tenant: 2febe8a4-175c-4f3d-acc3-5c1ac4309e49
+Schema tenant_1759764064910_lhpl45 already exists
+Schema tenant_1759764064910_lhpl45 already exists
+Tenant access validated: {
+  userId: '471e4206-6b55-4c4a-9810-4d2f1011f6fd',
+  tenantId: '2febe8a4-175c-4f3d-acc3-5c1ac4309e49',
+  tenantName: 'Teste-Tenant',
+  accountType: 'GERENCIAL'
+}
+[ProjectsController] Fetching project stats for tenant: 2febe8a4-175c-4f3d-acc3-5c1ac4309e49
+Ensuring schema exists: tenant_1759764064910_lhpl45 for tenant: 2febe8a4-175c-4f3d-acc3-5c1ac4309e49
+Executing query in schema tenant_1759764064910_lhpl45: 
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_schema = 'tenant_1759764064910_lhpl45'
+        AND table_name = 'projects'
+      )
+    
+Ensuring schema exists: tenant_1759764064910_lhpl45 for tenant: 2febe8a4-175c-4f3d-acc3-5c1ac4309e49
+Schema tenant_1759764064910_lhpl45 already exists
+Schema tenant_1759764064910_lhpl45 already exists
+Executing query in schema tenant_1759764064910_lhpl45: 
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_schema = 'tenant_1759764064910_lhpl45'
+        AND table_name = 'projects'
+      )
+    
+Executing query in schema tenant_1759764064910_lhpl45: 
+        ALTER TABLE tenant_1759764064910_lhpl45.projects 
+        ADD COLUMN IF NOT EXISTS due_date TIMESTAMP WITH TIME ZONE
+      
+Ensuring schema exists: tenant_1759764064910_lhpl45 for tenant: 2febe8a4-175c-4f3d-acc3-5c1ac4309e49
+Schema tenant_1759764064910_lhpl45 already exists
+Ensuring schema exists: tenant_1759764064910_lhpl45 for tenant: 2febe8a4-175c-4f3d-acc3-5c1ac4309e49
+Executing query in schema tenant_1759764064910_lhpl45: 
+        ALTER TABLE tenant_1759764064910_lhpl45.projects 
+        ADD COLUMN IF NOT EXISTS completed_at TIMESTAMP WITH TIME ZONE
+      
+Schema tenant_1759764064910_lhpl45 already exists
+Ensuring schema exists: tenant_1759764064910_lhpl45 for tenant: 2febe8a4-175c-4f3d-acc3-5c1ac4309e49
+Executing query in schema tenant_1759764064910_lhpl45: 
+        ALTER TABLE tenant_1759764064910_lhpl45.projects 
+        ADD COLUMN IF NOT EXISTS due_date TIMESTAMP WITH TIME ZONE
+      
+Ensuring schema exists: tenant_1759764064910_lhpl45 for tenant: 2febe8a4-175c-4f3d-acc3-5c1ac4309e49
+Schema tenant_1759764064910_lhpl45 already exists
+Schema tenant_1759764064910_lhpl45 already exists
+Executing query in schema tenant_1759764064910_lhpl45: 
+        ALTER TABLE tenant_1759764064910_lhpl45.projects 
+        ADD COLUMN IF NOT EXISTS assigned_to JSONB DEFAULT '[]'::jsonb
+      
+Executing query in schema tenant_1759764064910_lhpl45: 
+        ALTER TABLE tenant_1759764064910_lhpl45.projects 
+        ADD COLUMN IF NOT EXISTS completed_at TIMESTAMP WITH TIME ZONE
+      
+Ensuring schema exists: tenant_1759764064910_lhpl45 for tenant: 2febe8a4-175c-4f3d-acc3-5c1ac4309e49
+Ensuring schema exists: tenant_1759764064910_lhpl45 for tenant: 2febe8a4-175c-4f3d-acc3-5c1ac4309e49
+Schema tenant_1759764064910_lhpl45 already exists
+Schema tenant_1759764064910_lhpl45 already exists
+Executing query in schema tenant_1759764064910_lhpl45: 
+        ALTER TABLE tenant_1759764064910_lhpl45.projects 
+        ADD COLUMN IF NOT EXISTS assigned_to JSONB DEFAULT '[]'::jsonb
+      
+Executing query in schema tenant_1759764064910_lhpl45: 
+        ALTER TABLE tenant_1759764064910_lhpl45.projects 
+        ADD COLUMN IF NOT EXISTS contacts JSONB DEFAULT '[]'::jsonb
+      
+Ensuring schema exists: tenant_1759764064910_lhpl45 for tenant: 2febe8a4-175c-4f3d-acc3-5c1ac4309e49
+Schema tenant_1759764064910_lhpl45 already exists
+Ensuring schema exists: tenant_1759764064910_lhpl45 for tenant: 2febe8a4-175c-4f3d-acc3-5c1ac4309e49
+Executing query in schema tenant_1759764064910_lhpl45: 
+        ALTER TABLE tenant_1759764064910_lhpl45.projects 
+        ADD COLUMN IF NOT EXISTS contacts JSONB DEFAULT '[]'::jsonb
+      
+Schema tenant_1759764064910_lhpl45 already exists
+Ensuring schema exists: tenant_1759764064910_lhpl45 for tenant: 2febe8a4-175c-4f3d-acc3-5c1ac4309e49
+Executing query in schema tenant_1759764064910_lhpl45: 
+        UPDATE tenant_1759764064910_lhpl45.projects 
+        SET due_date = end_date 
+        WHERE due_date IS NULL AND end_date IS NOT NULL
+      
+Schema tenant_1759764064910_lhpl45 already exists
+Executing query in schema tenant_1759764064910_lhpl45: 
+        UPDATE tenant_1759764064910_lhpl45.projects 
+        SET due_date = end_date 
+        WHERE due_date IS NULL AND end_date IS NOT NULL
+      
+Ensuring schema exists: tenant_1759764064910_lhpl45 for tenant: 2febe8a4-175c-4f3d-acc3-5c1ac4309e49
+Ensuring schema exists: tenant_1759764064910_lhpl45 for tenant: 2febe8a4-175c-4f3d-acc3-5c1ac4309e49
+Ensuring schema exists: tenant_1759764064910_lhpl45 for tenant: 2febe8a4-175c-4f3d-acc3-5c1ac4309e49
+Schema tenant_1759764064910_lhpl45 already exists
+Schema tenant_1759764064910_lhpl45 already exists
+Schema tenant_1759764064910_lhpl45 already exists
+Executing query in schema tenant_1759764064910_lhpl45: 
+      SELECT 
+        id::text,
+        title,
+        description,
+        client_id::text,
+        client_name,
+        organization,
+        address,
+        budget::numeric,
+        currency,
+        status,
+        priority,
+        progress,
+        start_date::text,
+        due_date::text,
+        completed_at::text,
+        tags::jsonb,
+        assigned_to::jsonb,
+        notes,
+        contacts::jsonb,
+        created_by::text,
+        created_at::text,
+        updated_at::text,
+        is_active
+      FROM tenant_1759764064910_lhpl45.projects
+      WHERE is_active = TRUE
+      ORDER BY created_at DESC
+      LIMIT $1 OFFSET $2
+    
+Executing query in schema tenant_1759764064910_lhpl45: 
+      SELECT COUNT(*) as total
+      FROM tenant_1759764064910_lhpl45.projects
+      WHERE is_active = TRUE
+    
+Executing query in schema tenant_1759764064910_lhpl45: 
+      SELECT 
+        COUNT(*) as total,
+        COALESCE(AVG(progress), 0) as avg_progress,
+        COUNT(*) FILTER (WHERE due_date < CURRENT_DATE AND status NOT IN ('won', 'lost')) as overdue,
+        COALESCE(SUM(CASE WHEN status = 'won' THEN budget ELSE 0 END), 0) as revenue,
+        COUNT(*) FILTER (WHERE status = 'contacted') as contacted,
+        COUNT(*) FILTER (WHERE status = 'proposal') as proposal,
+        COUNT(*) FILTER (WHERE status = 'won') as won,
+        COUNT(*) FILTER (WHERE status = 'lost') as lost,
+        COUNT(*) FILTER (WHERE priority = 'low') as priority_low,
+        COUNT(*) FILTER (WHERE priority = 'medium') as priority_medium,
+        COUNT(*) FILTER (WHERE priority = 'high') as priority_high
+      FROM tenant_1759764064910_lhpl45.projects
+      WHERE is_active = TRUE
+    
+[ProjectsController] Projects fetched: { count: 0, total: 0 }
+[ProjectsController] Stats fetched: {
+  total: 0,
+  avgProgress: 0,
+  overdue: 0,
+  revenue: 0,
+  byStatus: { contacted: 0, proposal: 0, won: 0, lost: 0 },
+  byPriority: { low: 0, medium: 0, high: 0 }
+}
+Ensuring schema exists: tenant_1759764064910_lhpl45 for tenant: 2febe8a4-175c-4f3d-acc3-5c1ac4309e49
+Schema tenant_1759764064910_lhpl45 already exists
+Tenant access validated: {
+  userId: '471e4206-6b55-4c4a-9810-4d2f1011f6fd',
+  tenantId: '2febe8a4-175c-4f3d-acc3-5c1ac4309e49',
+  tenantName: 'Teste-Tenant',
+  accountType: 'GERENCIAL'
+}
+[ProjectsController] Creating project for user: 471e4206-6b55-4c4a-9810-4d2f1011f6fd
+Ensuring schema exists: tenant_1759764064910_lhpl45 for tenant: 2febe8a4-175c-4f3d-acc3-5c1ac4309e49
+Schema tenant_1759764064910_lhpl45 already exists
+Executing query in schema tenant_1759764064910_lhpl45: 
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_schema = 'tenant_1759764064910_lhpl45'
+        AND table_name = 'projects'
+      )
+    
+Ensuring schema exists: tenant_1759764064910_lhpl45 for tenant: 2febe8a4-175c-4f3d-acc3-5c1ac4309e49
+Schema tenant_1759764064910_lhpl45 already exists
+Executing query in schema tenant_1759764064910_lhpl45: 
+        ALTER TABLE tenant_1759764064910_lhpl45.projects 
+        ADD COLUMN IF NOT EXISTS due_date TIMESTAMP WITH TIME ZONE
+      
+Ensuring schema exists: tenant_1759764064910_lhpl45 for tenant: 2febe8a4-175c-4f3d-acc3-5c1ac4309e49
+Schema tenant_1759764064910_lhpl45 already exists
+Executing query in schema tenant_1759764064910_lhpl45: 
+        ALTER TABLE tenant_1759764064910_lhpl45.projects 
+        ADD COLUMN IF NOT EXISTS completed_at TIMESTAMP WITH TIME ZONE
+      
+Ensuring schema exists: tenant_1759764064910_lhpl45 for tenant: 2febe8a4-175c-4f3d-acc3-5c1ac4309e49
+Schema tenant_1759764064910_lhpl45 already exists
+Executing query in schema tenant_1759764064910_lhpl45: 
+        ALTER TABLE tenant_1759764064910_lhpl45.projects 
+        ADD COLUMN IF NOT EXISTS assigned_to JSONB DEFAULT '[]'::jsonb
+      
+Ensuring schema exists: tenant_1759764064910_lhpl45 for tenant: 2febe8a4-175c-4f3d-acc3-5c1ac4309e49
+Schema tenant_1759764064910_lhpl45 already exists
+Executing query in schema tenant_1759764064910_lhpl45: 
+        ALTER TABLE tenant_1759764064910_lhpl45.projects 
+        ADD COLUMN IF NOT EXISTS contacts JSONB DEFAULT '[]'::jsonb
+      
+Ensuring schema exists: tenant_1759764064910_lhpl45 for tenant: 2febe8a4-175c-4f3d-acc3-5c1ac4309e49
+Schema tenant_1759764064910_lhpl45 already exists
+Executing query in schema tenant_1759764064910_lhpl45: 
+        UPDATE tenant_1759764064910_lhpl45.projects 
+        SET due_date = end_date 
+        WHERE due_date IS NULL AND end_date IS NOT NULL
+      
+Insert query: 
+    INSERT INTO tenant_1759764064910_lhpl45.projects (id, title, name, client_name, description, client_id, organization, address, budget, currency, status, priority, progress, start_date, due_date, tags, assigned_to, notes, contacts, created_by)
+    VALUES (gen_random_uuid(), $1, $2, $3, $4, $5::uuid, $6, $7, $8, $9, $10, $11, $12, $13::date, $14::date, $15::jsonb, $16::jsonb, $17, $18::jsonb, $19::uuid)
+    RETURNING *
+  
+Insert values: [
+  'Titulo do Projeto',
+  'Titulo do Projeto',
+  'Cliente',
+  'Descrição',
+  null,
+  'Organização',
+  'Endereço',
+  1200,
+  'BRL',
+  'contacted',
+  'medium',
+  10,
+  '2025-09-28',
+  '2025-10-07',
+  '["Tag"]',
+  '[]',
+  'Observações',
+  '[{"id":"1759778248543","name":"Ju","email":"muribeco@hotmail.com","phone":"891293291","role":"ajudante"}]',
+  '471e4206-6b55-4c4a-9810-4d2f1011f6fd'
+]
+Ensuring schema exists: tenant_1759764064910_lhpl45 for tenant: 2febe8a4-175c-4f3d-acc3-5c1ac4309e49
+Schema tenant_1759764064910_lhpl45 already exists
+Executing query in schema tenant_1759764064910_lhpl45: 
+    INSERT INTO tenant_1759764064910_lhpl45.projects (id, title, name, client_name, description, client_id, organization, address, budget, currency, status, priority, progress, start_date, due_date, tags, assigned_to, notes, contacts, created_by)
+    VALUES (gen_random_uuid(), $1, $2, $3, $4, $5::uuid, $6, $7, $8, $9, $10, $11, $12, $13::date, $14::date, $15::jsonb, $16::jsonb, $17, $18::jsonb, $19::uuid)
+    RETURNING *
+  
+Error executing tenant query: PrismaClientKnownRequestError: 
+Invalid `prisma.$queryRawUnsafe()` invocation:
+
+
+Raw query failed. Code: `23502`. Message: `Failing row contains (515b8c36-12f6-4582-b997-d4c938a4c7f8, Titulo do Projeto, Titulo do Projeto, Descrição, null, Cliente, contacted, medium, 10, 1200.00, null, 2025-09-28, null, ["Tag"], Observações, 471e4206-6b55-4c4a-9810-4d2f1011f6fd, t, 2025-10-06 19:17:46.397073+00, 2025-10-06 19:17:46.397073+00, contacted, null, Organização, null, null, Endereço, BRL, 2025-10-07 00:00:00+00, null, [], [{"id": "1759778248543", "name": "Ju", "role": "ajudante", "emai...).`
+    at ei.handleRequestError (/home/runner/workspace/node_modules/@prisma/client/runtime/library.js:121:7283)
+    at ei.handleAndLogRequestError (/home/runner/workspace/node_modules/@prisma/client/runtime/library.js:121:6608)
+    at ei.request (/home/runner/workspace/node_modules/@prisma/client/runtime/library.js:121:6315)
+    at async a (/home/runner/workspace/node_modules/@prisma/client/runtime/library.js:130:9551)
+    at async TenantDatabase.executeInTenantSchema (file:///home/runner/workspace/node_modules/.vite-temp/vite.config.ts.timestamp-1759778178298-6ea6d5d085c17.mjs:989:26)
+    at async queryTenantSchema (file:///home/runner/workspace/node_modules/.vite-temp/vite.config.ts.timestamp-1759778178298-6ea6d5d085c17.mjs:1799:10)
+    at async insertInTenantSchema (file:///home/runner/workspace/node_modules/.vite-temp/vite.config.ts.timestamp-1759778178298-6ea6d5d085c17.mjs:1847:18)
+    at async ProjectsService.createProject (file:///home/runner/workspace/node_modules/.vite-temp/vite.config.ts.timestamp-1759778178298-6ea6d5d085c17.mjs:2352:12)
+    at async ProjectsController.createProject (file:///home/runner/workspace/node_modules/.vite-temp/vite.config.ts.timestamp-1759778178298-6ea6d5d085c17.mjs:4632:23) {
+  code: 'P2010',
+  meta: {
+    code: '23502',
+    message: 'Failing row contains (515b8c36-12f6-4582-b997-d4c938a4c7f8, Titulo do Projeto, Titulo do Projeto, Descrição, null, Cliente, contacted, medium, 10, 1200.00, null, 2025-09-28, null, ["Tag"], Observações, 471e4206-6b55-4c4a-9810-4d2f1011f6fd, t, 2025-10-06 19:17:46.397073+00, 2025-10-06 19:17:46.397073+00, contacted, null, Organização, null, null, Endereço, BRL, 2025-10-07 00:00:00+00, null, [], [{"id": "1759778248543", "name": "Ju", "role": "ajudante", "emai...).'
+  },
+  clientVersion: '6.16.3'
+}
+[ProjectsController] Create project error: PrismaClientKnownRequestError: 
+Invalid `prisma.$queryRawUnsafe()` invocation:
+
+
+Raw query failed. Code: `23502`. Message: `Failing row contains (515b8c36-12f6-4582-b997-d4c938a4c7f8, Titulo do Projeto, Titulo do Projeto, Descrição, null, Cliente, contacted, medium, 10, 1200.00, null, 2025-09-28, null, ["Tag"], Observações, 471e4206-6b55-4c4a-9810-4d2f1011f6fd, t, 2025-10-06 19:17:46.397073+00, 2025-10-06 19:17:46.397073+00, contacted, null, Organização, null, null, Endereço, BRL, 2025-10-07 00:00:00+00, null, [], [{"id": "1759778248543", "name": "Ju", "role": "ajudante", "emai...).`
+    at ei.handleRequestError (/home/runner/workspace/node_modules/@prisma/client/runtime/library.js:121:7283)
+    at ei.handleAndLogRequestError (/home/runner/workspace/node_modules/@prisma/client/runtime/library.js:121:6608)
+    at ei.request (/home/runner/workspace/node_modules/@prisma/client/runtime/library.js:121:6315)
+    at async a (/home/runner/workspace/node_modules/@prisma/client/runtime/library.js:130:9551)
+    at async TenantDatabase.executeInTenantSchema (file:///home/runner/workspace/node_modules/.vite-temp/vite.config.ts.timestamp-1759778178298-6ea6d5d085c17.mjs:989:26)
+    at async queryTenantSchema (file:///home/runner/workspace/node_modules/.vite-temp/vite.config.ts.timestamp-1759778178298-6ea6d5d085c17.mjs:1799:10)
+    at async insertInTenantSchema (file:///home/runner/workspace/node_modules/.vite-temp/vite.config.ts.timestamp-1759778178298-6ea6d5d085c17.mjs:1847:18)
+    at async ProjectsService.createProject (file:///home/runner/workspace/node_modules/.vite-temp/vite.config.ts.timestamp-1759778178298-6ea6d5d085c17.mjs:2352:12)
+    at async ProjectsController.createProject (file:///home/runner/workspace/node_modules/.vite-temp/vite.config.ts.timestamp-1759778178298-6ea6d5d085c17.mjs:4632:23) {
+  code: 'P2010',
+  meta: {
+    code: '23502',
+    message: 'Failing row contains (515b8c36-12f6-4582-b997-d4c938a4c7f8, Titulo do Projeto, Titulo do Projeto, Descrição, null, Cliente, contacted, medium, 10, 1200.00, null, 2025-09-28, null, ["Tag"], Observações, 471e4206-6b55-4c4a-9810-4d2f1011f6fd, t, 2025-10-06 19:17:46.397073+00, 2025-10-06 19:17:46.397073+00, contacted, null, Organização, null, null, Endereço, BRL, 2025-10-07 00:00:00+00, null, [], [{"id": "1759778248543", "name": "Ju", "role": "ajudante", "emai...).'
+  },
+  clientVersion: '6.16.3'
+}
