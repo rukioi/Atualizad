@@ -74,7 +74,7 @@ export class DealsController {
       res.json(result);
     } catch (error) {
       console.error('[DealsController] Get deals error:', error);
-      res.status(500).json({
+      return res.status(500).json({
         error: 'Failed to fetch deals',
         details: error instanceof Error ? error.message : 'Unknown error',
       });
@@ -106,7 +106,7 @@ export class DealsController {
       res.json(deal);
     } catch (error) {
       console.error('[DealsController] Get deal error:', error);
-      res.status(500).json({
+      return res.status(500).json({
         error: 'Failed to fetch deal',
         details: error instanceof Error ? error.message : 'Unknown error',
       });
@@ -134,7 +134,7 @@ export class DealsController {
       res.json(deals);
     } catch (error) {
       console.error('[DealsController] Get deals by stage error:', error);
-      res.status(500).json({
+      return res.status(500).json({
         error: 'Failed to fetch deals by stage',
         details: error instanceof Error ? error.message : 'Unknown error',
       });
@@ -176,7 +176,7 @@ export class DealsController {
         });
       }
 
-      res.status(500).json({
+      return res.status(500).json({
         error: 'Failed to create deal',
         details: error instanceof Error ? error.message : 'Unknown error',
       });
@@ -222,7 +222,7 @@ export class DealsController {
         });
       }
 
-      res.status(500).json({
+      return res.status(500).json({
         error: 'Failed to update deal',
         details: error instanceof Error ? error.message : 'Unknown error',
       });
@@ -262,7 +262,7 @@ export class DealsController {
       res.json(deal);
     } catch (error) {
       console.error('[DealsController] Move deal error:', error);
-      res.status(500).json({
+      return res.status(500).json({
         error: 'Failed to move deal',
         details: error instanceof Error ? error.message : 'Unknown error',
       });
@@ -297,7 +297,7 @@ export class DealsController {
       res.status(204).send();
     } catch (error) {
       console.error('[DealsController] Delete deal error:', error);
-      res.status(500).json({
+      return res.status(500).json({
         error: 'Failed to delete deal',
         details: error instanceof Error ? error.message : 'Unknown error',
       });
