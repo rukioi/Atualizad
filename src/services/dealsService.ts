@@ -95,11 +95,10 @@ export class DealsService {
         tags JSONB DEFAULT '[]',
         description TEXT,
         client_id UUID,
-        created_by UUID NOT NULL,
+        created_by VARCHAR NOT NULL,
         created_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP DEFAULT NOW(),
-        is_active BOOLEAN DEFAULT TRUE,
-        CONSTRAINT fk_created_by FOREIGN KEY (created_by) REFERENCES public.users(id) ON DELETE CASCADE
+        is_active BOOLEAN DEFAULT TRUE
       )
     `;
     
