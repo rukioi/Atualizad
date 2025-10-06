@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { DashboardLayout } from '@/components/Layout/DashboardLayout';
+import { UIErrorBoundary } from '@/lib/error-boundary';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -197,7 +198,7 @@ function ProjectCompactView({
   );
 }
 
-export function Projects() {
+function ProjectsContent() {
   const { projects, stats, isLoading, createProject, updateProject, deleteProject } = useProjects();
   
   const [activeTab, setActiveTab] = useState('kanban');
@@ -490,21 +491,25 @@ export function Projects() {
         {isLoading ? (
           <div className="text-center py-8">Carregando projetos...</div>
         ) : viewMode === 'kanban' ? (
-          <ProjectKanban
-            stages={projectStages}
-            onAddProject={handleAddProject}
-            onEditProject={handleEditProject}
-            onDeleteProject={handleDeleteProject}
-            onMoveProject={handleMoveProject}
-            onViewProject={handleViewProject}
-          />
+          <UIErrorBoundary>
+            <ProjectKanban
+              stages={projectStages}
+              onAddProject={handleAddProject}
+              onEditProject={handleEditProject}
+              onDeleteProject={handleDeleteProject}
+              onMoveProject={handleMoveProject}
+              onViewProject={handleViewProject}
+            />
+          </UIErrorBoundary>
         ) : (
-          <ProjectCompactView
-            projects={filteredProjects}
-            onEditProject={handleEditProject}
-            onDeleteProject={handleDeleteProject}
-            onViewProject={handleViewProject}
-          />
+          <UIErrorBoundary>
+            <ProjectCompactView
+              projects={filteredProjects}
+              onEditProject={handleEditProject}
+              onDeleteProject={handleDeleteProject}
+              onViewProject={handleViewProject}
+            />
+          </UIErrorBoundary>
         )}
 
         {/* Project Form Dialog */}
@@ -527,5 +532,13 @@ export function Projects() {
         )}
       </div>
     </DashboardLayout>
+  );
+}
+
+export function Projects() {
+  return (
+    <UIErrorBoundary>
+      <ProjectsContent />
+    </UIErrorBoundary>
   );
 }

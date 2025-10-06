@@ -142,7 +142,8 @@ export function ProjectKanban({
     });
   };
 
-  const getDaysUntilDue = (dueDate: string) => {
+  const getDaysUntilDue = (dueDate?: string) => {
+    if (!dueDate) return 0;
     const due = new Date(dueDate);
     const today = new Date();
     const diffTime = due.getTime() - today.getTime();
@@ -150,7 +151,8 @@ export function ProjectKanban({
     return diffDays;
   };
 
-  const isOverdue = (dueDate: string) => {
+  const isOverdue = (dueDate?: string) => {
+    if (!dueDate) return false;
     return getDaysUntilDue(dueDate) < 0;
   };
 
@@ -204,8 +206,11 @@ export function ProjectKanban({
             <CardContent className="flex-1 space-y-3 p-3 pt-0">
               {/* IMPLEMENTAÇÃO: Cards paginados - 5 por página */}
               {getCurrentPageProjects(stage.projects, stage.id).map((project) => {
+                // Verificações de segurança para dados nulos
                 const daysUntilDue = getDaysUntilDue(project.dueDate);
                 const overdue = isOverdue(project.dueDate);
+                const assignedTo = Array.isArray(project.assignedTo) ? project.assignedTo : [];
+                const tags = Array.isArray(project.tags) ? project.tags : [];
                 
                 return (
                   <Card
@@ -281,48 +286,52 @@ export function ProjectKanban({
                         </div>
 
                         {/* Budget */}
-                        <div className="flex items-center text-xs">
-                          <DollarSign className="h-3 w-3 mr-1 text-green-600" />
-                          <span className="font-semibold text-green-600">
-                            {formatCurrency(project.budget, project.currency)}
-                          </span>
-                        </div>
+                        {project.budget !== null && project.budget !== undefined && (
+                          <div className="flex items-center text-xs">
+                            <DollarSign className="h-3 w-3 mr-1 text-green-600" />
+                            <span className="font-semibold text-green-600">
+                              {formatCurrency(project.budget, project.currency || 'BRL')}
+                            </span>
+                          </div>
+                        )}
 
                         {/* Due Date */}
-                        <div className="flex items-center text-xs">
-                          <Calendar className="h-3 w-3 mr-1 text-muted-foreground" />
-                          <span className={overdue ? 'text-red-600 font-medium' : 'text-muted-foreground'}>
-                            {new Date(project.dueDate).toLocaleDateString('pt-BR')}
-                            {overdue && (
-                              <span className="ml-1">
-                                <AlertTriangle className="h-3 w-3 inline" />
-                                Vencido
-                              </span>
-                            )}
-                            {!overdue && daysUntilDue <= 7 && daysUntilDue > 0 && (
-                              <span className="ml-1 text-orange-600">
-                                <Clock className="h-3 w-3 inline" />
-                                {daysUntilDue}d
-                              </span>
-                            )}
-                          </span>
-                        </div>
+                        {project.dueDate && (
+                          <div className="flex items-center text-xs">
+                            <Calendar className="h-3 w-3 mr-1 text-muted-foreground" />
+                            <span className={overdue ? 'text-red-600 font-medium' : 'text-muted-foreground'}>
+                              {new Date(project.dueDate).toLocaleDateString('pt-BR')}
+                              {overdue && (
+                                <span className="ml-1">
+                                  <AlertTriangle className="h-3 w-3 inline" />
+                                  Vencido
+                                </span>
+                              )}
+                              {!overdue && daysUntilDue <= 7 && daysUntilDue > 0 && (
+                                <span className="ml-1 text-orange-600">
+                                  <Clock className="h-3 w-3 inline" />
+                                  {daysUntilDue}d
+                                </span>
+                              )}
+                            </span>
+                          </div>
+                        )}
 
                         {/* Assigned Users */}
-                        {project.assignedTo.length > 0 && (
+                        {assignedTo.length > 0 && (
                           <div className="flex items-center text-xs">
                             <Users className="h-3 w-3 mr-1 text-muted-foreground" />
                             <div className="flex -space-x-1">
-                              {project.assignedTo.slice(0, 3).map((user, index) => (
+                              {assignedTo.slice(0, 3).map((user, index) => (
                                 <Avatar key={index} className="h-5 w-5 border border-background">
                                   <AvatarFallback className="text-xs">
                                     {user.split(' ').map(n => n[0]).join('').toUpperCase()}
                                   </AvatarFallback>
                                 </Avatar>
                               ))}
-                              {project.assignedTo.length > 3 && (
+                              {assignedTo.length > 3 && (
                                 <div className="h-5 w-5 rounded-full bg-muted border border-background flex items-center justify-center text-xs">
-                                  +{project.assignedTo.length - 3}
+                                  +{assignedTo.length - 3}
                                 </div>
                               )}
                             </div>
@@ -330,16 +339,16 @@ export function ProjectKanban({
                         )}
 
                         {/* Tags */}
-                        {project.tags.length > 0 && (
+                        {tags.length > 0 && (
                           <div className="flex flex-wrap gap-1">
-                            {project.tags.slice(0, 2).map((tag) => (
+                            {tags.slice(0, 2).map((tag) => (
                               <Badge key={tag} variant="outline" className="text-xs px-1 py-0">
                                 {tag}
                               </Badge>
                             ))}
-                            {project.tags.length > 2 && (
+                            {tags.length > 2 && (
                               <Badge variant="outline" className="text-xs px-1 py-0">
-                                +{project.tags.length - 2}
+                                +{tags.length - 2}
                               </Badge>
                             )}
                           </div>
@@ -353,9 +362,11 @@ export function ProjectKanban({
                         )}
 
                         {/* Created date */}
-                        <div className="text-xs text-muted-foreground border-t pt-2">
-                          Criado: {new Date(project.createdAt).toLocaleDateString('pt-BR')}
-                        </div>
+                        {project.createdAt && (
+                          <div className="text-xs text-muted-foreground border-t pt-2">
+                            Criado: {new Date(project.createdAt).toLocaleDateString('pt-BR')}
+                          </div>
+                        )}
                       </div>
                     </CardContent>
                   </Card>
