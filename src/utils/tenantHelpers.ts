@@ -67,7 +67,8 @@ export async function insertInTenantSchema<T>(
     if (col.includes('time') && value !== null) {
       return `$${paramIndex}::timestamp`;
     }
-    if (typeof value === 'object' && value !== null) {
+    // Cast JSONB para campos específicos ou objetos
+    if (col === 'tags' || col === 'assigned_to' || col === 'contacts' || col === 'address' || (typeof value === 'object' && value !== null)) {
       return `$${paramIndex}::jsonb`;
     }
     if (col.includes('_id') || col === 'created_by') {
@@ -77,8 +78,14 @@ export async function insertInTenantSchema<T>(
     return `$${paramIndex}`;
   });
 
-  // Remover o null do array de valores se adicionamos ID
-  const finalValues = needsId ? values.slice(1) : values;
+  // Converter arrays/objetos para JSON string para campos JSONB
+  const finalValues = (needsId ? values.slice(1) : values).map((val, idx) => {
+    const colName = needsId ? columns[idx + 1] : columns[idx];
+    if ((colName === 'tags' || colName === 'assigned_to' || colName === 'contacts' || colName === 'address') && (Array.isArray(val) || (typeof val === 'object' && val !== null))) {
+      return JSON.stringify(val);
+    }
+    return val;
+  });
 
   const query = `
     INSERT INTO ${schema}.${tableName} (${columns.join(', ')})

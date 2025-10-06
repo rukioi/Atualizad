@@ -331,10 +331,10 @@ class ProjectsService {
       progress: projectData.progress || 0,
       start_date: projectData.startDate || null,
       due_date: projectData.dueDate || null,
-      tags: JSON.stringify(projectData.tags || []),
-      assigned_to: JSON.stringify(projectData.assignedTo || []),
+      tags: projectData.tags || [],
+      assigned_to: projectData.assignedTo || [],
       notes: projectData.notes || null,
-      contacts: JSON.stringify(projectData.contacts || []),
+      contacts: projectData.contacts || [],
       created_by: createdBy
     };
 
