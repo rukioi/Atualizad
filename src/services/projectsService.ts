@@ -317,12 +317,13 @@ class ProjectsService {
   async createProject(tenantDB: TenantDatabase, projectData: CreateProjectData, createdBy: string): Promise<Project> {
     await this.ensureTables(tenantDB);
 
-    // Validar campos obrigatórios
+    // Validar APENAS campos obrigatórios
     if (!projectData.title) throw new Error('Título é obrigatório');
     if (!projectData.clientName) throw new Error('Cliente é obrigatório');
     if (!projectData.startDate) throw new Error('Data de início é obrigatória');
     if (!projectData.dueDate) throw new Error('Data de vencimento é obrigatória');
 
+    // Montar dados com APENAS campos essenciais e identificáveis
     const data: Record<string, any> = {
       // CAMPOS OBRIGATÓRIOS
       title: projectData.title,
@@ -333,19 +334,21 @@ class ProjectsService {
       due_date: projectData.dueDate,
       created_by: createdBy,
       
-      // CAMPOS OPCIONAIS
+      // CAMPOS OPCIONAIS ESSENCIAIS
       description: projectData.description || null,
       client_id: projectData.clientId || null,
-      organization: projectData.organization || null,
-      address: projectData.address || null,
       budget: projectData.budget || null,
       currency: projectData.currency || 'BRL',
       progress: projectData.progress || 0,
       tags: projectData.tags || [],
-      assigned_to: projectData.assignedTo || [],
-      notes: projectData.notes || null,
-      contacts: projectData.contacts || []
+      notes: projectData.notes || null
     };
+
+    // Adicionar campos opcionais somente se preenchidos
+    if (projectData.organization) data.organization = projectData.organization;
+    if (projectData.address) data.address = projectData.address;
+    if (projectData.assignedTo && projectData.assignedTo.length > 0) data.assigned_to = projectData.assignedTo;
+    if (projectData.contacts && projectData.contacts.length > 0) data.contacts = projectData.contacts;
 
     return await insertInTenantSchema<Project>(tenantDB, this.tableName, data);
   }
