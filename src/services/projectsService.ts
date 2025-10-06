@@ -87,8 +87,8 @@ class ProjectsService {
   private tableName = 'projects';
 
   /**
-   * Cria as tabelas necessárias se não existirem
-   * IMPORTANTE: Tabela criada automaticamente no schema do tenant
+   * Garante que a tabela tenha todas as colunas necessárias
+   * IMPORTANTE: Adiciona colunas que podem estar faltando em tenants antigos
    */
   private async ensureTables(tenantDB: TenantDatabase): Promise<void> {
     // Verifica se a tabela existe
@@ -102,8 +102,61 @@ class ProjectsService {
     
     const tableExists = await queryTenantSchema<{exists: boolean}>(tenantDB, checkTableQuery);
     
-    // Se não existir, não fazemos nada pois a tabela já é criada pelo Prisma
-    // Esta função serve apenas para garantir compatibilidade
+    if (!tableExists || tableExists.length === 0) {
+      console.log('Table projects does not exist in tenant schema');
+      return;
+    }
+
+    // Adicionar coluna due_date se não existir
+    try {
+      await tenantDB.executeInTenantSchema(`
+        ALTER TABLE \${schema}.projects 
+        ADD COLUMN IF NOT EXISTS due_date TIMESTAMP WITH TIME ZONE
+      `);
+    } catch (e) {
+      console.log('Column due_date already exists or error:', e);
+    }
+
+    // Adicionar coluna completed_at se não existir
+    try {
+      await tenantDB.executeInTenantSchema(`
+        ALTER TABLE \${schema}.projects 
+        ADD COLUMN IF NOT EXISTS completed_at TIMESTAMP WITH TIME ZONE
+      `);
+    } catch (e) {
+      console.log('Column completed_at already exists or error:', e);
+    }
+
+    // Adicionar coluna assigned_to se não existir
+    try {
+      await tenantDB.executeInTenantSchema(`
+        ALTER TABLE \${schema}.projects 
+        ADD COLUMN IF NOT EXISTS assigned_to JSONB DEFAULT '[]'::jsonb
+      `);
+    } catch (e) {
+      console.log('Column assigned_to already exists or error:', e);
+    }
+
+    // Adicionar coluna contacts se não existir
+    try {
+      await tenantDB.executeInTenantSchema(`
+        ALTER TABLE \${schema}.projects 
+        ADD COLUMN IF NOT EXISTS contacts JSONB DEFAULT '[]'::jsonb
+      `);
+    } catch (e) {
+      console.log('Column contacts already exists or error:', e);
+    }
+
+    // Atualizar due_date com valores de end_date se due_date estiver null
+    try {
+      await tenantDB.executeInTenantSchema(`
+        UPDATE \${schema}.projects 
+        SET due_date = end_date 
+        WHERE due_date IS NULL AND end_date IS NOT NULL
+      `);
+    } catch (e) {
+      console.log('Error migrating end_date to due_date:', e);
+    }
   }
 
   /**

@@ -34,7 +34,8 @@ import {
 import { ProjectForm } from '@/components/Projects/ProjectForm';
 import { ProjectKanban } from '@/components/Projects/ProjectKanban';
 import { ProjectViewDialog } from '@/components/Projects/ProjectViewDialog';
-import { Project, ProjectStage, ProjectStatus } from '@/types/projects';
+import { Project as ProjectType, useProjects } from '@/hooks/useProjects';
+import { ProjectStage, ProjectStatus } from '@/types/projects';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Progress } from '@/components/ui/progress';
@@ -45,226 +46,97 @@ import {
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
 import { MoreHorizontal, Eye, Edit, Trash2 } from 'lucide-react';
+import { toast } from '@/components/ui/use-toast';
 
-// Mock data - in real app would come from API
-const mockProjects: Project[] = [
-  {
-    id: '1',
-    title: 'Ação Previdenciária - João Santos',
-    description: 'Revisão de aposentadoria negada pelo INSS. Cliente tem direito a aposentadoria especial por tempo de contribuição.',
-    clientName: 'João Santos',
-    clientId: '1',
-    organization: '',
-    contacts: [
-      {
-        id: '1',
-        name: 'João Santos',
-        email: 'joao@email.com',
-        phone: '(11) 99999-1234',
-        role: 'Cliente'
-      }
-    ],
-    address: 'Rua das Flores, 123, São Paulo - SP',
-    budget: 8500,
-    currency: 'BRL',
-    status: 'proposal',
-    startDate: '2024-01-05T00:00:00Z',
-    dueDate: '2024-03-15T00:00:00Z',
-    tags: ['Previdenciário', 'INSS', 'Urgente'],
-    assignedTo: ['Dr. Silva', 'Ana Paralegal'],
-    priority: 'high',
-    progress: 65,
-    createdAt: '2024-01-05T10:00:00Z',
-    updatedAt: '2024-01-20T14:30:00Z',
-    notes: 'Cliente já possui todos os documentos necessários. Aguardando resposta do INSS.',
-    attachments: []
-  },
-  {
-    id: '2',
-    title: 'Divórcio Consensual - Maria e Carlos',
-    description: 'Processo de divórcio consensual com partilha de bens. Casal possui imóvel e veículos para partilha.',
-    clientName: 'Maria Silva',
-    clientId: '2',
-    contacts: [
-      {
-        id: '2',
-        name: 'Maria Silva',
-        email: 'maria@email.com',
-        phone: '(11) 88888-5678',
-        role: 'Cliente'
-      },
-      {
-        id: '3',
-        name: 'Carlos Santos',
-        email: 'carlos@email.com',
-        phone: '(11) 77777-9999',
-        role: 'Ex-cônjuge'
-      }
-    ],
-    address: 'Av. Paulista, 1000, São Paulo - SP',
-    budget: 12000,
-    currency: 'BRL',
-    status: 'won',
-    startDate: '2024-01-10T00:00:00Z',
-    dueDate: '2024-02-28T00:00:00Z',
-    tags: ['Família', 'Divórcio', 'Consensual'],
-    assignedTo: ['Dra. Costa'],
-    priority: 'medium',
-    progress: 80,
-    createdAt: '2024-01-10T09:15:00Z',
-    updatedAt: '2024-01-22T11:45:00Z',
-    notes: 'Documentação completa. Aguardando agendamento da audiência.',
-    attachments: []
-  },
-  {
-    id: '3',
-    title: 'Recuperação Judicial - Tech LTDA',
-    description: 'Processo de recuperação judicial para empresa de tecnologia com dificuldades financeiras.',
-    clientName: 'Tech LTDA',
-    clientId: '3',
-    organization: 'Tech Solutions LTDA',
-    contacts: [
-      {
-        id: '4',
-        name: 'Roberto Tech',
-        email: 'roberto@techltda.com',
-        phone: '(11) 66666-8888',
-        role: 'Sócio-Diretor'
-      }
-    ],
-    address: 'Rua da Inovação, 500, São Paulo - SP',
-    budget: 45000,
-    currency: 'BRL',
-    status: 'contacted',
-    startDate: '2024-01-12T00:00:00Z',
-    dueDate: '2024-04-30T00:00:00Z',
-    tags: ['Empresarial', 'Recuperação', 'Urgente'],
-    assignedTo: ['Dr. Oliveira', 'Dr. Silva', 'Ana Paralegal'],
-    priority: 'urgent',
-    progress: 40,
-    createdAt: '2024-01-12T14:20:00Z',
-    updatedAt: '2024-01-25T16:10:00Z',
-    notes: 'Empresa em situação crítica. Prioridade máxima.',
-    attachments: []
-  },
-  {
-    id: '4',
-    title: 'Ação Trabalhista - Pedro Souza',
-    description: 'Ação contra ex-empregador por horas extras não pagas e verbas rescisórias.',
-    clientName: 'Pedro Souza',
-    contacts: [
-      {
-        id: '5',
-        name: 'Pedro Souza',
-        email: 'pedro@email.com',
-        phone: '(11) 55555-7777',
-        role: 'Cliente'
-      }
-    ],
-    address: 'Rua do Trabalho, 789, São Paulo - SP',
-    budget: 15000,
-    currency: 'BRL',
-    status: 'contacted',
-    startDate: '2024-01-25T00:00:00Z',
-    dueDate: '2024-05-15T00:00:00Z',
-    tags: ['Trabalhista', 'Horas Extras'],
-    assignedTo: ['Dra. Trabalho'],
-    priority: 'medium',
-    progress: 10,
-    createdAt: '2024-01-25T08:30:00Z',
-    updatedAt: '2024-01-25T08:30:00Z',
-    notes: 'Início da coleta de documentos.',
-    attachments: []
-  }
-];
+// Helper para mapear Project do hook para tipos do frontend
+interface Project extends ProjectType {
+  attachments?: any[];
+}
 
 interface ProjectCompactViewProps {
   projects: Project[];
   onEditProject: (project: Project) => void;
   onDeleteProject: (projectId: string) => void;
   onViewProject: (project: Project) => void;
-  onMoveProject: (projectId: string, newStatus: ProjectStatus) => void;
 }
 
 function ProjectCompactView({
   projects,
   onEditProject,
   onDeleteProject,
-  onViewProject,
-  onMoveProject
+  onViewProject
 }: ProjectCompactViewProps) {
-  const getStatusColor = (status: ProjectStatus) => {
-    const colors = {
-      contacted: 'bg-blue-100 text-blue-800',
-      proposal: 'bg-yellow-100 text-yellow-800',
-      won: 'bg-green-100 text-green-800',
-      lost: 'bg-red-100 text-red-800'
-    };
-    return colors[status] || colors.contacted;
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL'
+    }).format(value || 0);
   };
 
-  const getStatusLabel = (status: ProjectStatus) => {
-    const labels = {
-      contacted: 'Em Contato',
-      proposal: 'Com Proposta',
-      won: 'Cliente Bem Sucedido',
-      lost: 'Cliente Perdido'
-    };
-    return labels[status] || status;
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'contacted':
+        return 'bg-blue-100 text-blue-800';
+      case 'proposal':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'won':
+        return 'bg-green-100 text-green-800';
+      case 'lost':
+        return 'bg-red-100 text-red-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
   };
 
-  const statusOptions = [
-    { value: 'contacted', label: 'Em Contato' },
-    { value: 'proposal', label: 'Com Proposta' },
-    { value: 'won', label: 'Cliente Bem Sucedido' },
-    { value: 'lost', label: 'Cliente Perdido' }
-  ];
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'contacted':
+        return 'Em Contato';
+      case 'proposal':
+        return 'Com Proposta';
+      case 'won':
+        return 'Concluído';
+      case 'lost':
+        return 'Perdido';
+      default:
+        return status;
+    }
+  };
+
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case 'high':
+        return 'bg-red-100 text-red-800';
+      case 'medium':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'low':
+        return 'bg-gray-100 text-gray-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
 
   return (
-    <div className="space-y-3">
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
       {projects.map((project) => (
         <Card key={project.id} className="hover:shadow-md transition-shadow">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4 flex-1">
-                <Avatar className="h-10 w-10">
-                  <AvatarFallback>{project.title.substring(0, 2).toUpperCase()}</AvatarFallback>
-                </Avatar>
-
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center space-x-2 mb-1">
-                    <h3 className="font-semibold text-sm truncate">{project.title}</h3>
-                    <Badge className={getStatusColor(project.status)}>
-                      {getStatusLabel(project.status)}
-                    </Badge>
-                  </div>
-
-                  <div className="flex items-center space-x-4 text-xs text-muted-foreground">
-                    <span>{project.clientName}</span>
-                    <span>•</span>
-                    <span>Vence: {new Date(project.dueDate).toLocaleDateString('pt-BR')}</span>
-                    <span>•</span>
-                    <span>R$ {project.budget.toLocaleString('pt-BR')}</span>
-                  </div>
-                </div>
+          <CardContent className="pt-6">
+            <div className="flex items-start justify-between mb-4">
+              <div className="flex-1">
+                <h3 className="font-semibold text-lg mb-1">{project.title}</h3>
+                <p className="text-sm text-muted-foreground">{project.clientName}</p>
               </div>
-
-              <div className="flex items-center space-x-4">
-                <div className="text-right">
-                  <div className="text-sm font-medium">{project.progress}%</div>
-                  <Progress value={project.progress} className="w-20 h-2" />
-                </div>
-
+              <div className="flex items-center space-x-2">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="sm">
+                    <Button variant="ghost" size="icon" className="h-8 w-8">
                       <MoreHorizontal className="h-4 w-4" />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
                     <DropdownMenuItem onClick={() => onViewProject(project)}>
                       <Eye className="h-4 w-4 mr-2" />
-                      Visualizar
+                      Ver Detalhes
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => onEditProject(project)}>
                       <Edit className="h-4 w-4 mr-2" />
@@ -281,12 +153,43 @@ function ProjectCompactView({
                 </DropdownMenu>
               </div>
             </div>
+
+            <div className="space-y-3">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Orçamento:</span>
+                <span className="font-medium">{formatCurrency(project.budget || 0)}</span>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <Badge className={getStatusColor(project.status)}>
+                  {getStatusLabel(project.status)}
+                </Badge>
+                <Badge className={getPriorityColor(project.priority)}>
+                  {project.priority === 'high' ? 'Alta' : project.priority === 'medium' ? 'Média' : 'Baixa'}
+                </Badge>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between text-xs mb-1">
+                  <span className="text-muted-foreground">Progresso</span>
+                  <span className="font-medium">{project.progress}%</span>
+                </div>
+                <Progress value={project.progress} className="h-2" />
+              </div>
+
+              {project.dueDate && (
+                <div className="flex items-center text-xs text-muted-foreground">
+                  <Clock className="h-3 w-3 mr-1" />
+                  Vencimento: {new Date(project.dueDate).toLocaleDateString('pt-BR')}
+                </div>
+              )}
+            </div>
           </CardContent>
         </Card>
       ))}
 
       {projects.length === 0 && (
-        <div className="text-center py-8 text-muted-foreground">
+        <div className="col-span-3 text-center py-8 text-muted-foreground">
           Nenhum projeto encontrado com os filtros aplicados.
         </div>
       )}
@@ -295,12 +198,13 @@ function ProjectCompactView({
 }
 
 export function Projects() {
+  const { projects, stats, isLoading, createProject, updateProject, deleteProject } = useProjects();
+  
   const [activeTab, setActiveTab] = useState('kanban');
   const [showProjectForm, setShowProjectForm] = useState(false);
   const [showProjectView, setShowProjectView] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | undefined>();
   const [viewingProject, setViewingProject] = useState<Project | null>(null);
-  const [projects, setProjects] = useState<Project[]>(mockProjects);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
@@ -309,16 +213,16 @@ export function Projects() {
   // Filter projects based on search, status, and priority
   const filteredProjects = useMemo(() => {
     return projects.filter((project) => {
-      const matchesSearch = project.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           project.clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           project.description.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesSearch = project.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           project.clientName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           project.description?.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesStatus = statusFilter === 'all' || project.status === statusFilter;
       const matchesPriority = priorityFilter === 'all' || project.priority === priorityFilter;
       return matchesSearch && matchesStatus && matchesPriority;
     });
   }, [projects, searchTerm, statusFilter, priorityFilter]);
 
-  // STAGES IGUAIS AO CRM: Mesmos estágios do Pipeline de Vendas
+  // Project stages for Kanban view
   const projectStages: ProjectStage[] = [
     {
       id: 'contacted',
@@ -334,54 +238,47 @@ export function Projects() {
     },
     {
       id: 'won',
-      name: 'Cliente Bem Sucedido',
+      name: 'Concluído',
       color: 'green',
       projects: filteredProjects.filter(project => project.status === 'won'),
     },
     {
       id: 'lost',
-      name: 'Cliente Perdido',
+      name: 'Perdido',
       color: 'red',
       projects: filteredProjects.filter(project => project.status === 'lost'),
     },
   ];
 
-  const handleSubmitProject = (data: any) => {
-    if (editingProject) {
-      setProjects(projects.map(project =>
-        project.id === editingProject.id
-          ? {
-              ...project,
-              ...data,
-              startDate: data.startDate + 'T00:00:00Z',
-              dueDate: data.dueDate + 'T00:00:00Z',
-              updatedAt: new Date().toISOString(),
-              assignedTo: project.assignedTo, // Keep existing assignments
-              attachments: project.attachments, // Keep existing attachments
-            }
-          : project
-      ));
+  const handleSubmitProject = async (data: any) => {
+    try {
+      if (editingProject) {
+        await updateProject(editingProject.id, data);
+        toast({
+          title: 'Projeto atualizado',
+          description: 'O projeto foi atualizado com sucesso.',
+        });
+      } else {
+        await createProject(data);
+        toast({
+          title: 'Projeto criado',
+          description: 'O novo projeto foi criado com sucesso.',
+        });
+      }
+      setShowProjectForm(false);
       setEditingProject(undefined);
-    } else {
-      const newProject: Project = {
-        ...data,
-        id: Date.now().toString(),
-        startDate: data.startDate + 'T00:00:00Z',
-        dueDate: data.dueDate + 'T00:00:00Z',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        assignedTo: ['Dr. Silva'], // Default assignment
-        attachments: [],
-      };
-      setProjects([...projects, newProject]);
+    } catch (error) {
+      toast({
+        title: 'Erro',
+        description: error instanceof Error ? error.message : 'Erro ao salvar projeto',
+        variant: 'destructive',
+      });
     }
-    setShowProjectForm(false);
   };
 
   const handleAddProject = (status: ProjectStatus) => {
     setEditingProject(undefined);
     setShowProjectForm(true);
-    // You could set default status here if needed
   };
 
   const handleEditProject = (project: Project) => {
@@ -389,16 +286,38 @@ export function Projects() {
     setShowProjectForm(true);
   };
 
-  const handleDeleteProject = (projectId: string) => {
-    setProjects(projects.filter(project => project.id !== projectId));
+  const handleDeleteProject = async (projectId: string) => {
+    if (window.confirm('Tem certeza que deseja excluir este projeto?')) {
+      try {
+        await deleteProject(projectId);
+        toast({
+          title: 'Projeto excluído',
+          description: 'O projeto foi excluído com sucesso.',
+        });
+      } catch (error) {
+        toast({
+          title: 'Erro',
+          description: error instanceof Error ? error.message : 'Erro ao excluir projeto',
+          variant: 'destructive',
+        });
+      }
+    }
   };
 
-  const handleMoveProject = (projectId: string, newStatus: ProjectStatus) => {
-    setProjects(projects.map(project =>
-      project.id === projectId
-        ? { ...project, status: newStatus, updatedAt: new Date().toISOString() }
-        : project
-    ));
+  const handleMoveProject = async (projectId: string, newStatus: ProjectStatus) => {
+    try {
+      await updateProject(projectId, { status: newStatus });
+      toast({
+        title: 'Status atualizado',
+        description: 'O status do projeto foi atualizado com sucesso.',
+      });
+    } catch (error) {
+      toast({
+        title: 'Erro',
+        description: error instanceof Error ? error.message : 'Erro ao atualizar status',
+        variant: 'destructive',
+      });
+    }
   };
 
   const handleViewProject = (project: Project) => {
@@ -412,12 +331,12 @@ export function Projects() {
     setShowProjectForm(true);
   };
 
-  // Calculate metrics with new CRM-style statuses
-  const totalProjects = projects.length;
-  const activeProjects = projects.filter(p => !['won', 'lost'].includes(p.status)).length;
-  const overdueProjects = projects.filter(p => new Date(p.dueDate) < new Date() && !['won', 'lost'].includes(p.status)).length;
-  const totalRevenue = projects.filter(p => p.status === 'won').reduce((sum, project) => sum + project.budget, 0);
-  const avgProgress = activeProjects > 0 ? Math.round(projects.filter(p => !['won', 'lost'].includes(p.status)).reduce((sum, project) => sum + project.progress, 0) / activeProjects) : 0;
+  // Use stats from backend
+  const totalProjects = stats?.total || 0;
+  const avgProgress = stats?.avgProgress || 0;
+  const overdueProjects = stats?.overdue || 0;
+  const totalRevenue = stats?.revenue || 0;
+  const activeProjects = (stats?.byStatus.contacted || 0) + (stats?.byStatus.proposal || 0);
 
   return (
     <DashboardLayout>
@@ -469,7 +388,7 @@ export function Projects() {
           </div>
         </div>
 
-        {/* Metrics Cards */}
+        {/* Metrics Cards - Usando stats reais do backend */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -533,95 +452,79 @@ export function Projects() {
         <div className="flex items-center space-x-4">
           <div className="flex-1 max-w-md">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Procurar projetos..."
-                className="pl-10"
+                placeholder="Buscar projetos..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-8"
               />
             </div>
           </div>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-40">
+            <SelectTrigger className="w-[180px]">
               <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Todos Status</SelectItem>
+              <SelectItem value="all">Todos os Status</SelectItem>
               <SelectItem value="contacted">Em Contato</SelectItem>
               <SelectItem value="proposal">Com Proposta</SelectItem>
-              <SelectItem value="won">Cliente Bem Sucedido</SelectItem>
-              <SelectItem value="lost">Cliente Perdido</SelectItem>
+              <SelectItem value="won">Concluído</SelectItem>
+              <SelectItem value="lost">Perdido</SelectItem>
             </SelectContent>
           </Select>
           <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-            <SelectTrigger className="w-40">
+            <SelectTrigger className="w-[180px]">
               <SelectValue placeholder="Prioridade" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Todas</SelectItem>
-              <SelectItem value="low">Baixa</SelectItem>
-              <SelectItem value="medium">Média</SelectItem>
+              <SelectItem value="all">Todas as Prioridades</SelectItem>
               <SelectItem value="high">Alta</SelectItem>
-              <SelectItem value="urgent">Urgente</SelectItem>
+              <SelectItem value="medium">Média</SelectItem>
+              <SelectItem value="low">Baixa</SelectItem>
             </SelectContent>
           </Select>
         </div>
 
-        {/* Kanban Board */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <FolderKanban className="h-5 w-5 mr-2" />
-              Quadro Kanban de Projetos ({filteredProjects.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {viewMode === 'kanban' ? (
-              <ProjectKanban
-                stages={projectStages}
-                onAddProject={handleAddProject}
-                onEditProject={handleEditProject}
-                onDeleteProject={handleDeleteProject}
-                onMoveProject={handleMoveProject}
-                onViewProject={handleViewProject}
-              />
-            ) : (
-              <ProjectCompactView
-                projects={filteredProjects}
-                onEditProject={handleEditProject}
-                onDeleteProject={handleDeleteProject}
-                onViewProject={handleViewProject}
-                onMoveProject={handleMoveProject}
-              />
-            )}
-          </CardContent>
-        </Card>
+        {/* Content */}
+        {isLoading ? (
+          <div className="text-center py-8">Carregando projetos...</div>
+        ) : viewMode === 'kanban' ? (
+          <ProjectKanban
+            stages={projectStages}
+            onAddProject={handleAddProject}
+            onEditProject={handleEditProject}
+            onDeleteProject={handleDeleteProject}
+            onMoveProject={handleMoveProject}
+            onViewProject={handleViewProject}
+          />
+        ) : (
+          <ProjectCompactView
+            projects={filteredProjects}
+            onEditProject={handleEditProject}
+            onDeleteProject={handleDeleteProject}
+            onViewProject={handleViewProject}
+          />
+        )}
 
-        {/* Project Form Modal */}
+        {/* Project Form Dialog */}
         <ProjectForm
           open={showProjectForm}
           onOpenChange={setShowProjectForm}
-          project={editingProject}
           onSubmit={handleSubmitProject}
-          isEditing={!!editingProject}
-          existingTags={
-            /* Extrair todas as tags únicas dos projetos existentes */
-            Array.from(
-              new Set(
-                projects.flatMap(project => project.tags || [])
-              )
-            ).sort()
-          }
+          initialData={editingProject}
         />
 
         {/* Project View Dialog */}
-        <ProjectViewDialog
-          open={showProjectView}
-          onOpenChange={setShowProjectView}
-          project={viewingProject}
-          onEdit={handleEditFromView}
-        />
+        {viewingProject && (
+          <ProjectViewDialog
+            open={showProjectView}
+            onOpenChange={setShowProjectView}
+            project={viewingProject}
+            onEdit={handleEditFromView}
+            onDelete={handleDeleteProject}
+          />
+        )}
       </div>
     </DashboardLayout>
   );
