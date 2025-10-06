@@ -34,45 +34,63 @@ export async function queryTenantSchema<T = any>(
  * @param tableName - Nome da tabela
  * @param data - Dados para inserir
  */
-export async function insertInTenantSchema<T = any>(
+export async function insertInTenantSchema<T>(
   tenantDB: TenantDatabase,
   tableName: string,
   data: Record<string, any>
 ): Promise<T> {
   const schema = await tenantDB.getSchemaName();
 
-  const columns = Object.keys(data);
+  const columns = Object.keys(data).filter(key => data[key] !== undefined);
+  const values = columns.map(key => data[key]);
 
-  // Map values with proper casting for UUID and JSONB fields
-  const placeholders = columns.map((key, i) => {
-    // Check if value looks like a UUID (36 chars with dashes)
-    const value = data[key];
-    if (typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)) {
-      return `$${i + 1}::uuid`;
+  // Adicionar ID como primeira coluna se não estiver presente
+  const needsId = !columns.includes('id');
+  if (needsId) {
+    columns.unshift('id');
+    values.unshift(null); // PostgreSQL vai gerar via gen_random_uuid()
+  }
+
+  // Criar placeholders com cast de tipo onde necessário
+  const placeholders = columns.map((col, idx) => {
+    if (col === 'id') {
+      return 'gen_random_uuid()';
     }
-    // Check if it's a JSON string (starts with [ or {)
-    if (typeof value === 'string' && (value.startsWith('[') || value.startsWith('{'))) {
-      return `$${i + 1}::jsonb`;
+
+    const value = data[col];
+    const paramIndex = needsId ? idx : idx + 1;
+
+    // Cast para tipos específicos
+    if (col.includes('date') && value !== null) {
+      return `$${paramIndex}::date`;
     }
-    // Handle DATE columns with explicit cast
-    if (key.includes('date') || key === 'birth_date') {
-      return `$${i + 1}::date`;
+    if (col.includes('time') && value !== null) {
+      return `$${paramIndex}::timestamp`;
     }
-    // All other fields use standard placeholder
-    return `$${i + 1}`;
-  }).join(', ');
+    if (typeof value === 'object' && value !== null) {
+      return `$${paramIndex}::jsonb`;
+    }
+    if (col.includes('_id') || col === 'created_by') {
+      return `$${paramIndex}::uuid`;
+    }
+
+    return `$${paramIndex}`;
+  });
+
+  // Remover o null do array de valores se adicionamos ID
+  const finalValues = needsId ? values.slice(1) : values;
 
   const query = `
     INSERT INTO ${schema}.${tableName} (${columns.join(', ')})
-    VALUES (${placeholders})
+    VALUES (${placeholders.join(', ')})
     RETURNING *
   `;
 
   console.log('Insert query:', query);
-  console.log('Insert values:', Object.values(data));
+  console.log('Insert values:', finalValues);
 
-  const result = await queryTenantSchema<T>(tenantDB, query, Object.values(data));
-
+  const result = await queryTenantSchema<T>(tenantDB, query, finalValues);
+  
   if (!result || result.length === 0) {
     throw new Error(`Failed to insert into ${tableName}`);
   }
