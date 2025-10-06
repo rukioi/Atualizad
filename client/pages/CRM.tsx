@@ -62,7 +62,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, Eye, Edit, Trash2 } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
-import apiService from "@/services/apiService";
+import { apiService } from "@/services/apiService";
 
 // Helper function to map Deal (backend) to Deal (frontend)
 const mapProjectToDeal = (deal: any): Deal => ({
