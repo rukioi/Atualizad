@@ -252,8 +252,14 @@ export function CRM() {
   // Helper function to load deals from the API
   const loadDeals = async () => {
     try {
-      const response = await apiService.getProjects(); // Usando o método correto do apiService
-      setDeals(response.map(mapProjectToDeal));
+      const response = await apiService.getDeals();
+      
+      // Backend retorna { deals: [...], pagination: {...} }
+      if (response.deals) {
+        setDeals(response.deals.map(mapProjectToDeal));
+      } else if (Array.isArray(response)) {
+        setDeals(response.map(mapProjectToDeal));
+      }
     } catch (error) {
       console.error("Erro ao carregar negócios:", error);
       toast({
@@ -453,7 +459,7 @@ export function CRM() {
 
   const handleDeleteDeal = async (dealId: string) => {
     try {
-      await deleteProject(dealId);
+      await apiService.deleteDeal(dealId);
       setDeals((prevDeals) => prevDeals.filter((deal) => deal.id !== dealId)); // Atualiza estado local
     } catch (error) {
       console.error("Erro ao excluir negócio:", error);
@@ -478,7 +484,7 @@ export function CRM() {
       );
 
       // Fazer a requisição para o backend
-      await apiService.updateProject(dealId, { stage: newStage });
+      await apiService.updateDeal(dealId, { stage: newStage });
 
       toast({
         title: "Negócio movido com sucesso",
@@ -509,13 +515,11 @@ export function CRM() {
 
   const handleSubmitDeal = async (data: any) => {
     try {
-      const projectData = mapDealToProjectData(data);
-
       if (editingDeal) {
-        await updateProject(editingDeal.id, projectData);
+        await apiService.updateDeal(editingDeal.id, data);
         setEditingDeal(undefined);
       } else {
-        await createProject(projectData);
+        await apiService.createDeal(data);
       }
 
       setShowDealForm(false);

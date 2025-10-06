@@ -191,6 +191,36 @@ class ApiService {
     });
   }
 
+  // Deals (CRM Pipeline)
+  async getDeals(params: any = {}) {
+    const query = new URLSearchParams(params).toString();
+    return this.request(`/deals?${query}`);
+  }
+
+  async getDeal(id: string) {
+    return this.request(`/deals/${id}`);
+  }
+
+  async createDeal(data: any) {
+    return this.request('/deals', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateDeal(id: string, data: any) {
+    return this.request(`/deals/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteDeal(id: string) {
+    return this.request(`/deals/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
   // Projects
   async getProjects(params: any = {}) {
     const query = new URLSearchParams(params).toString();
