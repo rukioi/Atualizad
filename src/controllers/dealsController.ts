@@ -156,10 +156,11 @@ export class DealsController {
       // Validar dados
       const validatedData = createDealSchema.parse(req.body);
 
-      // Criar deal
+      // Criar deal com o nome do usuário
       const deal = await dealsService.createDeal(
         req.tenantDB,
         req.user.id,
+        req.user.name || req.user.email.split('@')[0],
         validatedData
       );
 

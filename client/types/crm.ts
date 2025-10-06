@@ -15,7 +15,7 @@ export interface Client {
   tags: string[];
   description?: string;
   image?: string;
-  
+
   // Legal fields specific to Brazil
   cpf?: string;
   rg?: string;
@@ -25,7 +25,7 @@ export interface Client {
   maritalStatus?: 'single' | 'married' | 'divorced' | 'widowed' | 'separated';
   birthDate?: string;
   inssStatus?: 'active' | 'inactive' | 'retired' | 'pensioner';
-  
+
   // Financial fields
   amountPaid?: number;
   referredBy?: string;
@@ -44,15 +44,20 @@ export interface Deal {
   title: string;
   contactName: string;
   organization?: string;
-  email: string;
-  mobile: string;
-  address: string;
+  email?: string;
+  phone?: string;
+  mobile?: string;
+  address?: string;
   budget: number;
-  currency: 'BRL' | 'USD' | 'EUR';
+  currency: string;
   stage: DealStage;
   tags: string[];
   description?: string;
   image?: string;
+  clientId?: string;
+  referredBy?: string;
+  registeredBy?: string;
+  registered_by?: string;
   createdAt: string;
   updatedAt: string;
 }

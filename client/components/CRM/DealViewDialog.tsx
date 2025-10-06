@@ -222,10 +222,10 @@ export function DealViewDialog({
                     <span>{deal.referredBy}</span>
                   </div>
                 )}
-                {/* IMPLEMENTAÇÃO: Campo "Cadastrado por" - nome completo do perfil do colaborador */}
+                {/* Campo "Cadastrado por" - nome do usuário que criou o deal */}
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Cadastrado por:</span>
-                  <span>{deal.registeredBy || 'Sistema Automático'}</span>
+                  <span>{deal.registered_by || deal.registeredBy || 'Sistema'}</span>
                 </div>
               </div>
             </div>

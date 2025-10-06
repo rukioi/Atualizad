@@ -38,6 +38,7 @@ export interface Deal {
   description?: string;
   clientId?: string;
   created_by: string;
+  registered_by?: string;
   created_at: string;
   updated_at: string;
   is_active: boolean;
@@ -96,6 +97,7 @@ export class DealsService {
         description TEXT,
         client_id UUID,
         created_by VARCHAR NOT NULL,
+        registered_by VARCHAR,
         created_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP DEFAULT NOW(),
         is_active BOOLEAN DEFAULT TRUE
@@ -103,6 +105,17 @@ export class DealsService {
     `;
     
     await queryTenantSchema(tenantDB, createTableQuery);
+    
+    // Adicionar coluna registered_by se não existir (para tabelas já criadas)
+    try {
+      await queryTenantSchema(tenantDB, `
+        ALTER TABLE \${schema}.${this.tableName}
+        ADD COLUMN IF NOT EXISTS registered_by VARCHAR
+      `);
+    } catch (error) {
+      // Ignorar erro se a coluna já existir
+      console.log('Column registered_by may already exist');
+    }
     
     // Criar índices para performance
     const indexes = [
@@ -240,6 +253,7 @@ export class DealsService {
   async createDeal(
     tenantDB: TenantDatabase,
     userId: string,
+    userName: string,
     data: CreateDealData
   ): Promise<Deal> {
     await this.ensureTables(tenantDB);
@@ -260,7 +274,8 @@ export class DealsService {
       tags: JSON.stringify(data.tags || []),
       description: data.description || null,
       client_id: data.clientId || null,
-      created_by: userId
+      created_by: userId,
+      registered_by: userName
     };
 
     const result = await insertInTenantSchema(tenantDB, this.tableName, dealData);
