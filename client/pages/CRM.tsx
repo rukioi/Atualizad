@@ -70,11 +70,11 @@ const mapProjectToDeal = (deal: any): Deal => ({
   title: deal.title,
   contactName: deal.contact_name || deal.contactName,
   organization: deal.organization,
-  email: deal.email || '',
-  mobile: deal.phone || deal.mobile || '',
-  address: deal.address || '',
+  email: deal.email || "",
+  mobile: deal.phone || deal.mobile || "",
+  address: deal.address || "",
   budget: deal.budget || 0,
-  currency: deal.currency || 'BRL',
+  currency: deal.currency || "BRL",
   stage: deal.stage as DealStage,
   tags: deal.tags || [],
   description: deal.description,
@@ -178,7 +178,6 @@ function PipelineListView({
                 </div>
 
                 <div className="flex items-center space-x-2">
-
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="ghost" size="sm">
@@ -233,8 +232,20 @@ export function CRM() {
   const [dealInitialStage, setDealInitialStage] = useState<
     DealStage | undefined
   >();
-  const { clients, createClient, updateClient, deleteClient, isLoading: clientsLoading } = useClients();
-  const { projects, createProject, updateProject, deleteProject, isLoading: projectsLoading } = useProjects();
+  const {
+    clients,
+    createClient,
+    updateClient,
+    deleteClient,
+    isLoading: clientsLoading,
+  } = useClients();
+  const {
+    projects,
+    createProject,
+    updateProject,
+    deleteProject,
+    isLoading: projectsLoading,
+  } = useProjects();
 
   const [deals, setDeals] = useState<Deal[]>([]); // Estado local para deals
 
@@ -257,7 +268,6 @@ export function CRM() {
   useMemo(() => {
     loadDeals();
   }, []);
-
 
   // Map projects to deals for frontend display
   // const deals = useMemo(() => {
@@ -374,7 +384,7 @@ export function CRM() {
       }
       setShowClientForm(false);
     } catch (error) {
-      console.error('Erro ao salvar cliente:', error);
+      console.error("Erro ao salvar cliente:", error);
       // Mostrar toast de erro aqui se necessário
     }
   };
@@ -403,7 +413,7 @@ export function CRM() {
       await deleteClient(clientId);
       setSelectedClients(selectedClients.filter((id) => id !== clientId));
     } catch (error) {
-      console.error('Erro ao excluir cliente:', error);
+      console.error("Erro ao excluir cliente:", error);
     }
   };
 
@@ -446,7 +456,7 @@ export function CRM() {
       await deleteProject(dealId);
       setDeals((prevDeals) => prevDeals.filter((deal) => deal.id !== dealId)); // Atualiza estado local
     } catch (error) {
-      console.error('Erro ao excluir negócio:', error);
+      console.error("Erro ao excluir negócio:", error);
       toast({
         title: "Erro ao excluir negócio",
         description: "Não foi possível excluir o negócio.",
@@ -458,7 +468,7 @@ export function CRM() {
   // Handle moving a deal to a different stage (drag and drop)
   const handleMoveDeal = async (dealId: string, newStage: DealStage) => {
     try {
-      console.log('Moving deal:', dealId, 'to stage:', newStage);
+      console.log("Moving deal:", dealId, "to stage:", newStage);
 
       // Otimistic update - atualizar UI imediatamente
       setDeals((prevDeals) =>
@@ -472,7 +482,7 @@ export function CRM() {
 
       toast({
         title: "Negócio movido com sucesso",
-        description: `Negócio movido para "${newStage === 'contacted' ? 'Em Contato' : newStage === 'proposal' ? 'Com Proposta' : newStage === 'won' ? 'Cliente Bem Sucedido' : 'Cliente Perdido'}"`,
+        description: `Negócio movido para "${newStage === "contacted" ? "Em Contato" : newStage === "proposal" ? "Com Proposta" : newStage === "won" ? "Cliente Bem Sucedido" : "Cliente Perdido"}"`,
       });
     } catch (error) {
       console.error("Erro ao mover negócio:", error);
@@ -482,12 +492,12 @@ export function CRM() {
 
       toast({
         title: "Erro ao mover negócio",
-        description: "Não foi possível atualizar o estágio do negócio. Tente novamente.",
+        description:
+          "Não foi possível atualizar o estágio do negócio. Tente novamente.",
         variant: "destructive",
       });
     }
   };
-
 
   const handleApplyAdvancedFilters = (filters: any) => {
     setAdvancedFilters(filters);
@@ -512,7 +522,7 @@ export function CRM() {
       setDealInitialStage(undefined);
       await loadDeals(); // Recarrega deals após a submissão
     } catch (error) {
-      console.error('Erro ao salvar negócio:', error);
+      console.error("Erro ao salvar negócio:", error);
       toast({
         title: "Erro ao salvar negócio",
         description: "Não foi possível salvar o negócio. Tente novamente.",
@@ -568,7 +578,7 @@ export function CRM() {
                 Total de Clientes
               </CardTitle>
               <Users className="h-4 w-4 text-muted-foreground" />
-            </Header>
+            </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{totalClients}</div>
               <p className="text-xs text-muted-foreground">
@@ -583,7 +593,7 @@ export function CRM() {
                 Pipeline Total
               </CardTitle>
               <Target className="h-4 w-4 text-muted-foreground" />
-            </Header>
+            </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
                 {new Intl.NumberFormat("pt-BR", {
@@ -603,7 +613,7 @@ export function CRM() {
                 Taxa de Conversão
               </CardTitle>
               <BarChart3 className="h-4 w-4 text-muted-foreground" />
-            </Header>
+            </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
                 {deals.length > 0
@@ -623,7 +633,7 @@ export function CRM() {
                 Receita Fechada
               </CardTitle>
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
-            </Header>
+            </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
                 {new Intl.NumberFormat("pt-BR", {
