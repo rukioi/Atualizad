@@ -42,7 +42,7 @@ export async function insertInTenantSchema<T = any>(
   const schema = await tenantDB.getSchemaName();
 
   const columns = Object.keys(data);
-  
+
   // Map values with proper casting for UUID and JSONB fields
   const placeholders = columns.map((key, i) => {
     // Check if value looks like a UUID (36 chars with dashes)
@@ -98,6 +98,8 @@ export async function updateInTenantSchema<T = any>(
     throw new Error('Invalid TenantDatabase instance provided to updateInTenantSchema');
   }
 
+  const schema = await tenantDB.getSchemaName();
+
   const setClause = Object.keys(data)
     .map((key, index) => {
       const value = data[key];
@@ -145,10 +147,12 @@ export async function softDeleteInTenantSchema<T = any>(
     throw new Error('Invalid TenantDatabase instance provided to softDeleteInTenantSchema');
   }
 
+  const schema = await tenantDB.getSchemaName();
+
   const query = `
     UPDATE ${schema}.${tableName}
     SET is_active = FALSE, updated_at = NOW()
-    WHERE id = $1 AND is_active = TRUE
+    WHERE id = $1::uuid AND is_active = TRUE
     RETURNING *
   `;
 

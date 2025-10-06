@@ -232,7 +232,7 @@ export class DealsService {
     const query = `
       SELECT *
       FROM \${schema}.${this.tableName}
-      WHERE id = $1 AND is_active = TRUE
+      WHERE id = $1::uuid AND is_active = TRUE
     `;
 
     const result = await queryTenantSchema(tenantDB, query, [id]);
