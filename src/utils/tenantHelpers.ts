@@ -67,8 +67,12 @@ export async function insertInTenantSchema<T>(
     if (col.includes('time') && value !== null) {
       return `$${paramIndex}::timestamp`;
     }
-    // Cast JSONB para campos específicos ou objetos
-    if (col === 'tags' || col === 'assigned_to' || col === 'contacts' || col === 'address' || (typeof value === 'object' && value !== null)) {
+    // Cast JSONB APENAS para campos que são realmente arrays/objects
+    if (col === 'tags' || col === 'assigned_to' || col === 'contacts') {
+      return `$${paramIndex}::jsonb`;
+    }
+    // Cast para outros campos JSON específicos (não string simples)
+    if ((col === 'metadata' || col === 'payload' || col === 'settings') && (typeof value === 'object' && value !== null)) {
       return `$${paramIndex}::jsonb`;
     }
     if (col.includes('_id') || col === 'created_by') {
@@ -81,7 +85,8 @@ export async function insertInTenantSchema<T>(
   // Converter arrays/objetos para JSON string para campos JSONB
   const finalValues = (needsId ? values.slice(1) : values).map((val, idx) => {
     const colName = needsId ? columns[idx + 1] : columns[idx];
-    if ((colName === 'tags' || colName === 'assigned_to' || colName === 'contacts' || colName === 'address') && (Array.isArray(val) || (typeof val === 'object' && val !== null))) {
+    // Converter para JSON apenas campos JSONB reais
+    if ((colName === 'tags' || colName === 'assigned_to' || colName === 'contacts' || colName === 'metadata' || colName === 'payload' || colName === 'settings') && (Array.isArray(val) || (typeof val === 'object' && val !== null))) {
       return JSON.stringify(val);
     }
     return val;
