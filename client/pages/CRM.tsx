@@ -62,26 +62,25 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, Eye, Edit, Trash2 } from "lucide-react";
 
-// Helper function to map Project (backend) to Deal (frontend)
-const mapProjectToDeal = (project: any): Deal => ({
-  id: project.id,
-  title: project.title,
-  contactName: project.contact_name || project.contactName,
-  organization: project.organization,
-  email: project.email,
-  mobile: project.mobile,
-  address: project.address || '',
-  budget: project.budget || 0,
-  currency: project.currency || 'BRL',
-  stage: project.stage as DealStage,
-  tags: project.tags || [],
-  description: project.description || project.notes,
-  createdAt: project.created_at || project.createdAt,
-  updatedAt: project.updated_at || project.updatedAt,
+// Helper function to map Deal (backend) to Deal (frontend)
+const mapProjectToDeal = (deal: any): Deal => ({
+  id: deal.id,
+  title: deal.title,
+  contactName: deal.contact_name || deal.contactName,
+  organization: deal.organization,
+  email: deal.email || '',
+  mobile: deal.phone || deal.mobile || '',
+  address: deal.address || '',
+  budget: deal.budget || 0,
+  currency: deal.currency || 'BRL',
+  stage: deal.stage as DealStage,
+  tags: deal.tags || [],
+  description: deal.description,
+  createdAt: deal.created_at || deal.createdAt,
+  updatedAt: deal.updated_at || deal.updatedAt,
 });
 
-// Helper function to map Deal (frontend) to Project data (backend)
-// Backend expects camelCase fields as per Zod schema
+// Helper function to map Deal (frontend) to Deal data (backend)
 const mapDealToProjectData = (deal: Partial<Deal>) => ({
   title: deal.title,
   contactName: deal.contactName,
@@ -93,7 +92,7 @@ const mapDealToProjectData = (deal: Partial<Deal>) => ({
   currency: deal.currency,
   stage: deal.stage,
   tags: deal.tags,
-  notes: deal.description,
+  description: deal.description,
 });
 
 interface PipelineListViewProps {

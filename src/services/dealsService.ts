@@ -82,7 +82,7 @@ export class DealsService {
   private async ensureTables(tenantDB: TenantDatabase): Promise<void> {
     const createTableQuery = `
       CREATE TABLE IF NOT EXISTS \${schema}.${this.tableName} (
-        id VARCHAR PRIMARY KEY DEFAULT 'deal_' || EXTRACT(EPOCH FROM NOW())::BIGINT || '_' || SUBSTR(md5(random()::text), 1, 8),
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         title VARCHAR NOT NULL,
         contact_name VARCHAR NOT NULL,
         organization VARCHAR,
@@ -94,11 +94,12 @@ export class DealsService {
         stage VARCHAR DEFAULT 'contacted',
         tags JSONB DEFAULT '[]',
         description TEXT,
-        client_id VARCHAR,
-        created_by VARCHAR NOT NULL,
+        client_id UUID,
+        created_by UUID NOT NULL,
         created_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP DEFAULT NOW(),
-        is_active BOOLEAN DEFAULT TRUE
+        is_active BOOLEAN DEFAULT TRUE,
+        CONSTRAINT fk_created_by FOREIGN KEY (created_by) REFERENCES public.users(id) ON DELETE CASCADE
       )
     `;
     

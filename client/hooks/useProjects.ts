@@ -1,67 +1,105 @@
 import { useState, useEffect } from 'react';
-import { apiService } from '../services/apiService';
+import { api } from '@/services/apiService';
+
+export interface Project {
+  id: string;
+  title: string;
+  description?: string;
+  contactName: string;
+  clientId?: string;
+  organization?: string;
+  email: string;
+  mobile: string;
+  address?: string;
+  budget?: number;
+  currency: 'BRL' | 'USD' | 'EUR';
+  stage: 'contacted' | 'proposal' | 'won' | 'lost';
+  tags: string[];
+  notes?: string;
+  createdBy: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
 
 export function useProjects() {
-  const [projects, setProjects] = useState([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const loadProjects = async (params: any = {}) => {
+  const fetchProjects = async () => {
+    setIsLoading(true);
+    setError(null);
     try {
-      setIsLoading(true);
-      setError(null);
-      const response = await apiService.getProjects(params);
-      setProjects(response.projects);
-      return response;
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to load projects';
-      setError(errorMessage);
+      const response = await api.get('/api/deals');
+      setProjects(response.data.deals || []);
+    } catch (err: any) {
+      console.error('Erro ao buscar deals:', err);
+      setError(err.message);
+      setProjects([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchProjects();
+  }, []);
+
+  const createProject = async (data: any) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await api.post('/api/deals', data);
+      await fetchProjects();
+      return response.data;
+    } catch (err: any) {
+      console.error('Erro ao criar deal:', err);
+      setError(err.message);
       throw err;
     } finally {
       setIsLoading(false);
     }
   };
 
-  const createProject = async (data: any) => {
-    try {
-      const response = await apiService.createProject(data);
-      await loadProjects(); // Reload list
-      return response;
-    } catch (err) {
-      throw err;
-    }
-  };
-
   const updateProject = async (id: string, data: any) => {
+    setIsLoading(true);
+    setError(null);
     try {
-      const response = await apiService.updateProject(id, data);
-      await loadProjects(); // Reload list
-      return response;
-    } catch (err) {
+      const response = await api.put(`/api/deals/${id}`, data);
+      await fetchProjects();
+      return response.data;
+    } catch (err: any) {
+      console.error('Erro ao atualizar deal:', err);
+      setError(err.message);
       throw err;
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const deleteProject = async (id: string) => {
+    setIsLoading(true);
+    setError(null);
     try {
-      await apiService.deleteProject(id);
-      await loadProjects(); // Reload list
-    } catch (err) {
+      await api.delete(`/api/deals/${id}`);
+      await fetchProjects();
+    } catch (err: any) {
+      console.error('Erro ao excluir deal:', err);
+      setError(err.message);
       throw err;
+    } finally {
+      setIsLoading(false);
     }
   };
-
-  useEffect(() => {
-    loadProjects();
-  }, []);
 
   return {
     projects,
     isLoading,
     error,
-    loadProjects,
+    fetchProjects,
     createProject,
     updateProject,
-    deleteProject,
+    deleteProject
   };
 }
