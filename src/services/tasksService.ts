@@ -277,7 +277,7 @@ class TasksService {
 
     // Adicionar campos opcionais apenas se fornecidos
     if (taskData.description) data.description = taskData.description;
-    if (taskData.projectId) data.project_id = taskData.projectId;
+    if (taskData.projectId && taskData.projectId !== 'none') data.project_id = taskData.projectId;
     if (taskData.projectTitle) data.project_title = taskData.projectTitle;
     if (taskData.clientId) data.client_id = taskData.clientId;
     if (taskData.clientName) data.client_name = taskData.clientName;
@@ -286,10 +286,13 @@ class TasksService {
     if (taskData.estimatedHours !== undefined) data.estimated_hours = taskData.estimatedHours;
     if (taskData.actualHours !== undefined) data.actual_hours = taskData.actualHours;
     if (taskData.notes) data.notes = taskData.notes;
-    if (taskData.tags && taskData.tags.length > 0) data.tags = taskData.tags;
-    if (taskData.subtasks && taskData.subtasks.length > 0) data.subtasks = taskData.subtasks;
+    if (taskData.tags && taskData.tags.length > 0) data.tags = JSON.stringify(taskData.tags);
+    if (taskData.subtasks && taskData.subtasks.length > 0) data.subtasks = JSON.stringify(taskData.subtasks);
 
-    return await insertInTenantSchema<Task>(tenantDB, this.tableName, data);
+    console.log('[TasksService] Creating task with data:', data);
+    const result = await insertInTenantSchema<Task>(tenantDB, this.tableName, data);
+    console.log('[TasksService] Task created successfully:', result);
+    return result;
   }
 
   /**

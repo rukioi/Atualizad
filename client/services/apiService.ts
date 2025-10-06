@@ -265,11 +265,19 @@ class ApiService {
     return this.request(`/tasks/${id}`);
   }
 
-  async createTask(data: any) {
-    return this.request('/tasks', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
+  async createTask(data: any): Promise<any> {
+    console.log('[ApiService] Creating task with data:', data);
+    try {
+      const response = await this.request('/tasks', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+      console.log('[ApiService] Task created successfully:', response);
+      return response;
+    } catch (error) {
+      console.error('[ApiService] Error creating task:', error);
+      throw error;
+    }
   }
 
   async updateTask(id: string, data: any) {

@@ -34,79 +34,32 @@ export async function queryTenantSchema<T = any>(
  * @param tableName - Nome da tabela
  * @param data - Dados para inserir
  */
-export async function insertInTenantSchema<T>(
+export async function insertInTenantSchema<T = any>(
   tenantDB: TenantDatabase,
   tableName: string,
   data: Record<string, any>
 ): Promise<T> {
-  const schema = await tenantDB.getSchemaName();
-
-  const columns = Object.keys(data).filter(key => data[key] !== undefined);
-  const values = columns.map(key => data[key]);
-
-  // Adicionar ID como primeira coluna se não estiver presente
-  const needsId = !columns.includes('id');
-  if (needsId) {
-    columns.unshift('id');
-    values.unshift(null); // PostgreSQL vai gerar via gen_random_uuid()
+  if (!tenantDB || typeof tenantDB.getSchemaName !== 'function') {
+    throw new Error('Invalid TenantDatabase instance provided to insertInTenantSchema');
   }
 
-  // Criar placeholders com cast de tipo onde necessário
-  const placeholders = columns.map((col, idx) => {
-    if (col === 'id') {
-      return 'gen_random_uuid()';
-    }
-
-    const value = data[col];
-    const paramIndex = needsId ? idx : idx + 1;
-
-    // Cast para tipos específicos
-    if (col.includes('date') && value !== null) {
-      return `$${paramIndex}::date`;
-    }
-    if (col.includes('time') && value !== null) {
-      return `$${paramIndex}::timestamp`;
-    }
-    // Cast JSONB APENAS para campos que são realmente arrays/objects
-    if (col === 'tags' || col === 'assigned_to' || col === 'contacts') {
-      return `$${paramIndex}::jsonb`;
-    }
-    // Cast para outros campos JSON específicos (não string simples)
-    if ((col === 'metadata' || col === 'payload' || col === 'settings') && (typeof value === 'object' && value !== null)) {
-      return `$${paramIndex}::jsonb`;
-    }
-    if (col.includes('_id') || col === 'created_by') {
-      return `$${paramIndex}::uuid`;
-    }
-
-    return `$${paramIndex}`;
-  });
-
-  // Converter arrays/objetos para JSON string para campos JSONB
-  const finalValues = (needsId ? values.slice(1) : values).map((val, idx) => {
-    const colName = needsId ? columns[idx + 1] : columns[idx];
-    // Converter para JSON apenas campos JSONB reais
-    if ((colName === 'tags' || colName === 'assigned_to' || colName === 'contacts' || colName === 'metadata' || colName === 'payload' || colName === 'settings') && (Array.isArray(val) || (typeof val === 'object' && val !== null))) {
-      return JSON.stringify(val);
-    }
-    return val;
-  });
+  const schemaName = tenantDB.getSchemaName();
+  const columns = Object.keys(data);
+  const values = Object.values(data);
+  const placeholders = values.map((_, i) => `$${i + 1}`).join(', ');
 
   const query = `
-    INSERT INTO ${schema}.${tableName} (${columns.join(', ')})
-    VALUES (${placeholders.join(', ')})
+    INSERT INTO ${schemaName}.${tableName} (${columns.join(', ')})
+    VALUES (${placeholders})
     RETURNING *
   `;
 
-  console.log('Insert query:', query);
-  console.log('Insert values:', finalValues);
+  console.log(`[insertInTenantSchema] Inserting into ${schemaName}.${tableName}`);
+  console.log(`[insertInTenantSchema] Columns:`, columns);
+  console.log(`[insertInTenantSchema] Values:`, values);
 
-  const result = await queryTenantSchema<T>(tenantDB, query, finalValues);
-  
-  if (!result || result.length === 0) {
-    throw new Error(`Failed to insert into ${tableName}`);
-  }
-
+  const result = await queryTenantSchema<T>(tenantDB, query, values);
+  console.log(`[insertInTenantSchema] Insert successful, result:`, result[0]);
   return result[0];
 }
 

@@ -8,11 +8,12 @@ const router = Router();
 router.use(authenticateToken);
 router.use(tenantMiddleware);
 
+// Stats route must come before /:id to avoid matching "stats" as an id
+router.get('/stats/overview', tasksController.getTaskStats);
 router.get('/', tasksController.getTasks);
 router.get('/:id', tasksController.getTask);
 router.post('/', tasksController.createTask);
 router.put('/:id', tasksController.updateTask);
 router.delete('/:id', tasksController.deleteTask);
-router.get('/stats/overview', tasksController.getTaskStats);
 
 export default router;

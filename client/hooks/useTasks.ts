@@ -25,10 +25,13 @@ export function useTasks() {
 
   const createTask = async (data: any) => {
     try {
+      console.log('[useTasks] Creating task:', data);
       const response = await apiService.createTask(data);
+      console.log('[useTasks] Task created, reloading list...');
       await loadTasks(); // Reload list
       return response;
     } catch (err) {
+      console.error('[useTasks] Error creating task:', err);
       throw err;
     }
   };

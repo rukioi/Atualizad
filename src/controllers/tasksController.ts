@@ -94,19 +94,31 @@ export class TasksController {
 
   async createTask(req: TenantRequest, res: Response) {
     try {
+      console.log('[TasksController] Create task request received');
+      console.log('[TasksController] User:', req.user);
+      console.log('[TasksController] TenantDB:', req.tenantDB ? 'Present' : 'Missing');
+      console.log('[TasksController] Request body:', req.body);
+
       if (!req.user || !req.tenantDB) {
+        console.error('[TasksController] Missing authentication or tenant database');
         return res.status(401).json({ error: 'Authentication required' });
       }
 
       const validatedData = createTaskSchema.parse(req.body);
+      console.log('[TasksController] Validated data:', validatedData);
+
       const task = await tasksService.createTask(req.tenantDB, validatedData, req.user.id);
+      console.log('[TasksController] Task created:', task);
 
       res.status(201).json({
         message: 'Task created successfully',
         task,
       });
     } catch (error) {
-      console.error('[TasksController] Error:', error);
+      console.error('[TasksController] Error creating task:', error);
+      if (error instanceof Error) {
+        console.error('[TasksController] Error stack:', error.stack);
+      }
       res.status(400).json({
         error: 'Failed to create task',
         details: error instanceof Error ? error.message : 'Unknown error',
