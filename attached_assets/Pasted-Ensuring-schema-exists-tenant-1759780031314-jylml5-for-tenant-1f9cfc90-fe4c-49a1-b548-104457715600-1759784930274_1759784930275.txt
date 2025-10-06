@@ -1,0 +1,287 @@
+Ensuring schema exists: tenant_1759780031314_jylml5 for tenant: 1f9cfc90-fe4c-49a1-b548-104457715600
+Ensuring schema exists: tenant_1759780031314_jylml5 for tenant: 1f9cfc90-fe4c-49a1-b548-104457715600
+Schema tenant_1759780031314_jylml5 already exists
+Schema tenant_1759780031314_jylml5 already exists
+Tenant access validated: {
+  userId: 'aa1efad5-bd21-46c2-9b5f-2fb1367a34d6',
+  tenantId: '1f9cfc90-fe4c-49a1-b548-104457715600',
+  tenantName: 'Tenant-Teste',
+  accountType: 'GERENCIAL'
+}
+[ProjectsController] Fetching projects for tenant: 1f9cfc90-fe4c-49a1-b548-104457715600
+Ensuring schema exists: tenant_1759780031314_jylml5 for tenant: 1f9cfc90-fe4c-49a1-b548-104457715600
+Tenant access validated: {
+  userId: 'aa1efad5-bd21-46c2-9b5f-2fb1367a34d6',
+  tenantId: '1f9cfc90-fe4c-49a1-b548-104457715600',
+  tenantName: 'Tenant-Teste',
+  accountType: 'GERENCIAL'
+}
+[ProjectsController] Fetching project stats for tenant: 1f9cfc90-fe4c-49a1-b548-104457715600
+Ensuring schema exists: tenant_1759780031314_jylml5 for tenant: 1f9cfc90-fe4c-49a1-b548-104457715600
+Schema tenant_1759780031314_jylml5 already exists
+Schema tenant_1759780031314_jylml5 already exists
+Executing query in schema tenant_1759780031314_jylml5: 
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_schema = 'tenant_1759780031314_jylml5'
+        AND table_name = 'projects'
+      )
+    
+Executing query in schema tenant_1759780031314_jylml5: 
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_schema = 'tenant_1759780031314_jylml5'
+        AND table_name = 'projects'
+      )
+    
+Ensuring schema exists: tenant_1759780031314_jylml5 for tenant: 1f9cfc90-fe4c-49a1-b548-104457715600
+Ensuring schema exists: tenant_1759780031314_jylml5 for tenant: 1f9cfc90-fe4c-49a1-b548-104457715600
+Schema tenant_1759780031314_jylml5 already exists
+Schema tenant_1759780031314_jylml5 already exists
+Executing query in schema tenant_1759780031314_jylml5: 
+        ALTER TABLE tenant_1759780031314_jylml5.projects 
+        ADD COLUMN IF NOT EXISTS due_date TIMESTAMP WITH TIME ZONE
+      
+Executing query in schema tenant_1759780031314_jylml5: 
+        ALTER TABLE tenant_1759780031314_jylml5.projects 
+        ADD COLUMN IF NOT EXISTS due_date TIMESTAMP WITH TIME ZONE
+      
+Ensuring schema exists: tenant_1759780031314_jylml5 for tenant: 1f9cfc90-fe4c-49a1-b548-104457715600
+Schema tenant_1759780031314_jylml5 already exists
+Ensuring schema exists: tenant_1759780031314_jylml5 for tenant: 1f9cfc90-fe4c-49a1-b548-104457715600
+Executing query in schema tenant_1759780031314_jylml5: 
+        ALTER TABLE tenant_1759780031314_jylml5.projects 
+        ADD COLUMN IF NOT EXISTS completed_at TIMESTAMP WITH TIME ZONE
+      
+Schema tenant_1759780031314_jylml5 already exists
+Executing query in schema tenant_1759780031314_jylml5: 
+        ALTER TABLE tenant_1759780031314_jylml5.projects 
+        ADD COLUMN IF NOT EXISTS completed_at TIMESTAMP WITH TIME ZONE
+      
+Ensuring schema exists: tenant_1759780031314_jylml5 for tenant: 1f9cfc90-fe4c-49a1-b548-104457715600
+Schema tenant_1759780031314_jylml5 already exists
+Ensuring schema exists: tenant_1759780031314_jylml5 for tenant: 1f9cfc90-fe4c-49a1-b548-104457715600
+Executing query in schema tenant_1759780031314_jylml5: 
+        ALTER TABLE tenant_1759780031314_jylml5.projects 
+        ADD COLUMN IF NOT EXISTS assigned_to JSONB DEFAULT '[]'::jsonb
+      
+Schema tenant_1759780031314_jylml5 already exists
+Executing query in schema tenant_1759780031314_jylml5: 
+        ALTER TABLE tenant_1759780031314_jylml5.projects 
+        ADD COLUMN IF NOT EXISTS assigned_to JSONB DEFAULT '[]'::jsonb
+      
+Ensuring schema exists: tenant_1759780031314_jylml5 for tenant: 1f9cfc90-fe4c-49a1-b548-104457715600
+Ensuring schema exists: tenant_1759780031314_jylml5 for tenant: 1f9cfc90-fe4c-49a1-b548-104457715600
+Schema tenant_1759780031314_jylml5 already exists
+Schema tenant_1759780031314_jylml5 already exists
+Executing query in schema tenant_1759780031314_jylml5: 
+        ALTER TABLE tenant_1759780031314_jylml5.projects 
+        ADD COLUMN IF NOT EXISTS contacts JSONB DEFAULT '[]'::jsonb
+      
+Executing query in schema tenant_1759780031314_jylml5: 
+        ALTER TABLE tenant_1759780031314_jylml5.projects 
+        ADD COLUMN IF NOT EXISTS contacts JSONB DEFAULT '[]'::jsonb
+      
+Ensuring schema exists: tenant_1759780031314_jylml5 for tenant: 1f9cfc90-fe4c-49a1-b548-104457715600
+Ensuring schema exists: tenant_1759780031314_jylml5 for tenant: 1f9cfc90-fe4c-49a1-b548-104457715600
+Schema tenant_1759780031314_jylml5 already exists
+Schema tenant_1759780031314_jylml5 already exists
+Executing query in schema tenant_1759780031314_jylml5: 
+        UPDATE tenant_1759780031314_jylml5.projects 
+        SET due_date = end_date 
+        WHERE due_date IS NULL AND end_date IS NOT NULL
+      
+Executing query in schema tenant_1759780031314_jylml5: 
+        UPDATE tenant_1759780031314_jylml5.projects 
+        SET due_date = end_date 
+        WHERE due_date IS NULL AND end_date IS NOT NULL
+      
+Ensuring schema exists: tenant_1759780031314_jylml5 for tenant: 1f9cfc90-fe4c-49a1-b548-104457715600
+Ensuring schema exists: tenant_1759780031314_jylml5 for tenant: 1f9cfc90-fe4c-49a1-b548-104457715600
+Schema tenant_1759780031314_jylml5 already exists
+Schema tenant_1759780031314_jylml5 already exists
+Executing query in schema tenant_1759780031314_jylml5: 
+        UPDATE tenant_1759780031314_jylml5.projects 
+        SET start_date = created_at 
+        WHERE start_date IS NULL
+      
+Executing query in schema tenant_1759780031314_jylml5: 
+        UPDATE tenant_1759780031314_jylml5.projects 
+        SET start_date = created_at 
+        WHERE start_date IS NULL
+      
+Ensuring schema exists: tenant_1759780031314_jylml5 for tenant: 1f9cfc90-fe4c-49a1-b548-104457715600
+Ensuring schema exists: tenant_1759780031314_jylml5 for tenant: 1f9cfc90-fe4c-49a1-b548-104457715600
+Schema tenant_1759780031314_jylml5 already exists
+Schema tenant_1759780031314_jylml5 already exists
+Executing query in schema tenant_1759780031314_jylml5: 
+        UPDATE tenant_1759780031314_jylml5.projects 
+        SET due_date = created_at + INTERVAL '30 days' 
+        WHERE due_date IS NULL
+      
+Executing query in schema tenant_1759780031314_jylml5: 
+        UPDATE tenant_1759780031314_jylml5.projects 
+        SET due_date = created_at + INTERVAL '30 days' 
+        WHERE due_date IS NULL
+      
+Ensuring schema exists: tenant_1759780031314_jylml5 for tenant: 1f9cfc90-fe4c-49a1-b548-104457715600
+Ensuring schema exists: tenant_1759780031314_jylml5 for tenant: 1f9cfc90-fe4c-49a1-b548-104457715600
+Schema tenant_1759780031314_jylml5 already exists
+Schema tenant_1759780031314_jylml5 already exists
+Executing query in schema tenant_1759780031314_jylml5: 
+        ALTER TABLE tenant_1759780031314_jylml5.projects 
+        ALTER COLUMN start_date SET NOT NULL
+      
+Executing query in schema tenant_1759780031314_jylml5: 
+        ALTER TABLE tenant_1759780031314_jylml5.projects 
+        ALTER COLUMN start_date SET NOT NULL
+      
+Ensuring schema exists: tenant_1759780031314_jylml5 for tenant: 1f9cfc90-fe4c-49a1-b548-104457715600
+Schema tenant_1759780031314_jylml5 already exists
+Ensuring schema exists: tenant_1759780031314_jylml5 for tenant: 1f9cfc90-fe4c-49a1-b548-104457715600
+Schema tenant_1759780031314_jylml5 already exists
+Executing query in schema tenant_1759780031314_jylml5: 
+        ALTER TABLE tenant_1759780031314_jylml5.projects 
+        ALTER COLUMN due_date SET NOT NULL
+      
+Executing query in schema tenant_1759780031314_jylml5: 
+        ALTER TABLE tenant_1759780031314_jylml5.projects 
+        ALTER COLUMN due_date SET NOT NULL
+      
+Ensuring schema exists: tenant_1759780031314_jylml5 for tenant: 1f9cfc90-fe4c-49a1-b548-104457715600
+Ensuring schema exists: tenant_1759780031314_jylml5 for tenant: 1f9cfc90-fe4c-49a1-b548-104457715600
+Ensuring schema exists: tenant_1759780031314_jylml5 for tenant: 1f9cfc90-fe4c-49a1-b548-104457715600
+Schema tenant_1759780031314_jylml5 already exists
+Executing query in schema tenant_1759780031314_jylml5: 
+      SELECT 
+        id::text,
+        title,
+        COALESCE(description, '') as description,
+        COALESCE(client_id::text, NULL) as client_id,
+        client_name,
+        COALESCE(organization, '') as organization,
+        COALESCE(address, '') as address,
+        COALESCE(budget::numeric, 0) as budget,
+        COALESCE(currency, 'BRL') as currency,
+        status,
+        priority,
+        COALESCE(progress, 0) as progress,
+        to_char(start_date, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as start_date,
+        to_char(due_date, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as due_date,
+        CASE WHEN completed_at IS NOT NULL 
+          THEN to_char(completed_at, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')
+          ELSE NULL 
+        END as completed_at,
+        COALESCE(tags::jsonb, '[]'::jsonb) as tags,
+        COALESCE(assigned_to::jsonb, '[]'::jsonb) as assigned_to,
+        COALESCE(notes, '') as notes,
+        COALESCE(contacts::jsonb, '[]'::jsonb) as contacts,
+        created_by::text,
+        to_char(created_at, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as created_at,
+        to_char(updated_at, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as updated_at,
+        is_active
+      FROM tenant_1759780031314_jylml5.projects
+      WHERE is_active = TRUE
+      ORDER BY created_at DESC
+      LIMIT $1 OFFSET $2
+    
+Schema tenant_1759780031314_jylml5 already exists
+Schema tenant_1759780031314_jylml5 already exists
+Executing query in schema tenant_1759780031314_jylml5: 
+      SELECT COUNT(*) as total
+      FROM tenant_1759780031314_jylml5.projects
+      WHERE is_active = TRUE
+    
+Executing query in schema tenant_1759780031314_jylml5: 
+      SELECT 
+        COUNT(*) as total,
+        COALESCE(AVG(progress), 0) as avg_progress,
+        COUNT(*) FILTER (WHERE due_date < CURRENT_DATE AND status NOT IN ('won', 'lost')) as overdue,
+        COALESCE(SUM(CASE WHEN status = 'won' THEN budget ELSE 0 END), 0) as revenue,
+        COUNT(*) FILTER (WHERE status = 'contacted') as contacted,
+        COUNT(*) FILTER (WHERE status = 'proposal') as proposal,
+        COUNT(*) FILTER (WHERE status = 'won') as won,
+        COUNT(*) FILTER (WHERE status = 'lost') as lost,
+        COUNT(*) FILTER (WHERE priority = 'low') as priority_low,
+        COUNT(*) FILTER (WHERE priority = 'medium') as priority_medium,
+        COUNT(*) FILTER (WHERE priority = 'high') as priority_high
+      FROM tenant_1759780031314_jylml5.projects
+      WHERE is_active = TRUE
+    
+[ProjectsController] Projects fetched: { count: 1, total: 1 }
+[ProjectsController] Stats fetched: {
+  total: 1,
+  avgProgress: 12,
+  overdue: 0,
+  revenue: 1200,
+  byStatus: { contacted: 0, proposal: 0, won: 1, lost: 0 },
+  byPriority: { low: 0, medium: 1, high: 0 }
+}
+[TasksController] Create task request received
+[TasksController] User: {
+  id: 'aa1efad5-bd21-46c2-9b5f-2fb1367a34d6',
+  email: 'murilo@hotmail.com',
+  tenantId: '1f9cfc90-fe4c-49a1-b548-104457715600',
+  accountType: 'GERENCIAL',
+  name: 'murilo barros'
+}
+[TasksController] TenantDB: Missing
+[TasksController] Request body: {
+  title: 'Revisar contatos',
+  description: 'Descrição',
+  startDate: '2025-09-28',
+  endDate: '2025-10-27',
+  status: 'not_started',
+  priority: 'medium',
+  assignedTo: 'Marina Santos - Advogada Júnior',
+  projectId: '1',
+  clientId: '',
+  estimatedHours: 21,
+  actualHours: 7,
+  progress: 20,
+  notes: 'obs',
+  tags: [ 'opa' ],
+  subtasks: [
+    {
+      id: '1759784888096',
+      title: 'Continuar',
+      completed: false,
+      createdAt: '2025-10-06T21:08:08.096Z'
+    }
+  ]
+}
+[TasksController] Missing authentication or tenant database
+[TasksController] Create task request received
+[TasksController] User: {
+  id: 'aa1efad5-bd21-46c2-9b5f-2fb1367a34d6',
+  email: 'murilo@hotmail.com',
+  tenantId: '1f9cfc90-fe4c-49a1-b548-104457715600',
+  accountType: 'GERENCIAL',
+  name: 'murilo barros'
+}
+[TasksController] TenantDB: Missing
+[TasksController] Request body: {
+  title: 'Revisar contatos',
+  description: 'Descrição',
+  startDate: '2025-09-28',
+  endDate: '2025-10-27',
+  status: 'not_started',
+  priority: 'medium',
+  assignedTo: 'Marina Santos - Advogada Júnior',
+  projectId: '1',
+  clientId: '',
+  estimatedHours: 21,
+  actualHours: 7,
+  progress: 20,
+  notes: 'obs',
+  tags: [ 'opa' ],
+  subtasks: [
+    {
+      id: '1759784888096',
+      title: 'Continuar',
+      completed: false,
+      createdAt: '2025-10-06T21:08:08.096Z'
+    }
+  ]
+}
+[TasksController] Missing authentication or tenant database
