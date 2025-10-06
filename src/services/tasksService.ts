@@ -340,8 +340,9 @@ class TasksService {
   async getTaskStats(tenantDB: TenantDatabase): Promise<{
     total: number;
     completed: number;
-    in_progress: number;
-    not_started: number;
+    inProgress: number;
+    notStarted: number;
+    onHold: number;
     urgent: number;
   }> {
     await this.ensureTables(tenantDB);
@@ -352,6 +353,7 @@ class TasksService {
         COUNT(*) FILTER (WHERE status = 'completed') as completed,
         COUNT(*) FILTER (WHERE status = 'in_progress') as in_progress,
         COUNT(*) FILTER (WHERE status = 'not_started') as not_started,
+        COUNT(*) FILTER (WHERE status = 'on_hold') as on_hold,
         COUNT(*) FILTER (WHERE priority = 'urgent') as urgent
       FROM \${schema}.${this.tableName}
       WHERE is_active = TRUE
@@ -363,8 +365,9 @@ class TasksService {
     return {
       total: parseInt(stats.total || '0'),
       completed: parseInt(stats.completed || '0'),
-      in_progress: parseInt(stats.in_progress || '0'),
-      not_started: parseInt(stats.not_started || '0'),
+      inProgress: parseInt(stats.in_progress || '0'),
+      notStarted: parseInt(stats.not_started || '0'),
+      onHold: parseInt(stats.on_hold || '0'),
       urgent: parseInt(stats.urgent || '0')
     };
   }

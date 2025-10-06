@@ -177,8 +177,9 @@ export class TasksController {
       res.json({
         total: Number(stats.total) || 0,
         completed: Number(stats.completed) || 0,
-        in_progress: Number(stats.in_progress) || 0,
-        not_started: Number(stats.not_started) || 0,
+        inProgress: Number(stats.inProgress) || 0,
+        notStarted: Number(stats.notStarted) || 0,
+        onHold: Number(stats.onHold) || 0,
         urgent: Number(stats.urgent) || 0,
       });
     } catch (error) {
