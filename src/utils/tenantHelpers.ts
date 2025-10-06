@@ -39,24 +39,22 @@ export async function insertInTenantSchema<T = any>(
   tableName: string,
   data: Record<string, any>
 ): Promise<T> {
-  if (!tenantDB || typeof tenantDB.getSchemaName !== 'function') {
-    throw new Error('Invalid TenantDatabase instance provided to insertInTenantSchema');
-  }
+  // Garantir que schemaName está resolvido antes de usar
+  const schemaName = await tenantDB.getSchemaName();
 
-  const schemaName = tenantDB.getSchemaName();
   const columns = Object.keys(data);
   const values = Object.values(data);
   const placeholders = values.map((_, i) => `$${i + 1}`).join(', ');
+
+  console.log('[insertInTenantSchema] Inserting into', schemaName, '.', tableName);
+  console.log('[insertInTenantSchema] Columns:', columns);
+  console.log('[insertInTenantSchema] Values:', values);
 
   const query = `
     INSERT INTO ${schemaName}.${tableName} (${columns.join(', ')})
     VALUES (${placeholders})
     RETURNING *
   `;
-
-  console.log(`[insertInTenantSchema] Inserting into ${schemaName}.${tableName}`);
-  console.log(`[insertInTenantSchema] Columns:`, columns);
-  console.log(`[insertInTenantSchema] Values:`, values);
 
   const result = await queryTenantSchema<T>(tenantDB, query, values);
   console.log(`[insertInTenantSchema] Insert successful, result:`, result[0]);
